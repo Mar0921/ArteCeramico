@@ -16,6 +16,7 @@ import {
   FileText,
   ChevronDown,
 } from "lucide-react"
+import { supabase } from "@/lib/supabase"
 
 const documentTypes = [
   { value: "cc", label: "Cédula de Ciudadanía" },
@@ -28,27 +29,71 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
-  const [formData, setFormData] = useState({
-    name: "",
-    documentType: "",
-    documentNumber: "",
-    email: "",
-    phone: "",
-    clinic: "",
-    password: "",
-    confirmPassword: "",
-  })
+   const [formData, setFormData] = useState({
+     name: "",
+     documentType: "",
+     documentNumber: "",
+     email: "",
+     phone: "",
+     clinic: "",
+     password: "",
+     confirmPassword: "",
+   })
+   const [loading, setLoading] = useState(false);
+   const [error, setError] = useState<string | null>(null);
+   const [success, setSuccess] = useState(false);
 
-  const handleChange = (
+   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    console.log("Register attempt:", formData)
-  }
+   const handleSubmit = async (e: React.FormEvent) => {
+     e.preventDefault()
+     // Validate passwords match
+     if (formData.password !== formData.confirmPassword) {
+       setError('Las contraseñas no coinciden')
+       return
+     }
+     
+     // Find the label for the selected document type
+     const selectedDocumentType = documentTypes.find(
+       type => type.value === formData.documentType
+     )
+     
+     setLoading(true)
+     setError(null)
+     setSuccess(false)
+     try {
+       // Create the perfil in clientes table
+       const { data, error: supabaseError } = await supabase
+         .from('clientes')
+         .insert([
+           {
+             nombre: formData.name,
+             tipo: selectedDocumentType ? selectedDocumentType.label : '',
+             tipodoc: formData.documentType,
+             documento: formData.documentNumber,
+             correo: formData.email,
+             telefono: formData.phone,
+             clinica: formData.clinic,
+             'contraseña': formData.password, // Note: In a real app, you wouldn't store the plain password here
+           },
+         ])
+       if (supabaseError) throw supabaseError
+       
+       setSuccess(true)
+       // Redirect to login after success
+       setTimeout(() => {
+         window.location.href = '/login'
+       }, 1500)
+     } catch (err: any) {
+       setError(err.message || 'Error al registrar')
+     } finally {
+       setLoading(false)
+     }
+   }
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -255,10 +300,26 @@ export default function RegisterPage() {
                 </button>
               </div>
 
-              {/* BUTTON */}
-              <button className="w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground">
-                Crear Cuenta
-              </button>
+               {error && (
+                 <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
+                   {error}
+                 </div>
+               )}
+               {success && (
+                 <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-xl text-green-700">
+                   Registro exitoso. Redirigiendo...
+                 </div>
+               )}
+               {/* BUTTON */}
+               <button
+                 type="submit"
+                 disabled={loading}
+                 className={`w-full rounded-xl bg-primary py-3 font-semibold text-primary-foreground ${
+                   loading ? 'opacity-50 cursor-not-allowed' : ''
+                 }`}
+               >
+                 {loading ? 'Creando cuenta...' : 'Crear Cuenta'}
+               </button>
             </div>
 
             {/* LOGIN */}

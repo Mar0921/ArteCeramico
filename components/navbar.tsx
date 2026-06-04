@@ -17,6 +17,7 @@ const navItems = [
 export function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
 
   // Detectar scroll
   useEffect(() => {
@@ -25,6 +26,21 @@ export function Navbar() {
     }
     window.addEventListener("scroll", handleScroll)
     return () => window.removeEventListener("scroll", handleScroll)
+  }, [])
+
+  // Verificar si el usuario está logueado
+  useEffect(() => {
+    const checkLogin = () => {
+      const loggedIn = sessionStorage.getItem("clienteEmail") || localStorage.getItem("isLoggedIn")
+      setIsLoggedIn(!!loggedIn)
+    }
+    checkLogin()
+    window.addEventListener("storage", checkLogin)
+    window.addEventListener("loginStateChange", checkLogin)
+    return () => {
+      window.removeEventListener("storage", checkLogin)
+      window.removeEventListener("loginStateChange", checkLogin)
+    }
   }, [])
 
   // Bloquear scroll cuando menú está abierto
@@ -91,20 +107,31 @@ export function Navbar() {
               ))}
             </div>
 
-            {/* AUTH BUTTONS */}
+            {/* AUTH BUTTONS - Desktop */}
             <div className="hidden items-center gap-3 lg:flex">
-              <Link
-                href="/registro"
-                className="rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary transition-all duration-300 hover:bg-primary/10"
-              >
-                Registrarse
-              </Link>
-              <Link
-                href="/login"
-                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all duration-300 hover:bg-primary-dark hover:shadow-lg"
-              >
-                Iniciar Sesión
-              </Link>
+              {isLoggedIn ? (
+                <Link
+                  href="/page_clientes"
+                  className="rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary transition-all duration-300 hover:bg-primary/10"
+                >
+                  Mi Cuenta
+                </Link>
+              ) : (
+                <>
+                  <Link
+                    href="/registro"
+                    className="rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary transition-all duration-300 hover:bg-primary/10"
+                  >
+                    Registrarse
+                  </Link>
+                  <Link
+                    href="/login"
+                    className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all duration-300 hover:bg-primary-dark hover:shadow-lg"
+                  >
+                    Iniciar Sesión
+                  </Link>
+                </>
+              )}
             </div>
 
             {/* MOBILE BUTTON */}
@@ -140,21 +167,33 @@ export function Navbar() {
               ))}
 
               <div className="mt-4 flex flex-col gap-3">
-                <Link
-                  href="/registro"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="rounded-lg border border-primary px-5 py-3 text-center text-base font-medium text-primary transition-all duration-300 hover:bg-primary/10"
-                >
-                  Registrarse
-                </Link>
+                {isLoggedIn ? (
+                  <Link
+                    href="/page_clientes"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                    className="rounded-lg border border-primary px-5 py-3 text-center text-base font-medium text-primary transition-all duration-300 hover:bg-primary/10"
+                  >
+                    Mi Cuenta
+                  </Link>
+                ) : (
+                  <>
+                    <Link
+                      href="/registro"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="rounded-lg border border-primary px-5 py-3 text-center text-base font-medium text-primary transition-all duration-300 hover:bg-primary/10"
+                    >
+                      Registrarse
+                    </Link>
 
-                <Link
-                  href="/login"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="rounded-lg bg-primary px-5 py-3 text-center text-base font-medium text-primary-foreground transition-all duration-300 hover:bg-primary-dark"
-                >
-                  Iniciar Sesión
-                </Link>
+                    <Link
+                      href="/login"
+                      onClick={() => setIsMobileMenuOpen(false)}
+                      className="rounded-lg bg-primary px-5 py-3 text-center text-base font-medium text-primary-foreground transition-all duration-300 hover:bg-primary-dark"
+                    >
+                      Iniciar Sesión
+                    </Link>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>

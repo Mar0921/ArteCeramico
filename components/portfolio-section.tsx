@@ -1,9 +1,11 @@
+/* eslint-disable react/no-unknown-property */
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { ChevronLeft, ChevronRight, ZoomIn } from "lucide-react"
 import Image from "next/image"
+import Link from "next/link"
 
 const carouselItems = [
   {
@@ -208,38 +210,51 @@ export function PortfolioSection() {
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.5, delay: index * 0.1 }}
-              className="group relative cursor-pointer overflow-hidden rounded-xl bg-card shadow-lg"
-              onClick={() => setSelectedImage(item.image)}
+              className="group cursor-pointer overflow-hidden rounded-xl bg-card shadow-lg transition-all hover:shadow-xl"
             >
-              <div className="aspect-[4/3]">
-                {/* Placeholder for portfolio image */}
-                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 via-accent/5 to-primary-dark/10">
-                  <div className="text-center">
-                    <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-                      <ZoomIn size={20} className="text-primary" />
+              <Link href="/formulario" className="block">
+                <div className="relative aspect-[4/3]">
+                  {/* Placeholder for portfolio image */}
+                  <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-primary/10 via-accent/5 to-primary-dark/10">
+                    <div className="text-center">
+                      <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+                        <ZoomIn size={20} className="text-primary" />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {item.image}
+                      </p>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {item.image}
-                    </p>
                   </div>
                 </div>
-              </div>
-              {/* Overlay */}
-              <div className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 via-black/20 to-transparent p-4 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                <span className="mb-1 text-xs font-medium text-accent">
-                  {item.category}
-                </span>
-                <h3 className="text-lg font-semibold text-white">
-                  {item.title}
-                </h3>
-              </div>
-              {/* Zoom icon */}
-              <div className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-white opacity-0 backdrop-blur-sm transition-all group-hover:opacity-100">
-                <ZoomIn size={16} />
-              </div>
+                {/* Overlay */}
+                <div className="p-4 border-t">
+                  <span className="mb-1 text-xs font-medium text-accent">
+                    {item.category}
+                  </span>
+                  <h3 className="text-lg font-semibold text-foreground">
+                    {item.title}
+                  </h3>
+                </div>
+              </Link>
             </motion.div>
           ))}
         </div>
+
+        {/* CTA Button */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, delay: 0.3 }}
+          className="mt-12 text-center"
+        >
+          <Link
+            href="/formulario"
+            className="inline-flex items-center justify-center rounded-xl bg-primary px-8 py-4 text-lg font-semibold text-primary-foreground shadow-lg transition-all duration-300 hover:scale-105 hover:bg-primary-dark hover:shadow-xl"
+          >
+            Solicitar Servicio
+          </Link>
+        </motion.div>
 
         {/* Lightbox */}
         <AnimatePresence>

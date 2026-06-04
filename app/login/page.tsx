@@ -5,16 +5,64 @@ import Link from "next/link"
 import Image from "next/image"
 import { motion } from "framer-motion"
 import { Eye, EyeOff, ArrowLeft, Mail, Lock } from "lucide-react"
+import { supabase } from "@/lib/supabase"
+import { useSearchParams, useRouter } from "next/navigation"
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const searchParams = useSearchParams()
+  const router = useRouter()
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-    console.log("Login attempt:", { email, password })
-  }
+   const handleSubmit = async (e: React.FormEvent) => {
+     e.preventDefault()
+     setLoading(true)
+     setError(null)
+     
+      try {
+        // Query the clientes table for a record with matching email and password
+        const { data, error: supabaseError } = await supabase
+          .from('clientes')
+          .select('*')
+          .eq('correo', email)
+          .eq('contraseña', password)
+          .single()
+        
+        if (supabaseError) {
+          // Handle specific error cases
+          if (supabaseError.code === 'PGRST116') {
+            // No rows found
+            throw new Error('Email o contraseña incorrectos')
+          }
+          throw supabaseError
+        }
+        
+        if (!data) {
+          throw new Error('Email o contraseña incorrectos')
+        }
+        
+        // Set login state
+        sessionStorage.setItem('clienteEmail', email)
+        localStorage.setItem('isLoggedIn', 'true')
+        
+        // Check if we came from formulario (purchase flow)
+        const redirect = searchParams.get('redirect')
+        if (redirect === 'formulario') {
+          // Redirect back to formulario
+          router.push('/formulario')
+        } else {
+          // Redirect to client dashboard
+          router.push('/page_clientes')
+        }
+      } catch (err: any) {
+       setError(err.message || 'Error al iniciar sesión')
+     } finally {
+       setLoading(false)
+     }
+   }
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -126,23 +174,33 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* FORGOT */}
-              <div className="flex justify-end">
-                <a
-                  href="#"
-                  className="text-sm font-medium text-primary hover:text-primary-dark"
-                >
-                  ¿Olvidaste tu contraseña?
-                </a>
-              </div>
+               {/* FORGOT */}
+               <div className="flex justify-end">
+                 <a
+                   href="#"
+                   className="text-sm font-medium text-primary hover:text-primary-dark"
+                 >
+                   ¿Olvidaste tu contraseña?
+                 </a>
+               </div>
 
-              {/* BUTTON */}
-              <button
-                type="submit"
-                className="w-full rounded-xl bg-primary py-3.5 font-semibold text-primary-foreground shadow-lg transition-all duration-300 hover:scale-[1.02] hover:bg-primary-dark hover:shadow-xl"
-              >
-                Iniciar Sesión
-              </button>
+                 {/* ERROR MESSAGE */}
+                 {error && (
+                   <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
+                     {error}
+                   </div>
+                 )}
+
+                 {/* BUTTON */}
+               <button
+                 type="submit"
+                 disabled={loading}
+                 className={`w-full rounded-xl bg-primary py-3.5 font-semibold text-primary-foreground shadow-lg transition-all duration-300 hover:scale-[1.02] hover:bg-primary-dark hover:shadow-xl ${
+                   loading ? 'opacity-50 cursor-not-allowed' : ''
+                 }`}
+               >
+                 {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+               </button>
             </div>
 
             {/* DIVIDER */}
