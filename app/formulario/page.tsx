@@ -9,7 +9,7 @@ export default function FormPage() {
   const router = useRouter()
 
   useEffect(() => {
-    const isLoggedIn = sessionStorage.getItem("clienteEmail") || localStorage.getItem("isLoggedIn")
+    const isLoggedIn = sessionStorage.getItem("clienteEmail") || localStorage.getItem("isLoggedIn") === "true"
     if (!isLoggedIn) {
       router.push("/login?redirect=formulario")
     }

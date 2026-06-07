@@ -1,0 +1,22 @@
+-- Agregar columnas faltantes a la tabla solicitudes para guardar todos los datos del formulario
+alter table public.solicitudes add column if not exists fecha_elaboracion text;
+alter table public.solicitudes add column if not exists fecha_entrega text;
+alter table public.solicitudes add column if not exists historia_clinica text;
+alter table public.solicitudes add column if not exists odontologo text;
+alter table public.solicitudes add column if not exists cc_odontologo text;
+alter table public.solicitudes add column if not exists paciente text;
+alter table public.solicitudes add column if not exists cc_paciente text;
+alter table public.solicitudes add column if not exists direccion text;
+alter table public.solicitudes add column if not exists firma text;
+alter table public.solicitudes add column if not exists tipos_trabajo text[] default '{}';
+alter table public.solicitudes add column if not exists materiales text[] default '{}';
+alter table public.solicitudes add column if not exists chimenea text default 'No';
+alter table public.solicitudes add column if not exists prueba text default 'No';
+alter table public.solicitudes add column if not exists terminado text default 'No';
+alter table public.solicitudes add column if not exists color text;
+alter table public.solicitudes add column if not exists guia text;
+alter table public.solicitudes add column if not exists piezas_enviadas text[] default '{}';
+alter table public.solicitudes add column if not exists caja text;
+alter table public.solicitudes add column if not exists codigo_trazabilidad text;
+alter table public.solicitudes add column if not exists dientes_trabajados text[] default '{}';
+alter table public.solicitudes add column if not exists dibujo_odontologo text;

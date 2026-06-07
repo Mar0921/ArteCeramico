@@ -91,6 +91,8 @@ export function Footer() {
                 <li key={link.label}>
                   <a
                     href={link.href}
+                    target={link.href.endsWith('.pdf') ? "_blank" : undefined}
+                    rel={link.href.endsWith('.pdf') ? "noopener noreferrer" : undefined}
                     className="text-sm text-background/70 transition-colors hover:text-primary"
                   >
                     {link.label}
@@ -147,16 +149,20 @@ export function Footer() {
 
             <div className="flex gap-6">
               <a
-                href="#"
+                href="/POLITICA DE CALIDAD.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-background/50 transition-colors hover:text-primary"
+              >
+                Política de Calidad
+              </a>
+              <a
+                href="/POLÍTICA DE TRATAMIENTO Y PROTECCIÓN DE DATOS PERSONALES.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
                 className="text-sm text-background/50 transition-colors hover:text-primary"
               >
                 Política de Privacidad
-              </a>
-              <a
-                href="#"
-                className="text-sm text-background/50 transition-colors hover:text-primary"
-              >
-                Términos de Servicio
               </a>
             </div>
           </div>

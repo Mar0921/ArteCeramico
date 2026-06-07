@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 import { supabase } from "@/lib/supabase"
+import { Footer } from "@/components/footer"
 
 import {
   User,
@@ -12,7 +14,46 @@ import {
   Send,
   X,
   Loader2,
+  Edit,
+  Save,
+  Home,
+  Plus,
+  Trash2,
+  Paperclip,
+  Upload,
+  CheckCircle2,
+  ImageIcon,
+  FileText,
+  Search,
+  Eye,
 } from "lucide-react"
+
+interface Servicio {
+  id: number
+  nombre: string
+  descripcion: string
+  precio: number | null
+  cantidad: number
+  created_at: string
+  tipo_trabajo?: string | null
+  material?: string | null
+  dientes?: string | null
+  piezas_enviadas?: string | null
+  declaracion_conformidad: string | null
+  guia_fabricacion: string | null
+  manual_uso: string | null
+}
+
+interface Solicitud {
+  id: number
+  cliente_id: number
+  servicio: string
+  observaciones: string
+  estado: string
+  urls_documentos: string[]
+  created_at: string
+  updated_at: string
+}
 
 interface Cliente {
   id?: number
@@ -51,7 +92,26 @@ export default function ClientesPage() {
   const [inputValue, setInputValue] = useState("")
   const [chatLoading, setChatLoading] = useState(false)
 
+  const [solicitudes, setSolicitudes] = useState<Solicitud[]>([])
+  const [loadingSolicitudes, setLoadingSolicitudes] = useState(false)
+  const [mostrarFormulario, setMostrarFormulario] = useState(false)
+  const [submittingSolicitud, setSubmittingSolicitud] = useState(false)
+  const [solicitudMensaje, setSolicitudMensaje] = useState<string | null>(null)
+  const [busquedaSolicitud, setBusquedaSolicitud] = useState("")
+  const [archivosSeleccionados, setArchivosSeleccionados] = useState<File[]>([])
+  const [archivosParaEliminar, setArchivosParaEliminar] = useState<number[]>([])
+  const [selectedSolicitud, setSelectedSolicitud] = useState<Solicitud | null>(null)
+  const [serviciosDetalle, setServiciosDetalle] = useState<Servicio[]>([])
+  const [loadingDetalle, setLoadingDetalle] = useState(false)
+  const [servicioDocs, setServicioDocs] = useState<Record<number, { declaracion_conformidad: File | null; guia_fabricacion: File | null; manual_uso: File | null }>>({})
+  const [uploadingDoc, setUploadingDoc] = useState<Record<string, boolean>>({})
+
+  const [editMode, setEditMode] = useState(false)
+  const [editData, setEditData] = useState<Partial<Cliente>>({})
+  const [saving, setSaving] = useState(false)
+
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({
@@ -93,6 +153,10 @@ export default function ClientesPage() {
         if (error) throw error
 
         setClientData(data)
+
+        if (data?.id) {
+          await cargarSolicitudes(data.id)
+        }
       } catch (err) {
         setError(
           err instanceof Error
@@ -106,6 +170,239 @@ export default function ClientesPage() {
 
     loadClient()
   }, [router])
+
+  const cargarSolicitudes = async (clienteId: number) => {
+    setLoadingSolicitudes(true)
+    try {
+      const { data, error } = await supabase
+        .from("solicitudes")
+        .select("*")
+        .eq("cliente_id", clienteId)
+        .order("created_at", { ascending: false })
+
+      if (error) throw error
+
+      setSolicitudes(data ?? [])
+    } catch (err) {
+      console.error("Error cargando solicitudes", err)
+    } finally {
+      setLoadingSolicitudes(false)
+    }
+  }
+
+  const formatearBytes = (bytes: number) => {
+    if (bytes === 0) return "0 Bytes"
+
+    const k = 1024
+    const sizes = ["Bytes", "KB", "MB", "GB"]
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+
+    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
+  }
+
+  const handleStartEdit = () => {
+    setEditMode(true)
+    setEditData(clientData ?? {})
+  }
+
+  const handleCancelEdit = () => {
+    setEditMode(false)
+    setEditData(clientData ?? {})
+  }
+
+  const handleSave = async () => {
+    if (!clientData?.id) return
+
+    setSaving(true)
+    try {
+      const { error } = await supabase
+        .from("clientes")
+        .update({
+          nombre: editData.nombre,
+          correo: editData.correo,
+          telefono: editData.telefono,
+          clinica: editData.clinica,
+        })
+        .eq("id", clientData.id)
+
+      if (error) throw error
+
+      setClientData({ ...clientData, ...editData })
+      setEditMode(false)
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Error al guardar los cambios"
+      )
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleSubmitSolicitud = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!clientData?.id) return
+
+    const formData = new FormData(event.currentTarget)
+    const servicio = String(formData.get("servicio") ?? "").trim()
+    const observaciones = String(formData.get("observaciones") ?? "").trim()
+
+    if (!servicio) {
+      setSolicitudMensaje("Debes indicar el servicio o tipo de trabajo.")
+      return
+    }
+
+    setSubmittingSolicitud(true)
+    setSolicitudMensaje(null)
+
+    try {
+      const payload = new FormData()
+      payload.append("servicio", servicio)
+      payload.append("observaciones", observaciones)
+      payload.append("clienteId", String(clientData.id))
+
+      archivosSeleccionados.forEach((archivo) => {
+        payload.append("archivos", archivo, archivo.name)
+      })
+
+      const response = await fetch("/api/solicitudes", {
+        method: "POST",
+        body: payload,
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.message || "Error al registrar la solicitud")
+      }
+
+      event.currentTarget.reset()
+      setArchivosSeleccionados([])
+      setMostrarFormulario(false)
+      setSolicitudMensaje("Solicitud registrada correctamente.")
+
+      await cargarSolicitudes(clientData.id)
+    } catch (err) {
+      console.error("Error creando solicitud", err)
+      setSolicitudMensaje(err instanceof Error ? err.message : "No se pudo registrar la solicitud. Intenta nuevamente.")
+    } finally {
+      setSubmittingSolicitud(false)
+    }
+  }
+
+  const handleDeleteSolicitud = async (solicitud: Solicitud) => {
+    if (!confirm("¿Eliminar esta solicitud? Esta acción no se puede deshacer.")) return
+
+    try {
+      for (const url of solicitud.urls_documentos) {
+        if (!url) continue
+        const partes = url.split("/documentos/")
+        const rutaStorage = partes[1]
+        if (rutaStorage) {
+          await supabase.storage.from("documentos").remove([rutaStorage])
+        }
+      }
+
+      const { error } = await supabase
+        .from("solicitudes")
+        .delete()
+        .eq("id", solicitud.id)
+
+      if (error) throw error
+
+      setSolicitudes(prev => prev.filter(s => s.id !== solicitud.id))
+      setSolicitudMensaje("Solicitud eliminada correctamente.")
+    } catch (err) {
+      console.error("Error eliminando solicitud", err)
+      setSolicitudMensaje("No se pudo eliminar la solicitud.")
+    }
+  }
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files
+    if (!files) return
+
+    const archivos = Array.from(files)
+    setArchivosSeleccionados(prev => [...prev, ...archivos])
+    event.target.value = ""
+  }
+
+  const eliminarArchivoSeleccionado = (index: number) => {
+    setArchivosSeleccionados(prev => prev.filter((_, i) => i !== index))
+    if (archivosParaEliminar.includes(index)) {
+      setArchivosParaEliminar(prev => prev.filter(i => i !== index))
+    } else {
+      setArchivosParaEliminar(prev => [...prev, index])
+    }
+  }
+
+  const isDocumento = (url: string) => url.match(/\.(pdf|doc|docx|xls|xlsx|ppt|pptx|txt|csv)$/i)
+  const isImagen = (url: string) => url.match(/\.(jpg|jpeg|png|webp|gif|svg|bmp|tiff)$/i)
+
+  const handleVerSolicitud = async (solicitud: Solicitud) => {
+    setSelectedSolicitud(solicitud)
+    setLoadingDetalle(true)
+    try {
+      const response = await fetch(`/api/solicitudes/${solicitud.id}`)
+      if (response.ok) {
+        const result = await response.json()
+        setServiciosDetalle(result.data?.servicios || [])
+      }
+    } catch (err) {
+      console.error("Error cargando detalle de solicitud:", err)
+    } finally {
+      setLoadingDetalle(false)
+    }
+  }
+
+  const handleCerrarDetalle = () => {
+    setSelectedSolicitud(null)
+    setServiciosDetalle([])
+    setServicioDocs({})
+  }
+
+  const handleDocChange = (servicioId: number, campo: "declaracion_conformidad" | "guia_fabricacion" | "manual_uso", archivo: File) => {
+    setServicioDocs((prev) => ({
+      ...prev,
+      [servicioId]: {
+        ...(prev[servicioId] || { declaracion_conformidad: null, guia_fabricacion: null, manual_uso: null }),
+        [campo]: archivo,
+      },
+    }))
+  }
+
+  const handleUploadDoc = async (servicioId: number, campo: "declaracion_conformidad" | "guia_fabricacion" | "manual_uso") => {
+    const archivo = servicioDocs[servicioId]?.[campo]
+    if (!archivo) return
+
+    const uploadKey = `${servicioId}-${campo}`
+    setUploadingDoc((prev) => ({ ...prev, [uploadKey]: true }))
+
+    try {
+      const formData = new FormData()
+      formData.append("tipo", campo)
+      formData.append("archivo", archivo)
+
+      const response = await fetch(`/api/servicios/${servicioId}/documentos`, {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({ message: "Error al subir documento" }))
+        throw new Error(result.message || "Error al subir documento")
+      }
+
+      const result = await response.json()
+      setServiciosDetalle((prev) => prev.map((s) => (s.id === servicioId ? result.data : s)))
+    } catch (err) {
+      console.error("Error subiendo documento:", err)
+      alert(err instanceof Error ? err.message : "No se pudo subir el documento.")
+    } finally {
+      setUploadingDoc((prev) => ({ ...prev, [uploadKey]: false }))
+    }
+  }
 
   const handleLogout = async () => {
     try {
@@ -175,6 +472,11 @@ export default function ClientesPage() {
     }
   }
 
+  const solicitudesFiltradas = solicitudes.filter(solicitud =>
+    solicitud.servicio.toLowerCase().includes(busquedaSolicitud.toLowerCase()) ||
+    solicitud.observaciones.toLowerCase().includes(busquedaSolicitud.toLowerCase())
+  )
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-primary/5">
@@ -222,104 +524,630 @@ export default function ClientesPage() {
               </h1>
 
               <p className="text-sm text-muted-foreground">
-                Bienvenido, {clientData.nombre}
+                Bienvenido, {editMode ? editData.nombre ?? clientData.nombre : clientData.nombre}
               </p>
             </div>
           </div>
 
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 rounded-xl border border-border bg-card/50 px-4 py-2 text-sm font-medium transition-all hover:bg-muted"
-          >
-            <LogOut size={16} />
-            Cerrar sesión
-          </button>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/"
+              className="flex items-center gap-2 rounded-xl border border-border bg-card/50 px-4 py-2 text-sm font-medium transition-all hover:bg-muted"
+            >
+              <Home size={16} />
+              Inicio
+            </Link>
+
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 rounded-xl border border-border bg-card/50 px-4 py-2 text-sm font-medium transition-all hover:bg-muted"
+            >
+              <LogOut size={16} />
+              Cerrar sesión
+            </button>
+          </div>
         </div>
       </header>
 
       {/* CONTENT */}
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 py-8">
         {/* INFO CARD */}
+<section className="rounded-3xl border border-border/50 bg-card/60 p-8 shadow-2xl backdrop-blur-xl">
+           <div className="mb-6 flex items-center justify-between gap-3">
+             <div className="flex items-center gap-3">
+               <div className="rounded-xl bg-primary/10 p-2">
+                 <User className="text-primary" size={20} />
+               </div>
+
+               <div>
+                 <h2 className="text-2xl font-bold text-foreground">
+                   Información del Cliente
+                 </h2>
+
+                 <p className="text-sm text-muted-foreground">
+                   Datos registrados en el sistema
+                 </p>
+               </div>
+             </div>
+
+             {!editMode && (
+               <button
+                 onClick={handleStartEdit}
+                 className="flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition-all hover:bg-primary/20"
+               >
+                 <Edit size={16} />
+                 Editar
+               </button>
+             )}
+             {editMode && (
+               <div className="flex gap-2">
+                 <button
+                   onClick={handleCancelEdit}
+                   disabled={saving}
+                   className="flex items-center gap-2 rounded-xl border border-border bg-card/50 px-4 py-2 text-sm font-medium transition-all hover:bg-muted"
+                 >
+                   <X size={16} />
+                   Cancelar
+                 </button>
+                 <button
+                   onClick={handleSave}
+                   disabled={saving}
+                   className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all hover:scale-[1.02] disabled:opacity-50"
+                 >
+                   {saving ? (
+                     <Loader2 size={16} className="animate-spin" />
+                   ) : (
+                     <Save size={16} />
+                   )}
+                   Guardar
+                 </button>
+               </div>
+             )}
+           </div>
+
+           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+             <EditableInfoItem
+               label="Nombre"
+               value={editMode ? editData.nombre ?? "" : clientData.nombre}
+               field="nombre"
+               editData={editData}
+               setEditData={setEditData}
+               editMode={editMode}
+               type="text"
+             />
+
+             <InfoItem
+               label="Tipo de Documento"
+               value={clientData.tipo}
+               editable={false}
+             />
+
+             <InfoItem
+               label="Número de Documento"
+               value={clientData.documento}
+               editable={false}
+             />
+
+             <EditableInfoItem
+               label="Correo Electrónico"
+               value={editMode ? editData.correo ?? "" : clientData.correo}
+               field="correo"
+               editData={editData}
+               setEditData={setEditData}
+               editMode={editMode}
+               type="email"
+             />
+
+             <EditableInfoItem
+               label="Teléfono"
+               value={editMode ? editData.telefono ?? "" : clientData.telefono}
+               field="telefono"
+               editData={editData}
+               setEditData={setEditData}
+               editMode={editMode}
+               type="tel"
+             />
+
+             <EditableInfoItem
+               label="Clínica"
+               value={editMode ? editData.clinica ?? "" : clientData.clinica}
+               field="clinica"
+               editData={editData}
+               setEditData={setEditData}
+               editMode={editMode}
+               type="text"
+             />
+
+             <InfoItem
+               label="Fecha de Registro"
+               value={new Date(clientData.created_at).toLocaleDateString()}
+               editable={false}
+             />
+           </div>
+         </section>
+
+        {/* SOLICITUDES DE SERVICIO */}
         <section className="rounded-3xl border border-border/50 bg-card/60 p-8 shadow-2xl backdrop-blur-xl">
-          <div className="mb-6 flex items-center gap-3">
-            <div className="rounded-xl bg-primary/10 p-2">
-              <User className="text-primary" size={20} />
+          <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-primary/10 p-2">
+                <Package className="text-primary" size={20} />
+              </div>
+
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">
+                  Solicitudes de Servicio
+                </h2>
+
+                <p className="text-sm text-muted-foreground">
+                  Gestiona tus pedidos y adjunta documentos
+                </p>
+              </div>
             </div>
 
-            <div>
-              <h2 className="text-2xl font-bold text-foreground">
-                Información del Cliente
-              </h2>
+            <button
+              onClick={() => setMostrarFormulario(prev => !prev)}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-all hover:scale-[1.02] sm:w-auto"
+            >
+              {mostrarFormulario ? (
+                <X size={18} />
+              ) : (
+                <Plus size={18} />
+              )}
+              {mostrarFormulario ? "Ocultar formulario" : "Nueva solicitud"}
+            </button>
+          </div>
 
-              <p className="text-sm text-muted-foreground">
-                Datos registrados en el sistema
-              </p>
+          <div className="mb-4">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                type="text"
+                value={busquedaSolicitud}
+                onChange={e => setBusquedaSolicitud(e.target.value)}
+                placeholder="Buscar por servicio u observaciones..."
+                className="w-full rounded-xl border border-border bg-background/70 py-2.5 pl-10 pr-4 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
+              />
             </div>
           </div>
 
-          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-            <InfoItem
-              label="Tipo de Documento"
-              value={clientData.tipo}
-            />
+          {solicitudMensaje && (
+            <div className="mb-4 flex items-center gap-2 rounded-xl border border-primary/40 bg-primary/10 px-4 py-3 text-sm text-primary">
+              <CheckCircle2 size={16} />
+              {solicitudMensaje}
+            </div>
+          )}
 
-            <InfoItem
-              label="Número de Documento"
-              value={clientData.documento}
-            />
+          {mostrarFormulario && (
+            <form onSubmit={handleSubmitSolicitud} className="mb-6 space-y-5 rounded-2xl border border-primary/40 bg-primary/5 p-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="servicio" className="mb-2 block text-sm font-medium text-foreground">
+                    Servicio o tipo de trabajo *
+                  </label>
+                  <input
+                    id="servicio"
+                    name="servicio"
+                    type="text"
+                    required
+                    placeholder="Ej: Corona zirconio, modelo yeso, carilla disilicato"
+                    className="w-full rounded-xl border border-border bg-background/60 px-4 py-3 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
+                  />
+                </div>
 
-            <InfoItem
-              label="Correo Electrónico"
-              value={clientData.correo}
-            />
+                <div>
+                  <label className="mb-2 block text-sm font-medium text-foreground">
+                    Archivos adjuntos (PDF, imágenes)
+                  </label>
 
-            <InfoItem
-              label="Teléfono"
-              value={clientData.telefono}
-            />
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    name="archivos"
+                    multiple
+                    accept=".pdf,image/*"
+                    className="hidden"
+                    onChange={handleFileChange}
+                  />
 
-            <InfoItem
-              label="Clínica"
-              value={clientData.clinica}
-            />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex w-full items-center gap-2 rounded-xl border border-dashed border-border bg-background/40 px-4 py-3 text-sm text-muted-foreground transition-all hover:border-primary hover:text-primary"
+                  >
+                    <Upload size={16} />
+                    Seleccionar archivos
+                  </button>
 
-            <InfoItem
-              label="Fecha de Registro"
-              value={new Date(
-                clientData.created_at
-              ).toLocaleDateString()}
-            />
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Formatos permitidos: PDF, JPG, PNG, WEBP, GIF. Máximo 10 MB por archivo.
+                  </p>
+                </div>
+              </div>
+
+              {archivosSeleccionados.length > 0 && (
+                <div className="space-y-2 rounded-xl border border-border/60 bg-background/50 p-4">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Archivos seleccionados
+                  </p>
+
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {archivosSeleccionados.map((archivo, index) => {
+                      const tipo = archivo.type || archivo.name
+
+                      if (tipo.includes("pdf")) {
+                        return (
+                          <div key={index} className="flex items-center justify-between rounded-xl border border-border/60 bg-background/70 px-3 py-2 text-xs text-foreground">
+                            <div className="flex items-center gap-2">
+                              <FileText className="text-red-500" size={16} />
+                              <div>
+                                <p className="truncate max-w-[120px] text-xs font-medium">{archivo.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {formatearBytes(archivo.size)}
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => eliminarArchivoSeleccionado(index)}
+                              className="rounded-full p-1 text-muted-foreground transition-all hover:bg-red-500/10 hover:text-red-500"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                        )
+                      }
+
+                      return (
+                        <div key={index} className="flex items-center justify-between rounded-xl border border-border/60 bg-background/70 px-3 py-2 text-xs text-foreground">
+                          <div className="flex items-center gap-2">
+                            <ImageIcon className="text-primary" size={16} />
+                            <div>
+                              <p className="truncate max-w-[120px] text-xs font-medium">{archivo.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatearBytes(archivo.size)}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => eliminarArchivoSeleccionado(index)}
+                            className="rounded-full p-1 text-muted-foreground transition-all hover:bg-red-500/10 hover:text-red-500"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label htmlFor="observaciones" className="mb-2 block text-sm font-medium text-foreground">
+                  Observaciones o detalles adicionales
+                </label>
+                <textarea
+                  id="observaciones"
+                  name="observaciones"
+                  rows={4}
+                  placeholder="Describe el trabajo requerido, dientes involucrados, referencias o consideraciones especiales..."
+                  className="w-full rounded-xl border border-border bg-background/60 px-4 py-3 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+
+              <button
+                type="submit"
+                disabled={submittingSolicitud}
+                className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground shadow-lg transition-all duration-300 hover:scale-[1.02] hover:bg-primary-dark hover:shadow-xl disabled:opacity-50"
+              >
+                {submittingSolicitud ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <Send size={18} />
+                )}
+                {submittingSolicitud ? "Registrando solicitud..." : "Registrar solicitud"}
+              </button>
+            </form>
+          )}
+
+          <div className="rounded-2xl border border-border bg-background/40">
+            <div className="p-5">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-semibold text-foreground">
+                  Historial de solicitudes
+                </h3>
+
+                <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                  {solicitudes.length} registro{solicitudes.length === 1 ? "" : "s"}
+                </span>
+              </div>
+            </div>
+
+            {loadingSolicitudes ? (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="h-6 w-6 animate-spin text-primary" />
+              </div>
+            ) : solicitudesFiltradas.length === 0 ? (
+              <div className="space-y-1 px-5 pb-5 text-center">
+                <Package className="mx-auto h-10 w-10 text-muted-foreground" />
+                <p className="text-sm font-medium text-foreground">
+                  {busquedaSolicitud ? "No se encontraron solicitudes" : "Sin solicitudes registradas"}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {busquedaSolicitud ? "Prueba con otra búsqueda" : "Cuando registres una solicitud aparecerá aquí"}
+                </p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-border/60">
+                {solicitudesFiltradas.map((solicitud, index) => (
+                  <li key={solicitud.id} className="space-y-3 p-5 transition-all hover:bg-background/30">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                      <div className="flex-1">
+                        <p className="text-sm font-semibold text-foreground">
+                          {solicitud.servicio}
+                        </p>
+
+                        {solicitud.observaciones && (
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {solicitud.observaciones}
+                          </p>
+                        )}
+
+                        <div className="mt-3 flex flex-wrap items-center gap-3">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary capitalize">
+                            {solicitud.estado.replace("_", " ")}
+                          </span>
+
+                          <span className="text-xs text-muted-foreground">
+                            {new Date(solicitud.created_at).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleVerSolicitud(solicitud)}
+                          className="flex items-center gap-1 rounded-xl border border-border bg-card/50 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:border-primary/60 hover:bg-primary/10 hover:text-primary"
+                        >
+                          <Eye size={14} />
+                          Ver
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSolicitud(solicitud)}
+                          className="flex items-center gap-1 rounded-xl border border-border bg-card/50 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:border-red-500/60 hover:bg-red-500/10 hover:text-red-500"
+                        >
+                          <Trash2 size={14} />
+                          Eliminar
+                        </button>
+                      </div>
+                    </div>
+
+                    {solicitud.urls_documentos && solicitud.urls_documentos.length > 0 && (
+                      <div className="grid gap-3 pt-2 sm:grid-cols-2 lg:grid-cols-3">
+                        {solicitud.urls_documentos.map((url, docIndex) => {
+                          const esImagen = isImagen(url)
+                          const esDocumento = isDocumento(url)
+
+                          if (esImagen) {
+                            return (
+                              <div key={docIndex} className="overflow-hidden rounded-xl border border-border/60 bg-background/60">
+                                <a href={url} target="_blank" rel="noopener noreferrer" className="block">
+                                  <img
+                                    src={url}
+                                    alt={`Adjunto ${index + 1} - imagen`}
+                                    className="h-32 w-full object-cover transition-transform duration-300 hover:scale-105"
+                                  />
+                                </a>
+
+                                <div className="flex items-center justify-between px-3 py-2">
+                                  <span className="truncate text-xs text-muted-foreground">
+                                    Imagen adjunta
+                                  </span>
+                                  <a
+                                    href={url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="rounded-lg bg-primary/10 px-2 py-1 text-xs font-medium text-primary transition-all hover:bg-primary/20"
+                                  >
+                                    Ver
+                                  </a>
+                                </div>
+                              </div>
+                            )
+                          }
+
+                          if (esDocumento) {
+                            return (
+                              <a
+                                key={docIndex}
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex items-center gap-3 rounded-xl border border-border/60 bg-background/60 px-3 py-3 transition-all hover:border-primary/60"
+                              >
+                                <FileText className="text-red-500" size={22} />
+
+                                <span className="truncate text-xs font-medium text-foreground">
+                                  Documento adjunto
+                                </span>
+                              </a>
+                            )
+                          }
+
+                          return (
+                            <a
+                              key={docIndex}
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center gap-3 rounded-xl border border-border/60 bg-background/60 px-3 py-3 transition-all hover:border-primary/60"
+                            >
+                              <Paperclip className="text-primary" size={18} />
+
+                              <span className="truncate text-xs font-medium text-foreground">
+                                Archivo adjunto
+                              </span>
+                            </a>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </section>
 
-        {/* PRODUCTOS */}
-        <section className="rounded-3xl border border-border/50 bg-card/60 p-8 shadow-2xl backdrop-blur-xl">
-          <div className="mb-6 flex items-center gap-3">
-            <div className="rounded-xl bg-primary/10 p-2">
-              <Package className="text-primary" size={20} />
-            </div>
+        {/* Modal de Detalle de Solicitud */}
+        {selectedSolicitud && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={handleCerrarDetalle}>
+            <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-card shadow-xl" onClick={(e) => e.stopPropagation()}>
+              <div className="border-b border-border p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">
+                      Detalle de Solicitud
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      SOL-{String(selectedSolicitud.id).padStart(3, "0")}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleCerrarDetalle}
+                    className="rounded-lg p-2 hover:bg-muted transition-colors"
+                  >
+                    <X size={18} className="text-muted-foreground" />
+                  </button>
+                </div>
+              </div>
 
-            <div>
-              <h2 className="text-2xl font-bold text-foreground">
-                Productos Activos
-              </h2>
+              <div className="p-4 space-y-4">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Servicio</p>
+                  <p className="text-sm text-foreground">{selectedSolicitud.servicio}</p>
+                </div>
 
-              <p className="text-sm text-muted-foreground">
-                Servicios asociados a tu cuenta
-              </p>
+                {selectedSolicitud.observaciones && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Observaciones</p>
+                    <p className="text-sm text-foreground">{selectedSolicitud.observaciones}</p>
+                  </div>
+                )}
+
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground mb-2">Trabajos / Servicios Vinculados</p>
+                  {loadingDetalle ? (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground py-4 justify-center">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Cargando...
+                    </div>
+                  ) : serviciosDetalle.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">No hay trabajos adicionales registrados.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {serviciosDetalle.map((servicio, idx) => (
+                        <div key={servicio.id} className="border border-border rounded-lg p-3">
+                          <p className="text-sm font-medium text-foreground mb-2">{idx + 1}. {servicio.nombre}</p>
+                          {servicio.descripcion && <p className="text-xs text-muted-foreground mb-2">{servicio.descripcion}</p>}
+
+                          <div className="space-y-2">
+                            {(["declaracion_conformidad", "guia_fabricacion", "manual_uso"] as const).map((campo) => {
+                              const etiqueta =
+                                campo === "declaracion_conformidad"
+                                  ? "Declaración de Conformidad"
+                                  : campo === "guia_fabricacion"
+                                    ? "Guía de Fabricación"
+                                    : "Manual de Uso"
+                              const url =
+                                campo === "declaracion_conformidad"
+                                  ? servicio.declaracion_conformidad
+                                  : campo === "guia_fabricacion"
+                                    ? servicio.guia_fabricacion
+                                    : servicio.manual_uso
+
+                              return (
+                                <div key={campo} className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-2">
+                                    <FileText size={14} className="text-muted-foreground shrink-0" />
+                                    {url ? (
+                                      <a
+                                        href={url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-xs text-primary hover:underline"
+                                      >
+                                        {etiqueta}
+                                      </a>
+                                    ) : (
+                                      <span className="text-xs text-muted-foreground">{etiqueta}</span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="file"
+                                      className="hidden"
+                                      id={`${servicio.id}-${campo}`}
+                                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0]
+                                        if (file) handleDocChange(servicio.id, campo, file)
+                                      }}
+                                    />
+                                    <label
+                                      htmlFor={`${servicio.id}-${campo}`}
+                                      className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-border bg-background px-2 py-1 text-[10px] font-medium text-foreground transition-colors hover:border-primary hover:text-primary"
+                                    >
+                                      <Upload size={12} />
+                                      {url ? "Reemplazar" : "Adjuntar"}
+                                    </label>
+                                    {(servicioDocs[servicio.id]?.[campo] || url) && (
+                                      <button
+                                        onClick={() => handleUploadDoc(servicio.id, campo)}
+                                        disabled={uploadingDoc[`${servicio.id}-${campo}`]}
+                                        className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
+                                      >
+                                        {uploadingDoc[`${servicio.id}-${campo}`] ? (
+                                          <>
+                                            <Loader2 size={12} className="animate-spin" />
+                                            Guardando
+                                          </>
+                                        ) : (
+                                          "Guardar"
+                                        )}
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+
+                          <div className="text-right mt-2">
+                            <p className="text-sm font-semibold text-foreground">
+                              {servicio.precio ? `$${servicio.precio.toLocaleString("es-CO")}` : "-"}
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">Cant: {servicio.cantidad}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="p-4 border-t border-border bg-muted/30 flex justify-end">
+                <button
+                  onClick={handleCerrarDetalle}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/80"
+                >
+                  Cerrar
+                </button>
+              </div>
             </div>
           </div>
-
-          <div className="rounded-2xl border border-dashed border-border bg-background/40 p-6">
-            <p className="text-sm font-medium text-foreground">
-              Sin productos activos
-            </p>
-
-            <p className="mt-1 text-sm text-muted-foreground">
-              Aún no tienes productos o servicios registrados.
-            </p>
-          </div>
-        </section>
+        )}
 
         {/* CHAT */}
         <section className="rounded-3xl border border-border/50 bg-card/60 shadow-2xl backdrop-blur-xl">
@@ -443,9 +1271,11 @@ export default function ClientesPage() {
 function InfoItem({
   label,
   value,
+  editable = false,
 }: {
   label: string
   value: string
+  editable?: boolean
 }) {
   return (
     <div className="rounded-2xl border border-border/50 bg-background/40 p-5">
@@ -456,6 +1286,45 @@ function InfoItem({
       <p className="mt-1 break-words text-lg font-semibold text-foreground">
         {value}
       </p>
+    </div>
+  )
+}
+
+function EditableInfoItem({
+  label,
+  value,
+  field,
+  editData,
+  setEditData,
+  editMode,
+  type = "text",
+}: {
+  label: string
+  value: string
+  field: string
+  editData: Partial<Cliente>
+  setEditData: (data: Partial<Cliente>) => void
+  editMode: boolean
+  type?: string
+}) {
+  return (
+    <div className="rounded-2xl border border-border/50 bg-background/40 p-5">
+      <p className="text-sm text-muted-foreground">
+        {label}
+      </p>
+
+      {editMode ? (
+        <input
+          type={type}
+          value={value}
+          onChange={(e) => setEditData({ ...editData, [field]: e.target.value })}
+          className="mt-1 w-full break-words text-lg font-semibold text-foreground bg-transparent outline-none border-b border-border focus:border-primary"
+        />
+      ) : (
+        <p className="mt-1 break-words text-lg font-semibold text-foreground">
+          {value}
+        </p>
+      )}
     </div>
   )
 }

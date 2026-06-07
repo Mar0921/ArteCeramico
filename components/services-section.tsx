@@ -247,7 +247,12 @@ export function ServicesSection() {
   const router = useRouter()
 
   const handleComprar = () => {
-    router.push("/login")
+    const isLoggedIn = sessionStorage.getItem("clienteEmail") || localStorage.getItem("isLoggedIn")
+    if (!isLoggedIn) {
+      router.push('/login?redirect=formulario')
+    } else {
+      router.push('/formulario')
+    }
   }
 
   const handleProductClick = (product: Product, categoryTitle: string) => {
@@ -258,8 +263,8 @@ export function ServicesSection() {
     })
   }
 
-  const filteredCategories = filterCategory === "all" 
-    ? categories 
+  const filteredCategories = filterCategory === "all"
+    ? categories
     : categories.filter(cat => cat.id === filterCategory)
 
   return (

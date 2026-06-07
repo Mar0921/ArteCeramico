@@ -1,12 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion } from "framer-motion"
 import { Eye, EyeOff, ArrowLeft, Mail, Lock } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-import { useSearchParams, useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -14,60 +14,53 @@ export default function LoginPage() {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const searchParams = useSearchParams()
+  const [redirectUrl, setRedirectUrl] = useState<string | null>(null)
   const router = useRouter()
 
-   const handleSubmit = async (e: React.FormEvent) => {
-     e.preventDefault()
-     setLoading(true)
-     setError(null)
-     
-      try {
-        // Query the clientes table for a record with matching email and password
-        const { data, error: supabaseError } = await supabase
-          .from('clientes')
-          .select('*')
-          .eq('correo', email)
-          .eq('contraseña', password)
-          .single()
-        
-        if (supabaseError) {
-          // Handle specific error cases
-          if (supabaseError.code === 'PGRST116') {
-            // No rows found
-            throw new Error('Email o contraseña incorrectos')
-          }
-          throw supabaseError
-        }
-        
-        if (!data) {
-          throw new Error('Email o contraseña incorrectos')
-        }
-        
-        // Set login state
-        sessionStorage.setItem('clienteEmail', email)
-        localStorage.setItem('isLoggedIn', 'true')
-        
-        // Check if we came from formulario (purchase flow)
-        const redirect = searchParams.get('redirect')
-        if (redirect === 'formulario') {
-          // Redirect back to formulario
-          router.push('/formulario')
-        } else {
-          // Redirect to client dashboard
-          router.push('/page_clientes')
-        }
-      } catch (err: any) {
-       setError(err.message || 'Error al iniciar sesión')
-     } finally {
-       setLoading(false)
-     }
-   }
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      const redirect = params.get('redirect')
+      if (redirect === 'formulario') {
+        setRedirectUrl('/formulario')
+      }
+    }
+  }, [])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError(null)
+
+    try {
+      const { data, error: clienteError } = await supabase
+        .from("clientes")
+        .select("*")
+        .eq("correo", email)
+        .eq("contraseña", password)
+        .maybeSingle()
+
+      if (clienteError || !data) {
+        throw new Error("Email o contraseña incorrectos")
+      }
+
+      sessionStorage.setItem("clienteEmail", email)
+      localStorage.setItem("isLoggedIn", "true")
+
+      if (redirectUrl) {
+        router.push(redirectUrl)
+      } else {
+        router.push("/page_clientes")
+      }
+    } catch (err: any) {
+      setError(err.message ?? "Error al iniciar sesión")
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
-      
-      {/* Back Link */}
       <div className="p-4 sm:p-6">
         <Link
           href="/"
@@ -85,8 +78,6 @@ export default function LoginPage() {
           transition={{ duration: 0.5 }}
           className="w-full max-w-md"
         >
-          
-          {/* LOGO */}
           <div className="mb-8 text-center">
             <Link href="/" className="inline-flex items-center justify-center">
               <Image
@@ -107,14 +98,8 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* FORM */}
-          <form
-            onSubmit={handleSubmit}
-            className="rounded-2xl bg-card p-6 shadow-lg sm:p-8"
-          >
+          <form onSubmit={handleSubmit} className="rounded-2xl bg-card p-6 shadow-lg sm:p-8">
             <div className="space-y-5">
-
-              {/* EMAIL */}
               <div>
                 <label
                   htmlFor="email"
@@ -140,7 +125,6 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* PASSWORD */}
               <div>
                 <label
                   htmlFor="password"
@@ -174,43 +158,38 @@ export default function LoginPage() {
                 </div>
               </div>
 
-               {/* FORGOT */}
-               <div className="flex justify-end">
-                 <a
-                   href="#"
-                   className="text-sm font-medium text-primary hover:text-primary-dark"
-                 >
-                   ¿Olvidaste tu contraseña?
-                 </a>
-               </div>
+              <div className="flex justify-end">
+                <a
+                  href="#"
+                  className="text-sm font-medium text-primary hover:text-primary-dark"
+                >
+                  ¿Olvidaste tu contraseña?
+                </a>
+              </div>
 
-                 {/* ERROR MESSAGE */}
-                 {error && (
-                   <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
-                     {error}
-                   </div>
-                 )}
+              {error && (
+                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
+                  {error}
+                </div>
+              )}
 
-                 {/* BUTTON */}
-               <button
-                 type="submit"
-                 disabled={loading}
-                 className={`w-full rounded-xl bg-primary py-3.5 font-semibold text-primary-foreground shadow-lg transition-all duration-300 hover:scale-[1.02] hover:bg-primary-dark hover:shadow-xl ${
-                   loading ? 'opacity-50 cursor-not-allowed' : ''
-                 }`}
-               >
-                 {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
-               </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className={`w-full rounded-xl bg-primary py-3.5 font-semibold text-primary-foreground shadow-lg transition-all duration-300 hover:scale-[1.02] hover:bg-primary-dark hover:shadow-xl ${
+                  loading ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+              >
+                {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+              </button>
             </div>
 
-            {/* DIVIDER */}
             <div className="my-6 flex items-center gap-4">
               <div className="h-px flex-1 bg-border" />
               <span className="text-sm text-muted-foreground">o</span>
               <div className="h-px flex-1 bg-border" />
             </div>
 
-            {/* REGISTER */}
             <p className="text-center text-sm text-muted-foreground">
               ¿No tienes una cuenta?{" "}
               <Link
@@ -222,7 +201,6 @@ export default function LoginPage() {
             </p>
           </form>
 
-          {/* ADMIN */}
           <p className="mt-6 text-center text-xs text-muted-foreground">
             Para acceso de administrador,{" "}
             <Link

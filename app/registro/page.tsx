@@ -49,51 +49,70 @@ export default function RegisterPage() {
     setFormData({ ...formData, [e.target.name]: e.target.value })
   }
 
-   const handleSubmit = async (e: React.FormEvent) => {
-     e.preventDefault()
-     // Validate passwords match
-     if (formData.password !== formData.confirmPassword) {
-       setError('Las contraseñas no coinciden')
-       return
-     }
-     
-     // Find the label for the selected document type
-     const selectedDocumentType = documentTypes.find(
-       type => type.value === formData.documentType
-     )
-     
-     setLoading(true)
-     setError(null)
-     setSuccess(false)
-     try {
-       // Create the perfil in clientes table
-       const { data, error: supabaseError } = await supabase
-         .from('clientes')
-         .insert([
-           {
-             nombre: formData.name,
-             tipo: selectedDocumentType ? selectedDocumentType.label : '',
-             tipodoc: formData.documentType,
-             documento: formData.documentNumber,
-             correo: formData.email,
-             telefono: formData.phone,
-             clinica: formData.clinic,
-             'contraseña': formData.password, // Note: In a real app, you wouldn't store the plain password here
-           },
-         ])
-       if (supabaseError) throw supabaseError
-       
-       setSuccess(true)
-       // Redirect to login after success
-       setTimeout(() => {
-         window.location.href = '/login'
-       }, 1500)
-     } catch (err: any) {
-       setError(err.message || 'Error al registrar')
-     } finally {
-       setLoading(false)
-     }
-   }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+
+    if (formData.password !== formData.confirmPassword) {
+      setError("Las contraseñas no coinciden")
+      return
+    }
+
+    const selectedDocumentType = documentTypes.find(
+      type => type.value === formData.documentType
+    )
+
+    setLoading(true)
+    setError(null)
+    setSuccess(false)
+
+    try {
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: formData.email,
+        password: formData.password,
+      })
+
+      if (signUpError) {
+        setError(signUpError.message ?? "Error al crear la cuenta en Auth")
+        setLoading(false)
+        return
+      }
+
+      if (!signUpData.user) {
+        setError("No se pudo obtener el usuario de Auth.")
+        setLoading(false)
+        return
+      }
+
+      const { data, error: insertError } = await supabase
+        .from("clientes")
+        .insert([
+          {
+            nombre: formData.name,
+            tipo: selectedDocumentType ? selectedDocumentType.label : "",
+            tipodoc: formData.documentType,
+            documento: formData.documentNumber,
+            correo: formData.email,
+            telefono: formData.phone,
+            clinica: formData.clinic,
+            user_id: signUpData.user.id,
+          },
+        ])
+
+      if (insertError) {
+        setError(insertError.message ?? "Error al guardar el cliente")
+        setLoading(false)
+        return
+      }
+
+      setSuccess(true)
+      setTimeout(() => {
+        window.location.href = "/login"
+      }, 1500)
+    } catch (err: any) {
+      setError(err.message ?? "Error al registrar")
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-background">

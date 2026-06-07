@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
 import Link from "next/link"
 import Image from "next/image"
@@ -13,41 +14,7 @@ import {
   ArrowDownRight,
   LogOut,
 } from "lucide-react"
-
-const stats = [
-  {
-    label: "Total Clientes",
-    value: "1,248",
-    change: "+12%",
-    trend: "up",
-    icon: Users,
-    color: "bg-blue-500/10 text-blue-600",
-  },
-  {
-    label: "Productos Activos",
-    value: "356",
-    change: "+8%",
-    trend: "up",
-    icon: Package,
-    color: "bg-primary/10 text-primary",
-  },
-  {
-    label: "Trabajos Completados",
-    value: "892",
-    change: "+23%",
-    trend: "up",
-    icon: CheckCircle,
-    color: "bg-accent/20 text-accent",
-  },
-  {
-    label: "Ingresos del Mes",
-    value: "$45.2M",
-    change: "-3%",
-    trend: "down",
-    icon: DollarSign,
-    color: "bg-amber-500/10 text-amber-600",
-  },
-]
+import { supabase } from "@/lib/supabase"
 
 const recentOrders = [
   {
@@ -93,13 +60,107 @@ const recentOrders = [
 ]
 
 const statusStyles: Record<string, string> = {
-  "En proceso": "bg-blue-100 text-blue-700",
-  Aprobado: "bg-green-100 text-green-700",
-  Pendiente: "bg-amber-100 text-amber-700",
-  Completado: "bg-primary/10 text-primary",
+  pendiente: "bg-amber-100 text-amber-700",
+  en_proceso: "bg-blue-100 text-blue-700",
+  aprobado: "bg-green-100 text-green-700",
+  completado: "bg-primary/10 text-primary",
+  cancelado: "bg-red-100 text-red-700",
+}
+
+interface Solicitud {
+  id: number
+  servicio: string
+  estado: string
+  created_at: string
+  cliente: {
+    nombre: string
+  }
+  precio?: number
 }
 
 export default function DashboardPage() {
+  const [totalClientes, setTotalClientes] = useState<number | null>(null)
+  const [recentSolicitudes, setRecentSolicitudes] = useState<Solicitud[]>([])
+  const [loadingOrders, setLoadingOrders] = useState(true)
+
+  useEffect(() => {
+    const loadStats = async () => {
+      const { count } = await supabase
+        .from("clientes")
+        .select("*", { count: "exact", head: true })
+
+      setTotalClientes(count || 0)
+    }
+
+    loadStats()
+  }, [])
+
+  useEffect(() => {
+    const loadRecentOrders = async () => {
+      setLoadingOrders(true)
+      try {
+        const response = await fetch("/api/solicitudes?limit=5")
+
+        if (response.ok) {
+          const result = await response.json()
+          const data = result.data || []
+          const formatted = data.map((item: any) => ({
+            id: `SOL-${String(item.id).padStart(3, "0")}`,
+            client: item.cliente_nombre || "Sin cliente",
+            product: item.servicio || "Servicio",
+            status: item.estado
+              ? item.estado.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase())
+              : "Pendiente",
+            date: new Date(item.created_at).toLocaleDateString("es-CO"),
+            amount: "-",
+          }))
+          setRecentSolicitudes(formatted)
+        }
+      } catch (err) {
+        console.error("Error cargando pedidos recientes:", err)
+      } finally {
+        setLoadingOrders(false)
+      }
+    }
+
+    loadRecentOrders()
+  }, [])
+
+  const stats = [
+    {
+      label: "Total Clientes",
+      value: totalClientes !== null ? totalClientes.toString() : "...",
+      change: "+12%",
+      trend: "up",
+      icon: Users,
+      color: "bg-blue-500/10 text-blue-600",
+    },
+    {
+      label: "Productos Activos",
+      value: "356",
+      change: "+8%",
+      trend: "up",
+      icon: Package,
+      color: "bg-primary/10 text-primary",
+    },
+    {
+      label: "Trabajos Completados",
+      value: "892",
+      change: "+23%",
+      trend: "up",
+      icon: CheckCircle,
+      color: "bg-accent/20 text-accent",
+    },
+    {
+      label: "Ingresos del Mes",
+      value: "$45.2M",
+      change: "-3%",
+      trend: "down",
+      icon: DollarSign,
+      color: "bg-amber-500/10 text-amber-600",
+    },
+  ]
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -130,19 +191,17 @@ export default function DashboardPage() {
             <Users size={18} />
             Ver Clientes
           </Link>
-            <button
-              onClick={() => {
-                if (window.confirm('¿Estás seguro de que deseas cerrar sesión?')) {
-                  // Here you would typically call your logout function
-                  // For now, we'll redirect to the login page or home
-                  window.location.href = '/';
-                }
-              }}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-500 px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-red-600"
-            >
-              <LogOut size={18} />
-              Cerrar Sesión
-            </button>
+          <button
+            onClick={() => {
+              if (window.confirm('¿Estás seguro de que deseas cerrar sesión?')) {
+                window.location.href = '/'
+              }
+            }}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-500 px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-red-600"
+          >
+            <LogOut size={18} />
+            Cerrar Sesión
+          </button>
         </div>
       </div>
 
@@ -274,35 +333,49 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {recentOrders.map((order) => (
-                <tr
-                  key={order.id}
-                  className="border-b border-border last:border-0 hover:bg-muted/50"
-                >
-                  <td className="px-6 py-4 text-sm font-medium text-foreground">
-                    {order.id}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-muted-foreground">
-                    {order.client}
-                  </td>
-                  <td className="px-6 py-4 text-sm text-muted-foreground">
-                    {order.product}
-                  </td>
-                  <td className="px-6 py-4">
-                    <span
-                      className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles[order.status]}`}
-                    >
-                      {order.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-sm text-muted-foreground">
-                    {order.date}
-                  </td>
-                  <td className="px-6 py-4 text-right text-sm font-medium text-foreground">
-                    {order.amount}
+              {loadingOrders ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-sm text-muted-foreground">
+                    Cargando pedidos...
                   </td>
                 </tr>
-              ))}
+              ) : recentSolicitudes.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-sm text-muted-foreground">
+                    No hay solicitudes registradas
+                  </td>
+                </tr>
+              ) : (
+                recentSolicitudes.map((order) => (
+                  <tr
+                    key={order.id}
+                    className="border-b border-border last:border-0 hover:bg-muted/50"
+                  >
+                    <td className="px-6 py-4 text-sm font-medium text-foreground">
+                      {order.id}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-muted-foreground">
+                      {order.client}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-muted-foreground">
+                      {order.product}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles[order.status] || "bg-gray-100 text-gray-700"}`}
+                      >
+                        {order.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-muted-foreground">
+                      {order.date}
+                    </td>
+                    <td className="px-6 py-4 text-right text-sm font-medium text-foreground">
+                      {order.amount}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>

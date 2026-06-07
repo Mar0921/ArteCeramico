@@ -1,7 +1,12 @@
 "use client"
 
+import { useState, useRef } from "react"
 import { motion } from "framer-motion"
-import { Phone, Mail, MessageCircle, Send } from "lucide-react"
+import { Phone, Mail, MessageCircle, Send, Paperclip, X, Image as ImageIcon } from "lucide-react"
+import { useForm } from "react-hook-form"
+import { z } from "zod"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { supabase } from "@/lib/supabase"
 
 const contactInfo = [
   {
