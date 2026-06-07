@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { supabase } from "@/lib/supabase"
 import { Footer } from "@/components/footer"
+import { useToast } from "@/hooks/use-toast"
 
 import {
   User,
@@ -26,6 +27,7 @@ import {
   FileText,
   Search,
   Eye,
+  AlertCircle,
 } from "lucide-react"
 
 interface Servicio {
@@ -105,10 +107,14 @@ export default function ClientesPage() {
   const [loadingDetalle, setLoadingDetalle] = useState(false)
   const [servicioDocs, setServicioDocs] = useState<Record<number, { declaracion_conformidad: File | null; guia_fabricacion: File | null; manual_uso: File | null }>>({})
   const [uploadingDoc, setUploadingDoc] = useState<Record<string, boolean>>({})
+  const [uploadError, setUploadError] = useState<Record<string, string>>({})
+  const [uploadSuccess, setUploadSuccess] = useState<Record<string, boolean>>({})
 
   const [editMode, setEditMode] = useState(false)
   const [editData, setEditData] = useState<Partial<Cliente>>({})
   const [saving, setSaving] = useState(false)
+
+  const { toast } = useToast()
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -396,6 +402,26 @@ export default function ClientesPage() {
 
       const result = await response.json()
       setServiciosDetalle((prev) => prev.map((s) => (s.id === servicioId ? result.data : s)))
+
+      const uploadKey = `${servicioId}-${campo}`
+      setUploadSuccess((prev) => ({ ...prev, [uploadKey]: true }))
+      setTimeout(() => {
+        setUploadSuccess((prev) => {
+          const next = { ...prev }
+          delete next[uploadKey]
+          return next
+        })
+      }, 3000)
+
+      const nombreDocumento =
+        campo === "declaracion_conformidad"
+          ? "Declaración de Conformidad"
+          : campo === "guia_fabricacion"
+            ? "Guía de Fabricación"
+            : "Manual de Uso"
+
+      setSolicitudMensaje(`${nombreDocumento} subido correctamente para el servicio #${servicioId}`)
+      setTimeout(() => setSolicitudMensaje(null), 4000)
     } catch (err) {
       console.error("Error subiendo documento:", err)
       alert(err instanceof Error ? err.message : "No se pudo subir el documento.")
