@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
-import Link from "next/link"
-import Image from "next/image"
 import {
   Users,
   Package,
@@ -162,51 +160,8 @@ export default function DashboardPage() {
   ]
 
   return (
-    <div className="space-y-6">
-      {/* Page Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/" className="flex items-center">
-            <Image
-              src="/Arte_Ceramico_Logo.svg"
-              alt="Arte Cerámico - Laboratorio Dental"
-              width={120}
-              height={48}
-              className="h-12 w-auto object-contain"
-              priority
-            />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-            <p className="text-muted-foreground">
-              Bienvenido al panel de administración de Arte Cerámico
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:gap-4">
-          <Link
-            href="/dashboard/clientes"
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary-dark"
-          >
-            <Users size={18} />
-            Ver Clientes
-          </Link>
-          <button
-            onClick={() => {
-              if (window.confirm('¿Estás seguro de que deseas cerrar sesión?')) {
-                window.location.href = '/'
-              }
-            }}
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-500 px-4 py-2.5 text-sm font-medium text-white transition-all hover:bg-red-600"
-          >
-            <LogOut size={18} />
-            Cerrar Sesión
-          </button>
-        </div>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+    <div className="space-y-6 mt-20">
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat, index) => (
           <motion.div
             key={stat.label}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Menu, X } from "lucide-react"
+import { Menu, X, LogOut, Users, User } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 
@@ -14,7 +14,7 @@ const navItems = [
   { label: "Contacto", href: "#contacto" },
 ]
 
-export function Navbar() {
+export function Navbar({ showClientButtons = false }: { showClientButtons?: boolean }) {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -71,6 +71,12 @@ export function Navbar() {
     }
   }
 
+  const handleLogout = () => {
+    sessionStorage.removeItem("clienteEmail")
+    localStorage.removeItem("isLoggedIn")
+    window.location.href = "/"
+  }
+
   return (
     <>
       {/* NAVBAR */}
@@ -113,9 +119,33 @@ export function Navbar() {
               ))}
             </div>
 
-            {/* AUTH BUTTONS - Desktop */}
-            <div className="hidden items-center gap-3 lg:flex">
-              {isLoggedIn ? (
+             {/* AUTH BUTTONS - Desktop */}
+             <div className="hidden items-center gap-3 lg:flex">
+               {showClientButtons ? (
+                 <>
+                   <Link
+                     href="/dashboard"
+                     className="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary transition-all duration-300 hover:bg-primary/10"
+                   >
+                     <User size={16} />
+                     Cuenta
+                   </Link>
+                   <Link
+                     href="/dashboard/clientes"
+                     className="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary transition-all duration-300 hover:bg-primary/10"
+                   >
+                     <Users size={16} />
+                     Clientes
+                   </Link>
+                   <button
+                     onClick={handleLogout}
+                     className="inline-flex items-center gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-600 transition-all duration-300 hover:bg-red-500/20"
+                   >
+                     <LogOut size={16} />
+                     Cerrar Sesión
+                   </button>
+                 </>
+               ) : isLoggedIn ? (
                 <Link
                   href="/page_clientes"
                   className="rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary transition-all duration-300 hover:bg-primary/10"
@@ -172,35 +202,64 @@ export function Navbar() {
                 </button>
               ))}
 
-              <div className="mt-4 flex flex-col gap-3">
-                {isLoggedIn ? (
-                  <Link
-                    href="/page_clientes"
-                    onClick={() => setIsMobileMenuOpen(false)}
-                    className="rounded-lg border border-primary px-5 py-3 text-center text-base font-medium text-primary transition-all duration-300 hover:bg-primary/10"
-                  >
-                    Mi Cuenta
-                  </Link>
-                ) : (
-                  <>
+                <div className="mt-4 flex flex-col gap-3">
+                  {showClientButtons ? (
+                    <>
+                      <Link
+                        href="/dashboard"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary px-5 py-3 text-center text-base font-medium text-primary transition-all duration-300 hover:bg-primary/10"
+                      >
+                        <User size={18} />
+                        Cuenta
+                      </Link>
+                      <Link
+                        href="/dashboard/clientes"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary px-5 py-3 text-center text-base font-medium text-primary transition-all duration-300 hover:bg-primary/10"
+                      >
+                        <Users size={18} />
+                        Clientes
+                      </Link>
+                      <button
+                        onClick={() => {
+                          setIsMobileMenuOpen(false)
+                          handleLogout()
+                        }}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-5 py-3 text-center text-base font-medium text-red-600 transition-all duration-300 hover:bg-red-500/20"
+                      >
+                        <LogOut size={18} />
+                        Cerrar Sesión
+                      </button>
+                    </>
+                  ) : isLoggedIn ? (
                     <Link
-                      href="/registro"
+                      href="/page_clientes"
                       onClick={() => setIsMobileMenuOpen(false)}
                       className="rounded-lg border border-primary px-5 py-3 text-center text-base font-medium text-primary transition-all duration-300 hover:bg-primary/10"
                     >
-                      Registrarse
+                      Mi Cuenta
                     </Link>
+                  ) : (
+                    <>
+                      <Link
+                        href="/registro"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="rounded-lg border border-primary px-5 py-3 text-center text-base font-medium text-primary transition-all duration-300 hover:bg-primary/10"
+                      >
+                        Registrarse
+                      </Link>
 
-                    <Link
-                      href="/login"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      className="rounded-lg bg-primary px-5 py-3 text-center text-base font-medium text-primary-foreground transition-all duration-300 hover:bg-primary-dark"
-                    >
-                      Iniciar Sesión
-                    </Link>
-                  </>
-                )}
-              </div>
+                      <Link
+                        href="/login"
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="rounded-lg bg-primary px-5 py-3 text-center text-base font-medium text-primary-foreground transition-all duration-300 hover:bg-primary-dark"
+                      >
+                        Iniciar Sesión
+                      </Link>
+                    </>
+                  )}
+                </div>
             </div>
           </motion.div>
         )}

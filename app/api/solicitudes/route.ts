@@ -137,9 +137,9 @@ export async function POST(request: Request) {
     const firma = String(formData.get("firma") || "").trim()
     const tiposTrabajoJson = String(formData.get("tiposTrabajo") || "[]").trim()
     const materialesJson = String(formData.get("materiales") || "[]").trim()
-    const chimenea = String(formData.get("chimenea") || "No").trim() === "true" ? "Si" : "No"
-    const prueba = String(formData.get("prueba") || "No").trim() === "true" ? "Si" : "No"
-    const terminado = String(formData.get("terminado") || "No").trim() === "true" ? "Si" : "No"
+    const chimenea = String(formData.get("chimenea") || "false") === "true"
+    const prueba = String(formData.get("prueba") || "false") === "true"
+    const terminado = String(formData.get("terminado") || "false") === "true"
     const color = String(formData.get("color") || "").trim()
 const guia = String(formData.get("guia_color") || "").trim()
      const piezasEnviadasJson = String(formData.get("piezasEnviadas") || "[]").trim()
@@ -284,7 +284,7 @@ urlsDocumentos.push(urlData.publicUrl)
     if (pdfUploadError) {
       console.error("Error subiendo PDF:", pdfUploadError)
 return NextResponse.json(
-      { message: "Error interno del servidor.", details: String(error) },
+      { message: "Error interno del servidor.", details: String(Error) },
       { status: 500 }
     )
     }
@@ -295,109 +295,60 @@ return NextResponse.json(
 
     const todosLosDocumentos = [urlPdf.publicUrl, ...urlsDocumentos]
 
-    let recordToInsert: Record<string, unknown> = {
-      cliente_id: cliente.id,
-      servicio,
-      observaciones,
-      urls_documentos: todosLosDocumentos,
-      estado: "pendiente",
-      codigo_trazabilidad: codigoTrazabilidad || null,
-      fecha_elaboracion: fechaElaboracionFormateada,
-      fecha_entrega: fechaEntregaFormateada,
-      historia_clinica: historiaClinica || null,
-      odontologo: formData.get("odontologo")?.toString() || null,
-      cc_odontologo: formData.get("ccOdontologo")?.toString() || null,
-      odontologo_direccion: direccion || null,
-      odontologo_firma: firma || null,
-      paciente: paciente || null,
-      cc_paciente: ccPaciente || null,
-      color: color || null,
-      guia: guia || null,
-      chimenea: chimenea,
-      prueba: prueba,
-      terminado: terminado,
-      caja: caja || null,
-      tipos_trabajo: tiposTrabajo.length > 0 ? tiposTrabajo : [],
-      materiales: materiales.length > 0 ? materiales : [],
-      dientes_trabajados: dientesTrabajados,
-      piezas_enviadas: piezasEnviadas,
-      dibujo_odontologo: dibujoOdontologo || null,
-    }
-
     let solicitudInsertada: any = null
+
+const insertData: Record<string, unknown> = {
+       cliente_id: cliente.id,
+       servicio,
+       observaciones,
+       archivos_adjuntos: todosLosDocumentos,
+       estado: "pendiente",
+       codigo_trazabilidad: codigoTrazabilidad || null,
+     }
+
+const extraFields: Record<string, unknown> = {
+       fecha_elaboracion: fechaElaboracionFormateada,
+       fecha_entrega: fechaEntregaFormateada,
+       numero_historia_clinica: historiaClinica || null,
+       odontologo_nombre: formData.get("odontologo")?.toString() || null,
+       odontologo_documento: formData.get("ccOdontologo")?.toString() || null,
+       odontologo_tarjeta_profesional: tarjetaProfesional || null,
+       odontologo_direccion: direccion || null,
+       odontologo_firma: firma || null,
+       paciente_nombre: paciente || null,
+       paciente_documento: ccPaciente || null,
+       indicaciones: indicaciones || null,
+       color: color || null,
+       guia_color: guia || null,
+       chimenea: chimenea,
+       prueba: prueba,
+       terminado: terminado,
+       numero_caja: caja || null,
+      }
 
     const { data: inserted, error: firstError } = await supabase
       .from("solicitudes")
-      .insert(recordToInsert)
+      .insert({ ...insertData, ...extraFields })
       .select("id")
       .single()
 
     if (firstError) {
+      console.error("Error en insert:", firstError)
       const msg = (firstError.message || "").toLowerCase()
-      if (msg.includes("column") && msg.includes("does not exist")) {
-        const columnMatch = firstError.message.match(/column "(.+?)"/i)
-        const badColumn = columnMatch ? columnMatch[1] : null
-        if (badColumn && badColumn in recordToInsert) {
-          console.warn(`Columna inexistente detectada: ${badColumn}. Reintentando sin esa columna.`)
-          const { [badColumn]: _, ...nextRecord } = recordToInsert
-          recordToInsert = nextRecord
-          const { data: retryInserted, error: retryError } = await supabase
-            .from("solicitudes")
-            .insert(recordToInsert)
-            .select("id")
-            .single()
+      if (msg.includes("column") || msg.includes("schema") || msg.includes("does not exist")) {
+        const { data: fallback, error: fallbackError } = await supabase
+          .from("solicitudes")
+          .insert(insertData)
+          .select("id")
+          .single()
 
-          if (retryError) {
-            console.error("Error en reintento de insert:", retryError)
-            const retryMsg = (retryError.message || "").toLowerCase()
-            if (retryMsg.includes("column") && retryMsg.includes("does not exist")) {
-              const retryColumnMatch = retryError.message.match(/column "(.+?)"/i)
-              const retryBadColumn = retryColumnMatch ? retryColumnMatch[1] : null
-              if (retryBadColumn && retryBadColumn in recordToInsert) {
-                console.warn(`Segunda columna inexistente: ${retryBadColumn}. Continuando sin ella.`)
-                const { [retryBadColumn]: __, ...finalRecord } = recordToInsert
-                recordToInsert = finalRecord
-                const { data: finalInserted, error: finalError } = await supabase
-                  .from("solicitudes")
-                  .insert(recordToInsert)
-                  .select("id")
-                  .single()
-
-                if (finalError) {
-                  console.error("Error final:", finalError)
-                  return NextResponse.json(
-                    { message: "Error al guardar la solicitud.", details: finalError.message },
-                    { status: 500 }
-                  )
-                }
-                solicitudInsertada = finalInserted
-              } else {
-                return NextResponse.json(
-                  { message: "Error al guardar la solicitud.", details: retryError.message },
-                  { status: 500 }
-                )
-              }
-            } else {
-              return NextResponse.json(
-                { message: "Error al guardar la solicitud.", details: retryError.message },
-                { status: 500 }
-              )
-            }
-          } else {
-            solicitudInsertada = retryInserted
-          }
-        } else {
-          return NextResponse.json(
-            { message: "Error al guardar la solicitud.", details: firstError.message },
-            { status: 500 }
-          )
+        if (fallbackError) {
+          console.error("Error en fallback:", fallbackError)
+          throw fallbackError
         }
+        solicitudInsertada = fallback
       } else {
-        console.error("Error en insert:", firstError)
-        return NextResponse.json(
-          { message: "Error al guardar la solicitud.", details: firstError.message },
-          { status: 500 }
-        )
+        throw firstError
       }
     } else {
       solicitudInsertada = inserted
@@ -414,30 +365,30 @@ return NextResponse.json(
       )
     }
 
-const servicioNombre = servicio.includes("|")
+    const servicioNombre = servicio.includes("|")
       ? servicio.split("|")[0].trim()
-      : servicio.split(" - ")[0].trim()
+      : servicio
 
     const servicioDescripcion = servicio.includes("|")
       ? servicio
       : observaciones
 
 const servicioData: any = {
-        solicitud_id: solicitudInsertada.id,
-        nombre: servicioNombre,
-        descripcion: servicioDescripcion || observaciones,
-        tipo_trabajo: tiposTrabajo.length > 0 ? tiposTrabajo.join(", ") : null,
-        material: materiales.length > 0 ? materiales.join(", ") : null,
-        dientes: dientesTrabajados.length > 0 ? dientesTrabajados.join(", ") : null,
-        piezas_enviadas: piezasEnviadas.length > 0 ? piezasEnviadas : null,
-      }
+       solicitud_id: solicitudInsertada.id,
+       nombre: servicioNombre,
+       descripcion: servicioDescripcion || observaciones,
+       tipo_trabajo: tiposTrabajo.length > 0 ? tiposTrabajo.join(", ") : null,
+       material: materiales.length > 0 ? materiales.join(", ") : null,
+       dientes: dientesTrabajados.length > 0 ? dientesTrabajados.join(", ") : null,
+       piezas_enviadas: piezasEnviadas.length > 0 ? piezasEnviadas : null,
+     }
 
     const categoria = servicioDescripcion.match(/Categoría: (.+)/i)
     if (categoria && categoria[1]) {
       servicioData.descripcion = `${categoria[1].trim()} - ${observaciones || servicioNombre}`
     }
 
-    const precioMatch = servicio.match(/\$[\d\.]+/g) || servicioDescripcion.match(/\$[\d\.]+/g)
+    const precioMatch = servicioDescripcion.match(/\$[\d\.]+/g)
     if (precioMatch && precioMatch.length > 0) {
       const precioStr = precioMatch[0].replace(/[$,\.]/g, "")
       const precioNum = Number(precioStr)
@@ -490,7 +441,7 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from("solicitudes")
-      .select("id, servicio, estado, created_at, cliente_id, declaracion_conformidad, guia_fabricacion, manual_uso")
+      .select("id, servicio, estado, created_at, cliente_id")
       .order("created_at", { ascending: false })
       .limit(limit)
 
@@ -533,9 +484,6 @@ export async function GET(request: Request) {
       created_at: item.created_at,
       cliente_id: item.cliente_id,
       cliente_nombre: clientesMap.get(item.cliente_id) || "Sin cliente",
-      declaracion_conformidad: item.declaracion_conformidad,
-      guia_fabricacion: item.guia_fabricacion,
-      manual_uso: item.manual_uso,
     }))
 
     return NextResponse.json({ data: formatted })

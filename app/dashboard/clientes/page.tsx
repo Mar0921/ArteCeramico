@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import Link from "next/link"
 import {
@@ -24,6 +24,10 @@ import {
   Users,
   AlertCircle,
   CheckCircle,
+  Wallet,
+  MessageCircle,
+  Send,
+  Shield,
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
@@ -39,9 +43,11 @@ interface Cliente {
 
 interface Solicitud {
   id: number
+  cliente_id: number
   servicio: string
   estado: string
   created_at: string
+  updated_at: string | null
   observaciones: string
   urls_documentos: string[]
   precio: number | null
@@ -49,20 +55,35 @@ interface Solicitud {
   fecha_entrega: string | null
   historia_clinica: string | null
   odontologo: string | null
+  cc_odontologo: string | null
   paciente: string | null
+  cc_paciente: string | null
+  direccion: string | null
+  firma: string | null
   tipos_trabajo: string[] | null
   materiales: string[] | null
   chimenea: string | null
   prueba: string | null
   terminado: string | null
   color: string | null
+  guia: string | null
   piezas_enviadas: string[] | null
   caja: string | null
   codigo_trazabilidad: string | null
   dientes_trabajados: string[] | null
+  dibujo_odontologo: string | null
   declaracion_conformidad: string | null
   guia_fabricacion: string | null
   manual_uso: string | null
+}
+
+interface MensajeChat {
+  id: number
+  solicitud_id: number
+  autor: "admin" | "cliente"
+  contenido: string
+  created_at: string
+  leido: boolean
 }
 
 interface ClienteConSolicitudes extends Cliente {
@@ -78,15 +99,28 @@ export default function ClientesPage() {
   const [expandedSolicitud, setExpandedSolicitud] = useState<{ [key: number]: boolean }>({})
   const [loadingSolicitudes, setLoadingSolicitudes] = useState<{ [key: number]: boolean }>({})
   const [loadingServicios, setLoadingServicios] = useState<{ [key: number]: boolean }>({})
+  const [loadingEstadoCuenta, setLoadingEstadoCuenta] = useState<{ [key: number]: boolean }>({})
   const [serviciosPorSolicitud, setServiciosPorSolicitud] = useState<{ [key: number]: any[] }>({})
-  const [solicitudDocs, setSolicitudDocs] = useState<Record<number, { 
+  const [solicitudDocs, setSolicitudDocs] = useState<{ [key: number]: {
     declaracion_conformidad: File | null
     guia_fabricacion: File | null
-    manual_uso: File | null 
-  }>>({})
+    manual_uso: File | null
+  } }>({})
   const [uploadingSolicitudDoc, setUploadingSolicitudDoc] = useState<Record<string, boolean>>({})
   const [uploadError, setUploadError] = useState<Record<string, string>>({})
   const [uploadSuccess, setUploadSuccess] = useState<Record<string, boolean>>({})
+  const [mostrarEstadoCuenta, setMostrarEstadoCuenta] = useState<{ [key: number]: boolean }>({})
+  const [itemsEstadoCuenta, setItemsEstadoCuenta] = useState<{ [key: number]: { solicitudId: number; servicio: string; precio: number | null; estado: string; fecha: string }[] }>({})
+  const [totalPagarPorCliente, setTotalPagarPorCliente] = useState<{ [key: number]: number }>({})
+
+  // --- Chat state ---
+  const [activeTab, setActiveTab] = useState<{ [solicitudId: number]: "detalle" | "chat" }>({})
+  const [mensajesPorSolicitud, setMensajesPorSolicitud] = useState<{ [solicitudId: number]: MensajeChat[] }>({})
+  const [loadingMensajes, setLoadingMensajes] = useState<{ [solicitudId: number]: boolean }>({})
+  const [mensajeInput, setMensajeInput] = useState<{ [solicitudId: number]: string }>({})
+  const [enviandoMensaje, setEnviandoMensaje] = useState<{ [solicitudId: number]: boolean }>({})
+  const [mensajesNoLeidos, setMensajesNoLeidos] = useState<{ [solicitudId: number]: number }>({})
+  const chatBottomRefs = useRef<{ [solicitudId: number]: HTMLDivElement | null }>({})
 
   useEffect(() => {
     const loadClients = async () => {
@@ -132,6 +166,14 @@ export default function ClientesPage() {
       setClientes((prev) =>
         prev.map((c) => (c.id === clienteId ? { ...c, solicitudes } : c))
       )
+
+      // Cargar conteo de mensajes no leídos para cada solicitud
+      if (solicitudes.length > 0) {
+        for (const sol of solicitudes) {
+          cargarNoLeidos(sol.id)
+        }
+      }
+
       setLoadingSolicitudes((prev) => ({ ...prev, [clienteId]: false }))
     }
   }
@@ -163,9 +205,67 @@ export default function ClientesPage() {
     }
   }
 
+  const cargarEstadoCuenta = async (clienteId: number) => {
+    setLoadingEstadoCuenta((prev) => ({ ...prev, [clienteId]: true }))
+    try {
+      const { data: solicitudesData, error: solicitudesError } = await supabase
+        .from("solicitudes")
+        .select("id, estado, created_at")
+        .eq("cliente_id", clienteId)
+
+      if (solicitudesError) throw solicitudesError
+
+      const solicitudesIds = solicitudesData?.map(s => s.id) || []
+      if (solicitudesIds.length === 0) {
+        setItemsEstadoCuenta((prev) => ({ ...prev, [clienteId]: [] }))
+        setTotalPagarPorCliente((prev) => ({ ...prev, [clienteId]: 0 }))
+        return
+      }
+
+      const { data: serviciosData, error: serviciosError } = await supabase
+        .from("servicios")
+        .select("id, solicitud_id, nombre, precio, created_at")
+        .in("solicitud_id", solicitudesIds)
+        .order("created_at", { ascending: true })
+
+      if (serviciosError) throw serviciosError
+
+      const solicitudesMap = new Map((solicitudesData || []).map((s: any) => [s.id, s]))
+
+      const items = (serviciosData ?? [])
+        .filter((item: any) => item.precio && Number(item.precio) > 0)
+        .map((item: any) => {
+          const solicitud = solicitudesMap.get(item.solicitud_id)
+          return {
+            solicitudId: item.solicitud_id,
+            servicio: item.nombre,
+            precio: Number(item.precio),
+            estado: solicitud?.estado || "pendiente",
+            fecha: solicitud?.created_at || item.created_at || "",
+          }
+        })
+
+      setItemsEstadoCuenta((prev) => ({ ...prev, [clienteId]: items }))
+      setTotalPagarPorCliente((prev) => ({ ...prev, [clienteId]: items.reduce((acc, item) => acc + item.precio, 0) }))
+    } catch (err) {
+      console.error("Error cargando estado de cuenta:", err)
+    } finally {
+      setLoadingEstadoCuenta((prev) => ({ ...prev, [clienteId]: false }))
+    }
+  }
+
+  const handleToggleEstadoCuenta = async (clienteId: number) => {
+    const abrir = !mostrarEstadoCuenta[clienteId]
+    setMostrarEstadoCuenta((prev) => ({ ...prev, [clienteId]: abrir }))
+
+    if (abrir && (!itemsEstadoCuenta[clienteId] || itemsEstadoCuenta[clienteId].length === 0)) {
+      await cargarEstadoCuenta(clienteId)
+    }
+  }
+
   const handleSolicitudDocChange = (
-    solicitudId: number, 
-    campo: "declaracion_conformidad" | "guia_fabricacion" | "manual_uso", 
+    solicitudId: number,
+    campo: "declaracion_conformidad" | "guia_fabricacion" | "manual_uso",
     archivo: File
   ) => {
     setSolicitudDocs((prev) => ({
@@ -175,8 +275,7 @@ export default function ClientesPage() {
         [campo]: archivo,
       },
     }))
-    
-    // Limpiar errores previos
+
     const errorKey = `${solicitudId}-${campo}`
     setUploadError((prev) => {
       const newErrors = { ...prev }
@@ -191,7 +290,7 @@ export default function ClientesPage() {
   }
 
   const handleUploadSolicitudDoc = async (
-    solicitudId: number, 
+    solicitudId: number,
     campo: "declaracion_conformidad" | "guia_fabricacion" | "manual_uso"
   ) => {
     const archivo = solicitudDocs[solicitudId]?.[campo]
@@ -227,7 +326,6 @@ export default function ClientesPage() {
 
       const result = await response.json()
 
-      // Actualizar la solicitud con la nueva URL del documento
       setClientes((prev) =>
         prev.map((cliente) => ({
           ...cliente,
@@ -239,7 +337,6 @@ export default function ClientesPage() {
         }))
       )
 
-      // Limpiar el archivo seleccionado y mostrar éxito
       setSolicitudDocs((prev) => ({
         ...prev,
         [solicitudId]: {
@@ -247,10 +344,9 @@ export default function ClientesPage() {
           [campo]: null,
         },
       }))
-      
+
       setUploadSuccess((prev) => ({ ...prev, [uploadKey]: true }))
-      
-      // Limpiar mensaje de éxito después de 3 segundos
+
       setTimeout(() => {
         setUploadSuccess((prev) => {
           const newSuccess = { ...prev }
@@ -261,13 +357,119 @@ export default function ClientesPage() {
 
     } catch (err) {
       console.error("Error subiendo documento:", err)
-      setUploadError((prev) => ({ 
-        ...prev, 
+      setUploadError((prev) => ({
+        ...prev,
         [uploadKey]: err instanceof Error ? err.message : "Error al subir documento"
       }))
     } finally {
       setUploadingSolicitudDoc((prev) => ({ ...prev, [uploadKey]: false }))
     }
+  }
+
+  // --- Chat handlers ---
+
+  const cargarNoLeidos = async (solicitudId: number) => {
+    try {
+      const { count } = await supabase
+        .from("mensajes_solicitud")
+        .select("*", { count: "exact", head: true })
+        .eq("solicitud_id", solicitudId)
+        .eq("autor", "cliente")
+        .eq("leido", false)
+
+      setMensajesNoLeidos((prev) => ({ ...prev, [solicitudId]: count ?? 0 }))
+    } catch (err) {
+      console.error("Error cargando no leídos:", err)
+    }
+  }
+
+  const cargarMensajes = async (solicitudId: number) => {
+    if (mensajesPorSolicitud[solicitudId]) return
+    setLoadingMensajes((prev) => ({ ...prev, [solicitudId]: true }))
+    try {
+      const { data, error } = await supabase
+        .from("mensajes_solicitud")
+        .select("*")
+        .eq("solicitud_id", solicitudId)
+        .order("created_at", { ascending: true })
+
+      if (!error && data) {
+        setMensajesPorSolicitud((prev) => ({ ...prev, [solicitudId]: data as MensajeChat[] }))
+      }
+    } catch (err) {
+      console.error("Error cargando mensajes:", err)
+    } finally {
+      setLoadingMensajes((prev) => ({ ...prev, [solicitudId]: false }))
+    }
+  }
+
+  const marcarLeidos = async (solicitudId: number) => {
+    await supabase
+      .from("mensajes_solicitud")
+      .update({ leido: true })
+      .eq("solicitud_id", solicitudId)
+      .eq("autor", "cliente")
+      .eq("leido", false)
+
+    setMensajesNoLeidos((prev) => ({ ...prev, [solicitudId]: 0 }))
+  }
+
+  const handleSwitchTab = async (solicitudId: number, tab: "detalle" | "chat") => {
+    setActiveTab((prev) => ({ ...prev, [solicitudId]: tab }))
+    if (tab === "chat") {
+      await cargarMensajes(solicitudId)
+      await marcarLeidos(solicitudId)
+      setTimeout(() => {
+        chatBottomRefs.current[solicitudId]?.scrollIntoView({ behavior: "smooth" })
+      }, 100)
+    }
+  }
+
+  const handleEnviarMensaje = async (solicitudId: number) => {
+    const texto = mensajeInput[solicitudId]?.trim()
+    if (!texto) return
+
+    setEnviandoMensaje((prev) => ({ ...prev, [solicitudId]: true }))
+    try {
+      const { data, error } = await supabase
+        .from("mensajes_solicitud")
+        .insert({
+          solicitud_id: solicitudId,
+          autor: "admin",
+          contenido: texto,
+          leido: false,
+        })
+        .select()
+        .single()
+
+      if (!error && data) {
+        setMensajesPorSolicitud((prev) => ({
+          ...prev,
+          [solicitudId]: [...(prev[solicitudId] || []), data as MensajeChat],
+        }))
+        setMensajeInput((prev) => ({ ...prev, [solicitudId]: "" }))
+        setTimeout(() => {
+          chatBottomRefs.current[solicitudId]?.scrollIntoView({ behavior: "smooth" })
+        }, 50)
+      }
+    } catch (err) {
+      console.error("Error enviando mensaje:", err)
+    } finally {
+      setEnviandoMensaje((prev) => ({ ...prev, [solicitudId]: false }))
+    }
+  }
+
+  const formatFechaMensaje = (fecha: string) => {
+    const d = new Date(fecha)
+    const hoy = new Date()
+    const ayer = new Date()
+    ayer.setDate(hoy.getDate() - 1)
+
+    const hora = d.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })
+
+    if (d.toDateString() === hoy.toDateString()) return `Hoy ${hora}`
+    if (d.toDateString() === ayer.toDateString()) return `Ayer ${hora}`
+    return d.toLocaleDateString("es-CO", { day: "2-digit", month: "short" }) + " " + hora
   }
 
   const filteredClientes = clientes.filter((cliente) =>
@@ -288,7 +490,7 @@ export default function ClientesPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 mt-20">
       {/* Page Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -380,10 +582,17 @@ export default function ClientesPage() {
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
                       <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
                         Activo
                       </span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleToggleEstadoCuenta(cliente.id) }}
+                        className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary"
+                      >
+                        <Wallet size={12} />
+                        Estado de Cuenta
+                      </button>
                       {isClienteExpanded ? (
                         <ChevronUp size={20} className="text-muted-foreground" />
                       ) : (
@@ -421,6 +630,8 @@ export default function ClientesPage() {
                           <div className="space-y-3">
                             {cliente.solicitudes.map((solicitud) => {
                               const isSolicitudExpanded = expandedSolicitud[solicitud.id] || false
+                              const tabActiva = activeTab[solicitud.id] ?? "detalle"
+                              const noLeidos = mensajesNoLeidos[solicitud.id] ?? 0
 
                               return (
                                 <div
@@ -447,6 +658,12 @@ export default function ClientesPage() {
                                         </div>
                                       </div>
                                       <div className="flex items-center gap-2">
+                                        {noLeidos > 0 && (
+                                          <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-600">
+                                            <MessageCircle size={10} />
+                                            {noLeidos} sin leer
+                                          </span>
+                                        )}
                                         {solicitud.precio && (
                                           <span className="text-sm font-bold text-primary">
                                             ${solicitud.precio?.toLocaleString()}
@@ -469,339 +686,448 @@ export default function ClientesPage() {
                                         animate={{ height: "auto", opacity: 1 }}
                                         exit={{ height: 0, opacity: 0 }}
                                         transition={{ duration: 0.3 }}
-                                        className="border-t border-border bg-gray-50"
+                                        className="border-t border-border"
                                       >
-                                        <div className="p-4">
-                                          {/* Datos principales */}
-                                          <div className="grid grid-cols-2 gap-3 text-xs mb-4">
-                                            {solicitud.historia_clinica && (
-                                              <div>
-                                                <span className="text-gray-500">Historia Clínica:</span>
-                                                <span className="ml-1 font-medium text-gray-800">
-                                                  #{solicitud.historia_clinica}
-                                                </span>
-                                              </div>
+                                        {/* Tabs detalle / chat */}
+                                        <div className="flex border-b border-border bg-white">
+                                          <button
+                                            onClick={() => handleSwitchTab(solicitud.id, "detalle")}
+                                            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
+                                              tabActiva === "detalle"
+                                                ? "border-primary text-primary"
+                                                : "border-transparent text-muted-foreground hover:text-foreground"
+                                            }`}
+                                          >
+                                            <FileText size={14} />
+                                            Detalle
+                                          </button>
+                                          <button
+                                            onClick={() => handleSwitchTab(solicitud.id, "chat")}
+                                            className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${
+                                              tabActiva === "chat"
+                                                ? "border-primary text-primary"
+                                                : "border-transparent text-muted-foreground hover:text-foreground"
+                                            }`}
+                                          >
+                                            <MessageCircle size={14} />
+                                            Chat con cliente
+                                            {noLeidos > 0 && (
+                                              <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-red-500 text-[10px] font-semibold text-white">
+                                                {noLeidos}
+                                              </span>
                                             )}
-                                            {solicitud.fecha_elaboracion && (
-                                              <div className="flex items-center gap-1">
-                                                <Calendar size={12} className="text-gray-400" />
-                                                <span className="text-gray-500">Elaboración:</span>
-                                                <span className="font-medium text-gray-800">
-                                                  {solicitud.fecha_elaboracion}
-                                                </span>
-                                              </div>
-                                            )}
-                                            {solicitud.fecha_entrega && (
-                                              <div className="flex items-center gap-1">
-                                                <Calendar size={12} className="text-gray-400" />
-                                                <span className="text-gray-500">Entrega:</span>
-                                                <span className="font-medium text-gray-800">
-                                                  {solicitud.fecha_entrega}
-                                                </span>
-                                              </div>
-                                            )}
-                                            {solicitud.odontologo && (
-                                              <div className="flex items-center gap-1">
-                                                <User size={12} className="text-gray-400" />
-                                                <span className="text-gray-500">Dr(a):</span>
-                                                <span className="font-medium text-gray-800">
-                                                  {solicitud.odontologo}
-                                                </span>
-                                              </div>
-                                            )}
-                                            {solicitud.paciente && (
-                                              <div className="flex items-center gap-1">
-                                                <Stethoscope size={12} className="text-gray-400" />
-                                                <span className="text-gray-500">Paciente:</span>
-                                                <span className="font-medium text-gray-800">
-                                                  {solicitud.paciente}
-                                                </span>
-                                              </div>
-                                            )}
-                                            {solicitud.caja && (
-                                              <div>
-                                                <span className="text-gray-500">Caja:</span>
-                                                <span className="ml-1 font-medium text-gray-800">
-                                                  #{solicitud.caja}
-                                                </span>
-                                              </div>
-                                            )}
-                                            {solicitud.codigo_trazabilidad && (
-                                              <div>
-                                                <span className="text-gray-500">Cód. Trazabilidad:</span>
-                                                <span className="ml-1 font-medium text-gray-800">
-                                                  #{solicitud.codigo_trazabilidad}
-                                                </span>
-                                              </div>
-                                            )}
-                                          </div>
+                                          </button>
+                                        </div>
 
-                                          {/* Opciones adicionales */}
-                                          {(solicitud.chimenea === "Si" || solicitud.prueba === "Si" || solicitud.terminado === "Si" || solicitud.color || (solicitud.dientes_trabajados && solicitud.dientes_trabajados.length > 0)) && (
-                                            <div className="grid grid-cols-2 gap-2 text-xs mb-3 p-2 bg-white rounded border border-gray-200">
-                                              {solicitud.chimenea === "Si" && (
+                                        {/* Tab: Detalle (todo el contenido original) */}
+                                        {tabActiva === "detalle" && (
+                                          <div className="bg-gray-50 p-4">
+                                            {/* Datos principales */}
+                                            <div className="grid grid-cols-2 gap-3 text-xs mb-4">
+                                              {solicitud.historia_clinica && (
                                                 <div>
-                                                  <span className="text-gray-500">Chimenea:</span>
-                                                  <span className="ml-1 font-medium text-gray-800">{solicitud.chimenea}</span>
+                                                  <span className="text-gray-500">Historia Clínica:</span>
+                                                  <span className="ml-1 font-medium text-gray-800">
+                                                    #{solicitud.historia_clinica}
+                                                  </span>
                                                 </div>
                                               )}
-                                              {solicitud.prueba === "Si" && (
-                                                <div>
-                                                  <span className="text-gray-500">Prueba:</span>
-                                                  <span className="ml-1 font-medium text-gray-800">{solicitud.prueba}</span>
+                                              {solicitud.fecha_elaboracion && (
+                                                <div className="flex items-center gap-1">
+                                                  <Calendar size={12} className="text-gray-400" />
+                                                  <span className="text-gray-500">Elaboración:</span>
+                                                  <span className="font-medium text-gray-800">
+                                                    {solicitud.fecha_elaboracion}
+                                                  </span>
                                                 </div>
                                               )}
-                                              {solicitud.terminado === "Si" && (
-                                                <div>
-                                                  <span className="text-gray-500">Terminado:</span>
-                                                  <span className="ml-1 font-medium text-gray-800">{solicitud.terminado}</span>
+                                              {solicitud.fecha_entrega && (
+                                                <div className="flex items-center gap-1">
+                                                  <Calendar size={12} className="text-gray-400" />
+                                                  <span className="text-gray-500">Entrega:</span>
+                                                  <span className="font-medium text-gray-800">
+                                                    {solicitud.fecha_entrega}
+                                                  </span>
                                                 </div>
                                               )}
-                                              {solicitud.color && (
+                                              {solicitud.odontologo && (
+                                                <div className="flex items-center gap-1">
+                                                  <User size={12} className="text-gray-400" />
+                                                  <span className="text-gray-500">Dr(a):</span>
+                                                  <span className="font-medium text-gray-800">
+                                                    {solicitud.odontologo}
+                                                  </span>
+                                                </div>
+                                              )}
+                                              {solicitud.cc_odontologo && (
+                                                <div className="flex items-center gap-1">
+                                                  <span className="text-gray-500">CC Odontólogo:</span>
+                                                  <span className="font-medium text-gray-800">
+                                                    {solicitud.cc_odontologo}
+                                                  </span>
+                                                </div>
+                                              )}
+                                              {solicitud.paciente && (
+                                                <div className="flex items-center gap-1">
+                                                  <Stethoscope size={12} className="text-gray-400" />
+                                                  <span className="text-gray-500">Paciente:</span>
+                                                  <span className="font-medium text-gray-800">
+                                                    {solicitud.paciente}
+                                                  </span>
+                                                </div>
+                                              )}
+                                              {solicitud.cc_paciente && (
+                                                <div className="flex items-center gap-1">
+                                                  <span className="text-gray-500">CC Paciente:</span>
+                                                  <span className="font-medium text-gray-800">
+                                                    {solicitud.cc_paciente}
+                                                  </span>
+                                                </div>
+                                              )}
+                                              {solicitud.direccion && (
+                                                <div className="col-span-2">
+                                                  <span className="text-gray-500">Dirección:</span>
+                                                  <span className="ml-1 font-medium text-gray-800">
+                                                    {solicitud.direccion}
+                                                  </span>
+                                                </div>
+                                              )}
+                                              {solicitud.firma && (
+                                                <div className="col-span-2">
+                                                  <span className="text-gray-500">Firma:</span>
+                                                  <span className="ml-1 font-medium text-gray-800">
+                                                    {solicitud.firma}
+                                                  </span>
+                                                </div>
+                                              )}
+                                              {solicitud.caja && (
                                                 <div>
-                                                  <span className="text-gray-500">Color:</span>
-                                                  <span className="ml-1 font-medium text-gray-800">{solicitud.color}</span>
+                                                  <span className="text-gray-500">Caja:</span>
+                                                  <span className="ml-1 font-medium text-gray-800">
+                                                    #{solicitud.caja}
+                                                  </span>
+                                                </div>
+                                              )}
+                                              {solicitud.codigo_trazabilidad && (
+                                                <div>
+                                                  <span className="text-gray-500">Cód. Trazabilidad:</span>
+                                                  <span className="ml-1 font-medium text-gray-800">
+                                                    #{solicitud.codigo_trazabilidad}
+                                                  </span>
+                                                </div>
+                                              )}
+                                              {solicitud.guia && (
+                                                <div className="flex items-center gap-1">
+                                                  <span className="text-gray-500">Guía:</span>
+                                                  <span className="font-medium text-gray-800">
+                                                    {solicitud.guia}
+                                                  </span>
                                                 </div>
                                               )}
                                             </div>
-                                          )}
 
-                                          {/* Tipos de trabajo */}
-                                          {solicitud.tipos_trabajo && solicitud.tipos_trabajo.length > 0 && (
-                                            <div className="mb-3">
-                                              <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">
-                                                Tipos de Trabajo
-                                              </p>
-                                              <div className="flex flex-wrap gap-1">
-                                                {solicitud.tipos_trabajo.map((tipo, i) => (
-                                                  <span
-                                                    key={i}
-                                                    className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700"
-                                                  >
-                                                    {tipo}
-                                                  </span>
-                                                ))}
+                                            {/* Dibujo Odontólogo */}
+                                            {solicitud.dibujo_odontologo && (
+                                              <div className="mb-4">
+                                                <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">
+                                                  Dibujo del Odontólogo
+                                                </p>
+                                                <img
+                                                  src={solicitud.dibujo_odontologo}
+                                                  alt="Dibujo odontólogo"
+                                                  className="max-w-full h-auto rounded-lg border border-border"
+                                                />
                                               </div>
-                                            </div>
-                                          )}
+                                            )}
 
-                                          {/* Materiales */}
-                                          {solicitud.materiales && solicitud.materiales.length > 0 && (
-                                            <div className="mb-3">
-                                              <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">
-                                                Materiales
-                                              </p>
-                                              <div className="flex flex-wrap gap-1">
-                                                {solicitud.materiales.map((mat, i) => (
-                                                  <span
-                                                    key={i}
-                                                    className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700"
-                                                  >
-                                                    {mat}
-                                                  </span>
-                                                ))}
-                                              </div>
-                                            </div>
-                                          )}
-
-                                          {/* Dientes trabajados */}
-                                          {solicitud.dientes_trabajados && solicitud.dientes_trabajados.length > 0 && (
-                                            <div className="mb-3">
-                                              <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">
-                                                Dientes Trabajados
-                                              </p>
-                                              <div className="flex flex-wrap gap-1">
-                                                {solicitud.dientes_trabajados.map((diente, i) => (
-                                                  <span
-                                                    key={i}
-                                                    className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700"
-                                                  >
-                                                    #{diente}
-                                                  </span>
-                                                ))}
-                                              </div>
-                                            </div>
-                                          )}
-
-                                          {/* Piezas enviadas */}
-                                          {solicitud.piezas_enviadas && solicitud.piezas_enviadas.length > 0 && (
-                                            <div className="mb-3">
-                                              <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">
-                                                Piezas Enviadas
-                                              </p>
-                                              <div className="flex flex-wrap gap-1">
-                                                {solicitud.piezas_enviadas.map((pieza, i) => (
-                                                  <span
-                                                    key={i}
-                                                    className="inline-flex rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-700"
-                                                  >
-                                                    {pieza}
-                                                  </span>
-                                                ))}
-                                              </div>
-                                            </div>
-                                          )}
-
-                                          {/* Observaciones */}
-                                          {solicitud.observaciones && (
-                                            <div className="mb-3">
-                                              <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">
-                                                Observaciones
-                                              </p>
-                                              <p className="text-xs text-gray-700 bg-white p-2 rounded border border-gray-200">
-                                                {solicitud.observaciones}
-                                              </p>
-                                            </div>
-                                          )}
-
-                                          {/* Documentos de la solicitud (Declaración, Guía, Manual) */}
-                                          <div className="mb-4">
-                                            <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">
-                                              Documentos de la Solicitud
-                                            </p>
-                                            <div className="space-y-2">
-                                              {(["declaracion_conformidad", "guia_fabricacion", "manual_uso"] as const).map((campo) => {
-                                                const etiqueta =
-                                                  campo === "declaracion_conformidad"
-                                                    ? "Declaración de Conformidad"
-                                                    : campo === "guia_fabricacion"
-                                                      ? "Guía de Fabricación"
-                                                      : "Manual de Uso"
-                                                
-                                                const urlActual = solicitud[campo]
-                                                const uploadKey = `${solicitud.id}-${campo}`
-                                                const error = uploadError[uploadKey]
-                                                const success = uploadSuccess[uploadKey]
-
-                                                return (
-                                                  <div key={campo} className="p-2 bg-white rounded border border-gray-200">
-                                                    <div className="flex items-center justify-between gap-2">
-                                                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                        <FileText size={14} className="text-muted-foreground shrink-0" />
-                                                        {urlActual ? (
-                                                          <a
-                                                            href={urlActual}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            className="text-[10px] text-primary hover:underline truncate"
-                                                          >
-                                                            {etiqueta}
-                                                          </a>
-                                                        ) : (
-                                                          <span className="text-[10px] text-muted-foreground truncate">
-                                                            {etiqueta} - No subido
-                                                          </span>
-                                                        )}
-                                                        {success && (
-                                                          <CheckCircle size={12} className="text-green-500 shrink-0" />
-                                                        )}
-                                                      </div>
-                                                      <div className="flex items-center gap-2 shrink-0">
-                                                        <input
-                                                          type="file"
-                                                          className="hidden"
-                                                          id={`solicitud-${solicitud.id}-${campo}`}
-                                                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
-                                                          onChange={(e) => {
-                                                            const file = e.target.files?.[0]
-                                                            if (file) handleSolicitudDocChange(solicitud.id, campo, file)
-                                                          }}
-                                                        />
-                                                        <label
-                                                          htmlFor={`solicitud-${solicitud.id}-${campo}`}
-                                                          className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-border bg-background px-2 py-1 text-[10px] font-medium text-foreground transition-colors hover:border-primary hover:text-primary"
-                                                        >
-                                                          <Upload size={12} />
-                                                          {solicitudDocs[solicitud.id]?.[campo] 
-                                                            ? solicitudDocs[solicitud.id]?.[campo]?.name.substring(0, 15) + "..." 
-                                                            : urlActual 
-                                                              ? "Reemplazar" 
-                                                              : "Adjuntar"
-                                                          }
-                                                        </label>
-                                                        {solicitudDocs[solicitud.id]?.[campo] && (
-                                                          <button
-                                                            onClick={() => handleUploadSolicitudDoc(solicitud.id, campo)}
-                                                            disabled={uploadingSolicitudDoc[uploadKey]}
-                                                            className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
-                                                          >
-                                                            {uploadingSolicitudDoc[uploadKey] ? (
-                                                              <>
-                                                                <Loader2 size={12} className="animate-spin" />
-                                                                Guardando
-                                                              </>
-                                                            ) : (
-                                                              "Guardar"
-                                                            )}
-                                                          </button>
-                                                        )}
-                                                      </div>
-                                                    </div>
-                                                    {error && (
-                                                      <div className="mt-2 flex items-center gap-1 text-[10px] text-red-600">
-                                                        <AlertCircle size={12} />
-                                                        {error}
-                                                      </div>
-                                                    )}
-                                                    {success && (
-                                                      <div className="mt-2 flex items-center gap-1 text-[10px] text-green-600">
-                                                        <CheckCircle size={12} />
-                                                        Documento subido correctamente
-                                                      </div>
-                                                    )}
+                                            {/* Opciones adicionales */}
+                                            {(solicitud.chimenea === "Si" || solicitud.prueba === "Si" || solicitud.terminado === "Si" || solicitud.color || solicitud.guia || (solicitud.dientes_trabajados && solicitud.dientes_trabajados.length > 0)) && (
+                                              <div className="grid grid-cols-2 gap-2 text-xs mb-3 p-2 bg-white rounded border border-gray-200">
+                                                {solicitud.chimenea === "Si" && (
+                                                  <div>
+                                                    <span className="text-gray-500">Chimenea:</span>
+                                                    <span className="ml-1 font-medium text-gray-800">{solicitud.chimenea}</span>
                                                   </div>
-                                                )
-                                              })}
-                                            </div>
-                                          </div>
+                                                )}
+                                                {solicitud.prueba === "Si" && (
+                                                  <div>
+                                                    <span className="text-gray-500">Prueba:</span>
+                                                    <span className="ml-1 font-medium text-gray-800">{solicitud.prueba}</span>
+                                                  </div>
+                                                )}
+                                                {solicitud.terminado === "Si" && (
+                                                  <div>
+                                                    <span className="text-gray-500">Terminado:</span>
+                                                    <span className="ml-1 font-medium text-gray-800">{solicitud.terminado}</span>
+                                                  </div>
+                                                )}
+                                                {solicitud.color && (
+                                                  <div>
+                                                    <span className="text-gray-500">Color:</span>
+                                                    <span className="ml-1 font-medium text-gray-800">{solicitud.color}</span>
+                                                  </div>
+                                                )}
+                                                {solicitud.guia && (
+                                                  <div>
+                                                    <span className="text-gray-500">Guía:</span>
+                                                    <span className="ml-1 font-medium text-gray-800">{solicitud.guia}</span>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            )}
 
-                                          {/* Documentos adjuntos generales */}
-                                          {solicitud.urls_documentos && solicitud.urls_documentos.length > 0 && (
+                                            {/* Tipos de trabajo */}
+                                            {solicitud.tipos_trabajo && solicitud.tipos_trabajo.length > 0 && (
+                                              <div className="mb-3">
+                                                <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">
+                                                  Tipos de Trabajo
+                                                </p>
+                                                <div className="flex flex-wrap gap-1">
+                                                  {solicitud.tipos_trabajo.map((tipo, i) => (
+                                                    <span
+                                                      key={i}
+                                                      className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700"
+                                                    >
+                                                      {tipo}
+                                                    </span>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+
+                                            {/* Materiales */}
+                                            {solicitud.materiales && solicitud.materiales.length > 0 && (
+                                              <div className="mb-3">
+                                                <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">
+                                                  Materiales
+                                                </p>
+                                                <div className="flex flex-wrap gap-1">
+                                                  {solicitud.materiales.map((mat, i) => (
+                                                    <span
+                                                      key={i}
+                                                      className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700"
+                                                    >
+                                                      {mat}
+                                                    </span>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+
+                                            {/* Dientes trabajados */}
+                                            {solicitud.dientes_trabajados && solicitud.dientes_trabajados.length > 0 && (
+                                              <div className="mb-3">
+                                                <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">
+                                                  Dientes Trabajados
+                                                </p>
+                                                <div className="flex flex-wrap gap-1">
+                                                  {solicitud.dientes_trabajados.map((diente, i) => (
+                                                    <span
+                                                      key={i}
+                                                      className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700"
+                                                    >
+                                                      #{diente}
+                                                    </span>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+
+                                            {/* Piezas enviadas */}
+                                            {solicitud.piezas_enviadas && solicitud.piezas_enviadas.length > 0 && (
+                                              <div className="mb-3">
+                                                <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">
+                                                  Piezas Enviadas
+                                                </p>
+                                                <div className="flex flex-wrap gap-1">
+                                                  {solicitud.piezas_enviadas.map((pieza, i) => (
+                                                    <span
+                                                      key={i}
+                                                      className="inline-flex rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-700"
+                                                    >
+                                                      {pieza}
+                                                    </span>
+                                                  ))}
+                                                </div>
+                                              </div>
+                                            )}
+
+                                            {/* Observaciones */}
+                                            {solicitud.observaciones && (
+                                              <div className="mb-3">
+                                                <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">
+                                                  Observaciones
+                                                </p>
+                                                <p className="text-xs text-gray-700 bg-white p-2 rounded border border-gray-200">
+                                                  {solicitud.observaciones}
+                                                </p>
+                                              </div>
+                                            )}
+
+                                            {/* Documentos de la solicitud (Declaración, Guía, Manual) */}
                                             <div className="mb-4">
                                               <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">
-                                                Documentos Adjuntos ({solicitud.urls_documentos.length})
+                                                Documentos de la Solicitud
                                               </p>
-                                              <div className="grid grid-cols-3 gap-2">
-                                                {solicitud.urls_documentos.map((url, docIndex) => {
-                                                  const esImg = esImagen(url)
-                                                  const esDoc = esDocumento(url)
+                                              <div className="space-y-2">
+                                                {(["declaracion_conformidad", "guia_fabricacion", "manual_uso"] as const).map((campo) => {
+                                                  const etiqueta =
+                                                    campo === "declaracion_conformidad"
+                                                      ? "Declaración de Conformidad"
+                                                      : campo === "guia_fabricacion"
+                                                        ? "Guía de Fabricación"
+                                                        : "Manual de Uso"
 
-                                                  if (esImg) {
-                                                    return (
-                                                      <div
-                                                        key={docIndex}
-                                                        className="overflow-hidden rounded-lg border border-border bg-white"
-                                                      >
-                                                        <a
-                                                          href={url}
-                                                          target="_blank"
-                                                          rel="noopener noreferrer"
-                                                          className="block"
-                                                        >
-                                                          <img
-                                                            src={url}
-                                                            alt={`Adjunto ${docIndex + 1}`}
-                                                            className="h-24 w-full object-cover"
+                                                  const urlActual = solicitud[campo]
+                                                  const uploadKey = `${solicitud.id}-${campo}`
+                                                  const error = uploadError[uploadKey]
+                                                  const success = uploadSuccess[uploadKey]
+
+                                                  return (
+                                                    <div key={campo} className="p-2 bg-white rounded border border-gray-200">
+                                                      <div className="flex items-center justify-between gap-2">
+                                                        <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                          <FileText size={14} className="text-muted-foreground shrink-0" />
+                                                          {urlActual ? (
+                                                            <a
+                                                              href={urlActual}
+                                                              target="_blank"
+                                                              rel="noopener noreferrer"
+                                                              className="text-[10px] text-primary hover:underline truncate"
+                                                            >
+                                                              {etiqueta}
+                                                            </a>
+                                                          ) : (
+                                                            <span className="text-[10px] text-muted-foreground truncate">
+                                                              {etiqueta} - No subido
+                                                            </span>
+                                                          )}
+                                                          {success && (
+                                                            <CheckCircle size={12} className="text-green-500 shrink-0" />
+                                                          )}
+                                                        </div>
+                                                        <div className="flex items-center gap-2 shrink-0">
+                                                          <input
+                                                            type="file"
+                                                            className="hidden"
+                                                            id={`solicitud-${solicitud.id}-${campo}`}
+                                                            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
+                                                            onChange={(e) => {
+                                                              const file = e.target.files?.[0]
+                                                              if (file) handleSolicitudDocChange(solicitud.id, campo, file)
+                                                            }}
                                                           />
-                                                        </a>
-                                                        <div className="p-1.5 flex items-center justify-between">
-                                                          <span className="text-[10px] text-muted-foreground truncate">
-                                                            Imagen
-                                                          </span>
+                                                          <label
+                                                            htmlFor={`solicitud-${solicitud.id}-${campo}`}
+                                                            className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-border bg-background px-2 py-1 text-[10px] font-medium text-foreground transition-colors hover:border-primary hover:text-primary"
+                                                          >
+                                                            <Upload size={12} />
+                                                            {solicitudDocs[solicitud.id]?.[campo]
+                                                              ? solicitudDocs[solicitud.id]?.[campo]?.name.substring(0, 15) + "..."
+                                                              : urlActual
+                                                                ? "Reemplazar"
+                                                                : "Adjuntar"
+                                                            }
+                                                          </label>
+                                                          {solicitudDocs[solicitud.id]?.[campo] && (
+                                                            <button
+                                                              onClick={() => handleUploadSolicitudDoc(solicitud.id, campo)}
+                                                              disabled={uploadingSolicitudDoc[uploadKey]}
+                                                              className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
+                                                            >
+                                                              {uploadingSolicitudDoc[uploadKey] ? (
+                                                                <>
+                                                                  <Loader2 size={12} className="animate-spin" />
+                                                                  Guardando
+                                                                </>
+                                                              ) : (
+                                                                "Guardar"
+                                                              )}
+                                                            </button>
+                                                          )}
+                                                        </div>
+                                                      </div>
+                                                      {error && (
+                                                        <div className="mt-2 flex items-center gap-1 text-[10px] text-red-600">
+                                                          <AlertCircle size={12} />
+                                                          {error}
+                                                        </div>
+                                                      )}
+                                                      {success && (
+                                                        <div className="mt-2 flex items-center gap-1 text-[10px] text-green-600">
+                                                          <CheckCircle size={12} />
+                                                          Documento subido correctamente
+                                                        </div>
+                                                      )}
+                                                    </div>
+                                                  )
+                                                })}
+                                              </div>
+                                            </div>
+
+                                            {/* Documentos adjuntos generales */}
+                                            {solicitud.urls_documentos && solicitud.urls_documentos.length > 0 && (
+                                              <div className="mb-4">
+                                                <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">
+                                                  Documentos Adjuntos ({solicitud.urls_documentos.length})
+                                                </p>
+                                                <div className="grid grid-cols-3 gap-2">
+                                                  {solicitud.urls_documentos.map((url, docIndex) => {
+                                                    const esImg = esImagen(url)
+                                                    const esDoc = esDocumento(url)
+
+                                                    if (esImg) {
+                                                      return (
+                                                        <div
+                                                          key={docIndex}
+                                                          className="overflow-hidden rounded-lg border border-border bg-white"
+                                                        >
                                                           <a
                                                             href={url}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="text-[10px] text-primary hover:underline"
+                                                            className="block"
                                                           >
-                                                            Ver
+                                                            <img
+                                                              src={url}
+                                                              alt={`Adjunto ${docIndex + 1}`}
+                                                              className="h-24 w-full object-cover"
+                                                            />
                                                           </a>
+                                                          <div className="p-1.5 flex items-center justify-between">
+                                                            <span className="text-[10px] text-muted-foreground truncate">
+                                                              Imagen
+                                                            </span>
+                                                            <a
+                                                              href={url}
+                                                              target="_blank"
+                                                              rel="noopener noreferrer"
+                                                              className="text-[10px] text-primary hover:underline"
+                                                            >
+                                                              Ver
+                                                            </a>
+                                                          </div>
                                                         </div>
-                                                      </div>
-                                                    )
-                                                  }
+                                                      )
+                                                    }
 
-                                                  if (esDoc) {
+                                                    if (esDoc) {
+                                                      return (
+                                                        <a
+                                                          key={docIndex}
+                                                          href={url}
+                                                          target="_blank"
+                                                          rel="noopener noreferrer"
+                                                          className="flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 hover:border-primary transition-colors"
+                                                        >
+                                                          <FileText size={18} className="text-red-500 shrink-0" />
+                                                          <span className="text-[10px] font-medium text-foreground truncate">
+                                                            Documento {docIndex + 1}
+                                                          </span>
+                                                        </a>
+                                                      )
+                                                    }
+
                                                     return (
                                                       <a
                                                         key={docIndex}
@@ -810,65 +1136,155 @@ export default function ClientesPage() {
                                                         rel="noopener noreferrer"
                                                         className="flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 hover:border-primary transition-colors"
                                                       >
-                                                        <FileText size={18} className="text-red-500 shrink-0" />
+                                                        <Paperclip size={18} className="text-primary shrink-0" />
                                                         <span className="text-[10px] font-medium text-foreground truncate">
-                                                          Documento {docIndex + 1}
+                                                          Adjunto {docIndex + 1}
                                                         </span>
                                                       </a>
                                                     )
-                                                  }
-
-                                                  return (
-                                                    <a
-                                                      key={docIndex}
-                                                      href={url}
-                                                      target="_blank"
-                                                      rel="noopener noreferrer"
-                                                      className="flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 hover:border-primary transition-colors"
-                                                    >
-                                                      <Paperclip size={18} className="text-primary shrink-0" />
-                                                      <span className="text-[10px] font-medium text-foreground truncate">
-                                                        Adjunto {docIndex + 1}
-                                                      </span>
-                                                    </a>
-                                                  )
-                                                })}
-                                              </div>
-                                            </div>
-                                          )}
-
-                                          {/* Servicios */}
-                                          <div>
-                                            <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">
-                                              Trabajos / Servicios
-                                            </p>
-                                            {loadingServicios[solicitud.id] ? (
-                                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                                <Loader2 size={14} className="animate-spin" />
-                                                Cargando servicios...
-                                              </div>
-                                            ) : (
-                                              <div className="space-y-3">
-                                                {serviciosPorSolicitud[solicitud.id]?.map((servicio: any) => (
-                                                  <div key={servicio.id} className="border border-border rounded-lg p-3 bg-white">
-                                                    <p className="text-xs font-medium text-foreground mb-2">{servicio.nombre}</p>
-                                                    {servicio.descripcion && (
-                                                      <p className="text-[10px] text-muted-foreground mb-2">{servicio.descripcion}</p>
-                                                    )}
-                                                    {servicio.precio && (
-                                                      <p className="text-[10px] font-medium text-primary">
-                                                        Precio: ${servicio.precio?.toLocaleString()}
-                                                      </p>
-                                                    )}
-                                                  </div>
-                                                ))}
-                                                {(!serviciosPorSolicitud[solicitud.id] || serviciosPorSolicitud[solicitud.id].length === 0) && (
-                                                  <p className="text-xs text-muted-foreground">No hay servicios registrados.</p>
-                                                )}
+                                                  })}
+                                                </div>
                                               </div>
                                             )}
+
+                                            {/* Servicios */}
+                                            <div>
+                                              <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">
+                                                Trabajos / Servicios
+                                              </p>
+                                              {loadingServicios[solicitud.id] ? (
+                                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                                  <Loader2 size={14} className="animate-spin" />
+                                                  Cargando servicios...
+                                                </div>
+                                              ) : (
+                                                <div className="space-y-3">
+                                                  {serviciosPorSolicitud[solicitud.id]?.map((servicio: any) => (
+                                                    <div key={servicio.id} className="border border-border rounded-lg p-3 bg-white">
+                                                      <p className="text-xs font-medium text-foreground mb-2">{servicio.nombre}</p>
+                                                      {servicio.descripcion && (
+                                                        <p className="text-[10px] text-muted-foreground mb-2">{servicio.descripcion}</p>
+                                                      )}
+                                                      {servicio.precio && (
+                                                        <p className="text-[10px] font-medium text-primary">
+                                                          Precio: ${servicio.precio?.toLocaleString()}
+                                                        </p>
+                                                      )}
+                                                    </div>
+                                                  ))}
+                                                  {(!serviciosPorSolicitud[solicitud.id] || serviciosPorSolicitud[solicitud.id].length === 0) && (
+                                                    <p className="text-xs text-muted-foreground">No hay servicios registrados.</p>
+                                                  )}
+                                                </div>
+                                              )}
+                                            </div>
                                           </div>
-                                        </div>
+                                        )}
+
+                                        {/* Tab: Chat con cliente */}
+                                        {tabActiva === "chat" && (
+                                          <div className="bg-gray-50 flex flex-col" style={{ minHeight: "320px" }}>
+                                            {/* Mensajes */}
+                                            <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ maxHeight: "400px" }}>
+                                              {loadingMensajes[solicitud.id] ? (
+                                                <div className="flex justify-center py-8">
+                                                  <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                                                </div>
+                                              ) : !mensajesPorSolicitud[solicitud.id] || mensajesPorSolicitud[solicitud.id].length === 0 ? (
+                                                <div className="flex flex-col items-center justify-center py-10 text-center">
+                                                  <MessageCircle size={32} className="text-muted-foreground mb-2 opacity-40" />
+                                                  <p className="text-xs text-muted-foreground">Sin mensajes aún.</p>
+                                                  <p className="text-[10px] text-muted-foreground mt-1">Envía un mensaje al cliente sobre esta solicitud.</p>
+                                                </div>
+                                              ) : (
+                                                mensajesPorSolicitud[solicitud.id].map((msg, idx, arr) => {
+                                                  const esAdmin = msg.autor === "admin"
+                                                  const fechaActual = new Date(msg.created_at).toDateString()
+                                                  const fechaAnterior = idx > 0 ? new Date(arr[idx - 1].created_at).toDateString() : null
+                                                  const mostrarFecha = fechaActual !== fechaAnterior
+
+                                                  return (
+                                                    <div key={msg.id}>
+                                                      {mostrarFecha && (
+                                                        <div className="flex items-center gap-2 my-2">
+                                                          <div className="flex-1 h-px bg-border" />
+                                                          <span className="text-[10px] text-muted-foreground px-2">
+                                                            {new Date(msg.created_at).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" })}
+                                                          </span>
+                                                          <div className="flex-1 h-px bg-border" />
+                                                        </div>
+                                                      )}
+                                                      <div className={`flex flex-col ${esAdmin ? "items-end" : "items-start"}`}>
+                                                        <div className={`flex items-center gap-1 mb-1 text-[10px] text-muted-foreground ${esAdmin ? "flex-row-reverse" : ""}`}>
+                                                          {esAdmin ? (
+                                                            <Shield size={11} className="text-primary" />
+                                                          ) : (
+                                                            <User size={11} />
+                                                          )}
+                                                          <span>{esAdmin ? "Admin" : cliente.nombre}</span>
+                                                        </div>
+                                                        <div
+                                                          className={`max-w-[75%] rounded-xl px-3 py-2 text-xs leading-relaxed ${
+                                                            esAdmin
+                                                              ? "bg-primary text-primary-foreground rounded-tr-sm"
+                                                              : "bg-white border border-border text-foreground rounded-tl-sm"
+                                                          }`}
+                                                        >
+                                                          {msg.contenido}
+                                                        </div>
+                                                        <span className="text-[10px] text-muted-foreground mt-1">
+                                                          {formatFechaMensaje(msg.created_at)}
+                                                        </span>
+                                                      </div>
+                                                    </div>
+                                                  )
+                                                })
+                                              )}
+                                              <div ref={(el) => { chatBottomRefs.current[solicitud.id] = el }} />
+                                            </div>
+
+                                            {/* Input de mensaje */}
+                                            <div className="border-t border-border bg-white p-3">
+                                              <div className="flex gap-2 items-end">
+                                                <textarea
+                                                  value={mensajeInput[solicitud.id] ?? ""}
+                                                  onChange={(e) =>
+                                                    setMensajeInput((prev) => ({ ...prev, [solicitud.id]: e.target.value }))
+                                                  }
+                                                  onKeyDown={(e) => {
+                                                    if (e.key === "Enter" && !e.shiftKey) {
+                                                      e.preventDefault()
+                                                      handleEnviarMensaje(solicitud.id)
+                                                    }
+                                                  }}
+                                                  placeholder="Escribe un mensaje al cliente… (Enter para enviar)"
+                                                  rows={1}
+                                                  className="flex-1 resize-none rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+                                                  style={{ maxHeight: "80px" }}
+                                                  onInput={(e) => {
+                                                    const el = e.currentTarget
+                                                    el.style.height = "auto"
+                                                    el.style.height = Math.min(el.scrollHeight, 80) + "px"
+                                                  }}
+                                                />
+                                                <button
+                                                  onClick={() => handleEnviarMensaje(solicitud.id)}
+                                                  disabled={enviandoMensaje[solicitud.id] || !mensajeInput[solicitud.id]?.trim()}
+                                                  className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+                                                >
+                                                  {enviandoMensaje[solicitud.id] ? (
+                                                    <Loader2 size={14} className="animate-spin" />
+                                                  ) : (
+                                                    <Send size={14} />
+                                                  )}
+                                                </button>
+                                              </div>
+                                              <p className="text-[10px] text-muted-foreground mt-1.5">
+                                                Shift+Enter para nueva línea
+                                              </p>
+                                            </div>
+                                          </div>
+                                        )}
                                       </motion.div>
                                     )}
                                   </AnimatePresence>
@@ -881,6 +1297,69 @@ export default function ClientesPage() {
                     </motion.div>
                   )}
                 </AnimatePresence>
+
+                {mostrarEstadoCuenta[cliente.id] && (
+                  <div className="border-t border-border bg-background/40 p-5">
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                        <Wallet size={16} />
+                        Estado de Cuenta
+                      </h4>
+                      {loadingEstadoCuenta[cliente.id] ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      ) : (
+                        <span className="text-xs text-muted-foreground">
+                          Total: <span className="font-semibold text-foreground">${(totalPagarPorCliente[cliente.id] || 0).toLocaleString("es-CO")}</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {!itemsEstadoCuenta[cliente.id] || itemsEstadoCuenta[cliente.id].length === 0 ? (
+                      <p className="text-xs text-muted-foreground text-center py-3">
+                        No hay servicios con precio registrado para este cliente.
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="border-b border-border/60">
+                              <th className="pb-2 pr-3 font-medium text-muted-foreground">#</th>
+                              <th className="pb-2 pr-3 font-medium text-muted-foreground">Servicio</th>
+                              <th className="pb-2 pr-3 font-medium text-muted-foreground">Solicitud</th>
+                              <th className="pb-2 pr-3 font-medium text-muted-foreground">Fecha</th>
+                              <th className="pb-2 pr-3 font-medium text-muted-foreground">Estado</th>
+                              <th className="pb-2 text-right font-medium text-muted-foreground">Precio</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border/40">
+                            {(itemsEstadoCuenta[cliente.id] || []).map((item, index) => (
+                              <tr key={item.solicitudId}>
+                                <td className="py-2 pr-3 text-muted-foreground">{index + 1}</td>
+                                <td className="py-2 pr-3 font-medium text-foreground">{item.servicio}</td>
+                                <td className="py-2 pr-3">
+                                  <span className="inline-flex items-center rounded-full border border-border bg-background/70 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                    SOL-{String(item.solicitudId).padStart(3, "0")}
+                                  </span>
+                                </td>
+                                <td className="py-2 pr-3 text-muted-foreground">
+                                  {new Date(item.fecha).toLocaleDateString()}
+                                </td>
+                                <td className="py-2 pr-3">
+                                  <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-[10px] font-medium text-primary capitalize">
+                                    {item.estado.replace("_", " ")}
+                                  </span>
+                                </td>
+                                <td className="py-2 text-right font-semibold text-foreground">
+                                  {item.precio ? `$${item.precio.toLocaleString("es-CO")}` : "-"}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                )}
               </motion.div>
             )
           })

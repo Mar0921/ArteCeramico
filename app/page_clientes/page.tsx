@@ -28,7 +28,10 @@ import {
   Search,
   Eye,
   AlertCircle,
+  Wallet,
 } from "lucide-react"
+
+import { Navbar } from "@/components/navbar"
 
 interface Servicio {
   id: number
@@ -50,11 +53,33 @@ interface Solicitud {
   id: number
   cliente_id: number
   servicio: string
-  observaciones: string
   estado: string
-  urls_documentos: string[]
   created_at: string
-  updated_at: string
+  updated_at: string | null
+  observaciones: string
+  precio: number | null
+  urls_documentos: string[]
+  fecha_elaboracion: string | null
+  fecha_entrega: string | null
+  historia_clinica: string | null
+  odontologo: string | null
+  cc_odontologo: string | null
+  paciente: string | null
+  cc_paciente: string | null
+  direccion: string | null
+  firma: string | null
+  tipos_trabajo: string[] | null
+  materiales: string[] | null
+  chimenea: string | null
+  prueba: string | null
+  terminado: string | null
+  color: string | null
+  guia: string | null
+  piezas_enviadas: string[] | null
+  caja: string | null
+  codigo_trazabilidad: string | null
+  dientes_trabajados: string[] | null
+  dibujo_odontologo: string | null
   declaracion_conformidad: string | null
   guia_fabricacion: string | null
   manual_uso: string | null
@@ -112,10 +137,15 @@ export default function ClientesPage() {
   const [uploadingDoc, setUploadingDoc] = useState<Record<string, boolean>>({})
   const [uploadError, setUploadError] = useState<Record<string, string>>({})
   const [uploadSuccess, setUploadSuccess] = useState<Record<string, boolean>>({})
+  const [mostrarEstadoCuenta, setMostrarEstadoCuenta] = useState(false)
+  const [itemsEstadoCuenta, setItemsEstadoCuenta] = useState<{ solicitudId: number; servicio: string; precio: number | null; estado: string; fecha: string }[]>([])
+  const [totalPagar, setTotalPagar] = useState(0)
+  const [procesandoPago, setProcesandoPago] = useState(false)
 
   const [editMode, setEditMode] = useState(false)
   const [editData, setEditData] = useState<Partial<Cliente>>({})
   const [saving, setSaving] = useState(false)
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
 
   const { toast } = useToast()
 
@@ -180,24 +210,82 @@ export default function ClientesPage() {
     loadClient()
   }, [router])
 
-  const cargarSolicitudes = async (clienteId: number) => {
-    setLoadingSolicitudes(true)
-    try {
-      const { data, error } = await supabase
-        .from("solicitudes")
-        .select("*")
-        .eq("cliente_id", clienteId)
-        .order("created_at", { ascending: false })
+   const cargarSolicitudes = async (clienteId: number) => {
+     setLoadingSolicitudes(true)
+     try {
+       const { data, error } = await supabase
+         .from("solicitudes")
+         .select("*")
+         .eq("cliente_id", clienteId)
+         .order("created_at", { ascending: false })
 
-      if (error) throw error
+       if (error) throw error
 
-      setSolicitudes(data ?? [])
-    } catch (err) {
-      console.error("Error cargando solicitudes", err)
-    } finally {
-      setLoadingSolicitudes(false)
-    }
-  }
+       setSolicitudes(data ?? [])
+       await cargarEstadoCuenta(clienteId, data ?? [])
+     } catch (err) {
+       console.error("Error cargando solicitudes", err)
+     } finally {
+       setLoadingSolicitudes(false)
+     }
+   }
+
+   const cargarEstadoCuenta = async (clienteId: number, solicitudesData: Solicitud[]) => {
+     try {
+       const { data, error } = await supabase
+         .from("servicios")
+         .select("id, solicitud_id, nombre, precio, created_at")
+         .in("solicitud_id", solicitudesData.map(s => s.id))
+         .order("created_at", { ascending: true })
+
+       if (error) throw error
+
+       const solicitudesMap = new Map(solicitudesData.map(s => [s.id, s]))
+
+       const items = (data ?? [])
+         .filter((item: any) => item.precio && Number(item.precio) > 0)
+         .map((item: any) => {
+           const solicitud = solicitudesMap.get(item.solicitud_id)
+           return {
+             solicitudId: item.solicitud_id,
+             servicio: item.nombre,
+             precio: Number(item.precio),
+             estado: solicitud?.estado || "pendiente",
+             fecha: solicitud?.created_at || item.created_at || "",
+           }
+         })
+
+       setItemsEstadoCuenta(items)
+       setTotalPagar(items.reduce((acc, item) => acc + item.precio, 0))
+     } catch (err) {
+       console.error("Error cargando estado de cuenta:", err)
+     }
+   }
+
+   const handlePagar = async () => {
+     if (totalPagar <= 0 || itemsEstadoCuenta.length === 0) return
+
+     setProcesandoPago(true)
+     try {
+       await new Promise(resolve => setTimeout(resolve, 600))
+       const resumen = itemsEstadoCuenta
+         .map(item => `• ${item.servicio} (${new Date(item.fecha).toLocaleDateString()}): $${item.precio.toLocaleString("es-CO")}`)
+         .join("\n")
+       alert(
+         `RESUMEN DE PAGO\n\n${resumen}\n\n TOTAL: $${totalPagar.toLocaleString("es-CO")}\n\n` +
+         `Formas de pago disponibles:\n` +
+         `• Efectivo\n` +
+         `• Transferencia bancaria\n` +
+         `• PSE\n` +
+         `• Tarjetas crédito y débito\n\n` +
+         `Una vez realizado el pago, envía el comprobante por este medio para validar.`
+       )
+     } catch (err) {
+       console.error("Error preparando pago:", err)
+     } finally {
+       setProcesandoPago(false)
+     }
+   }
 
   const formatearBytes = (bytes: number) => {
     if (bytes === 0) return "0 Bytes"
@@ -553,47 +641,10 @@ export default function ClientesPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
-      {/* HEADER */}
-      <header className="sticky top-0 z-50 border-b border-border/40 bg-background/70 backdrop-blur-xl">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4">
-          <div className="flex items-center gap-4">
-            <div className="rounded-2xl bg-primary/10 p-3">
-              <User className="text-primary" />
-            </div>
-
-            <div>
-              <h1 className="text-2xl font-bold text-foreground">
-                Panel Cliente
-              </h1>
-
-              <p className="text-sm text-muted-foreground">
-                Bienvenido, {editMode ? editData.nombre ?? clientData.nombre : clientData.nombre}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Link
-              href="/"
-              className="flex items-center gap-2 rounded-xl border border-border bg-card/50 px-4 py-2 text-sm font-medium transition-all hover:bg-muted"
-            >
-              <Home size={16} />
-              Inicio
-            </Link>
-
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 rounded-xl border border-border bg-card/50 px-4 py-2 text-sm font-medium transition-all hover:bg-muted"
-            >
-              <LogOut size={16} />
-              Cerrar sesión
-            </button>
-          </div>
-        </div>
-      </header>
+      <Navbar />
 
       {/* CONTENT */}
-      <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 py-8">
+      <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 py-8 pt-20">
         {/* INFO CARD */}
 <section className="rounded-3xl border border-border/50 bg-card/60 p-8 shadow-2xl backdrop-blur-xl">
            <div className="mb-6 flex items-center justify-between gap-3">
@@ -613,40 +664,49 @@ export default function ClientesPage() {
                </div>
              </div>
 
-             {!editMode && (
-               <button
-                 onClick={handleStartEdit}
-                 className="flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition-all hover:bg-primary/20"
-               >
-                 <Edit size={16} />
-                 Editar
-               </button>
-             )}
-             {editMode && (
-               <div className="flex gap-2">
-                 <button
-                   onClick={handleCancelEdit}
-                   disabled={saving}
-                   className="flex items-center gap-2 rounded-xl border border-border bg-card/50 px-4 py-2 text-sm font-medium transition-all hover:bg-muted"
-                 >
-                   <X size={16} />
-                   Cancelar
-                 </button>
-                 <button
-                   onClick={handleSave}
-                   disabled={saving}
-                   className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all hover:scale-[1.02] disabled:opacity-50"
-                 >
-                   {saving ? (
-                     <Loader2 size={16} className="animate-spin" />
-                   ) : (
-                     <Save size={16} />
-                   )}
-                   Guardar
-                 </button>
-               </div>
-             )}
-           </div>
+              {!editMode && (
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleStartEdit}
+                    className="flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition-all hover:bg-primary/20"
+                  >
+                    <Edit size={16} />
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => setShowLogoutConfirm(true)}
+                    className="flex items-center gap-2 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-600 transition-all hover:bg-red-500/20"
+                  >
+                    <LogOut size={16} />
+                    Cerrar sesión
+                  </button>
+                </div>
+              )}
+               {editMode && (
+                 <div className="flex gap-2">
+                   <button
+                     onClick={handleCancelEdit}
+                     disabled={saving}
+                     className="flex items-center gap-2 rounded-xl border border-border bg-card/50 px-4 py-2 text-sm font-medium transition-all hover:bg-muted"
+                   >
+                     <X size={16} />
+                     Cancelar
+                   </button>
+                   <button
+                     onClick={handleSave}
+                     disabled={saving}
+                     className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all hover:scale-[1.02] disabled:opacity-50"
+                   >
+                     {saving ? (
+                       <Loader2 size={16} className="animate-spin" />
+                     ) : (
+                       <Save size={16} />
+                     )}
+                     Guardar
+                   </button>
+                 </div>
+               )}
+            </div>
 
            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
              <EditableInfoItem
@@ -706,8 +766,159 @@ export default function ClientesPage() {
                value={new Date(clientData.created_at).toLocaleDateString()}
                editable={false}
              />
-           </div>
-         </section>
+          </div>
+        </section>
+
+        {showLogoutConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+            <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
+              <h3 className="mb-2 text-lg font-semibold text-foreground">
+                Cerrar sesión
+              </h3>
+              <p className="mb-6 text-sm text-muted-foreground">
+                ¿Estás seguro de que deseas cerrar sesión? Podrás volver a ingresar cuando lo necesites.
+              </p>
+              <div className="flex items-center justify-end gap-3">
+                <button
+                  onClick={() => setShowLogoutConfirm(false)}
+                  className="rounded-xl border border-border bg-card/50 px-4 py-2 text-sm font-medium transition-all hover:bg-muted"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleLogout}
+                  className="rounded-xl bg-red-500 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-red-600"
+                >
+                  Cerrar sesión
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ESTADO DE CUENTA */}
+        <section className="rounded-3xl border border-border/50 bg-card/60 p-8 shadow-2xl backdrop-blur-xl">
+          <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-primary/10 p-2">
+                <Wallet className="text-primary" size={20} />
+              </div>
+
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">
+                  Estado de Cuenta
+                </h2>
+
+                <p className="text-sm text-muted-foreground">
+                  Consulta el saldo pendiente de tus servicios
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setMostrarEstadoCuenta(prev => !prev)}
+              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-all hover:scale-[1.02] sm:w-auto"
+            >
+              {mostrarEstadoCuenta ? (
+                <>
+                  <X size={18} />
+                  Ocultar estado
+                </>
+              ) : (
+                <>
+                  <Wallet size={18} />
+                  Ver estado de cuenta
+                </>
+              )}
+            </button>
+          </div>
+
+          {mostrarEstadoCuenta && (
+            <div className="rounded-2xl border border-border/60 bg-background/40 p-6">
+              {itemsEstadoCuenta.length === 0 ? (
+                <div className="py-8 text-center">
+                  <Wallet className="mx-auto h-10 w-10 text-muted-foreground" />
+                  <p className="mt-2 text-sm font-medium text-foreground">
+                    No hay servicios con precio registrado
+                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Los servicios aparecerán aquí cuando tengan un valor asignado
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                      <thead>
+                        <tr className="border-b border-border/60">
+                          <th className="pb-3 pr-4 font-medium text-muted-foreground">#</th>
+                          <th className="pb-3 pr-4 font-medium text-muted-foreground">Servicio</th>
+                          <th className="pb-3 pr-4 font-medium text-muted-foreground">Solicitud</th>
+                          <th className="pb-3 pr-4 font-medium text-muted-foreground">Fecha</th>
+                          <th className="pb-3 pr-4 font-medium text-muted-foreground">Estado</th>
+                          <th className="pb-3 text-right font-medium text-muted-foreground">Precio</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border/40">
+                        {itemsEstadoCuenta.map((item, index) => (
+                          <tr key={item.solicitudId} className="transition-colors hover:bg-background/30">
+                            <td className="py-3 pr-4 text-muted-foreground">{index + 1}</td>
+                            <td className="py-3 pr-4 font-medium text-foreground">{item.servicio}</td>
+                            <td className="py-3 pr-4">
+                              <span className="inline-flex items-center rounded-full border border-border bg-background/70 px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                                SOL-{String(item.solicitudId).padStart(3, "0")}
+                              </span>
+                            </td>
+                            <td className="py-3 pr-4 text-muted-foreground">
+                              {new Date(item.fecha).toLocaleDateString()}
+                            </td>
+                            <td className="py-3 pr-4">
+                              <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary capitalize">
+                                {item.estado.replace("_", " ")}
+                              </span>
+                            </td>
+                            <td className="py-3 text-right font-semibold text-foreground">
+                              {item.precio ? `$${item.precio.toLocaleString("es-CO")}` : "-"}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="mt-6 flex flex-col items-end gap-4 border-t border-border/60 pt-6">
+                    <div className="flex items-center gap-6">
+                      <span className="text-sm text-muted-foreground">
+                        Total a pagar
+                      </span>
+                      <span className="text-2xl font-bold text-foreground">
+                        ${totalPagar.toLocaleString("es-CO")}
+                      </span>
+                    </div>
+
+                    <button
+                      onClick={handlePagar}
+                      disabled={procesandoPago || totalPagar === 0}
+                      className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg transition-all duration-300 hover:scale-[1.02] hover:bg-primary-dark hover:shadow-xl disabled:opacity-50"
+                    >
+                      {procesandoPago ? (
+                        <>
+                          <Loader2 size={18} className="animate-spin" />
+                          Procesando pago...
+                        </>
+                      ) : (
+                        <>
+                          <Wallet size={18} />
+                          Pagar ahora
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </section>
 
         {/* SOLICITUDES DE SERVICIO */}
         <section className="rounded-3xl border border-border/50 bg-card/60 p-8 shadow-2xl backdrop-blur-xl">
@@ -931,10 +1142,73 @@ export default function ClientesPage() {
                           {solicitud.servicio}
                         </p>
 
-                        {solicitud.observaciones && (
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            {solicitud.observaciones}
-                          </p>
+                         {solicitud.observaciones && (
+                           <p className="mt-1 text-sm text-muted-foreground">
+                             {solicitud.observaciones}
+                           </p>
+                         )}
+
+                        {(solicitud.odontologo || solicitud.cc_odontologo || solicitud.paciente || solicitud.cc_paciente || solicitud.historia_clinica || solicitud.fecha_elaboracion || solicitud.fecha_entrega || solicitud.caja || solicitud.codigo_trazabilidad || solicitud.guia) && (
+                          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground">
+                            {(solicitud as any).odontologo && (
+                              <div><span className="text-gray-500">Dr(a):</span> <span className="text-gray-800">{(solicitud as any).odontologo}</span></div>
+                            )}
+                            {(solicitud as any).cc_odontologo && (
+                              <div><span className="text-gray-500">CC Odontólogo:</span> <span className="text-gray-800">{(solicitud as any).cc_odontologo}</span></div>
+                            )}
+                            {(solicitud as any).paciente && (
+                              <div><span className="text-gray-500">Paciente:</span> <span className="text-gray-800">{(solicitud as any).paciente}</span></div>
+                            )}
+                            {(solicitud as any).cc_paciente && (
+                              <div><span className="text-gray-500">CC Paciente:</span> <span className="text-gray-800">{(solicitud as any).cc_paciente}</span></div>
+                            )}
+                            {(solicitud as any).fecha_elaboracion && (
+                              <div><span className="text-gray-500">Elaboración:</span> <span className="text-gray-800">{(solicitud as any).fecha_elaboracion}</span></div>
+                            )}
+                            {(solicitud as any).fecha_entrega && (
+                              <div><span className="text-gray-500">Entrega:</span> <span className="text-gray-800">{(solicitud as any).fecha_entrega}</span></div>
+                            )}
+                            {(solicitud as any).historia_clinica && (
+                              <div><span className="text-gray-500">Historia Clínica:</span> <span className="text-gray-800">#{(solicitud as any).historia_clinica}</span></div>
+                            )}
+                            {(solicitud as any).caja && (
+                              <div><span className="text-gray-500">Caja:</span> <span className="text-gray-800">#{(solicitud as any).caja}</span></div>
+                            )}
+                            {(solicitud as any).codigo_trazabilidad && (
+                              <div><span className="text-gray-500">Trazabilidad:</span> <span className="text-gray-800">#{(solicitud as any).codigo_trazabilidad}</span></div>
+                            )}
+                            {(solicitud as any).guia && (
+                              <div><span className="text-gray-500">Guía:</span> <span className="text-gray-800">{(solicitud as any).guia}</span></div>
+                            )}
+                            {(solicitud as any).tipos_trabajo?.length > 0 && (
+                              <div className="contents">
+                                {(solicitud as any).tipos_trabajo.map((tipo: string, i: number) => (
+                                  <span key={i} className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700 w-fit">{tipo}</span>
+                                ))}
+                              </div>
+                            )}
+                            {(solicitud as any).materiales?.length > 0 && (
+                              <div className="contents">
+                                {(solicitud as any).materiales.map((mat: string, i: number) => (
+                                  <span key={i} className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700 w-fit">{mat}</span>
+                                ))}
+                              </div>
+                            )}
+                            {(solicitud as any).piezas_enviadas?.length > 0 && (
+                              <div className="contents">
+                                {(solicitud as any).piezas_enviadas.map((pieza: string, i: number) => (
+                                  <span key={i} className="inline-flex rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-700 w-fit">{pieza}</span>
+                                ))}
+                              </div>
+                            )}
+                            {(solicitud as any).dientes_trabajados?.length > 0 && (
+                              <div className="contents">
+                                {(solicitud as any).dientes_trabajados.map((diente: string, i: number) => (
+                                  <span key={i} className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700 w-fit">#{diente}</span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
                         )}
 
                         <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -1112,7 +1386,62 @@ export default function ClientesPage() {
                 {selectedSolicitud.observaciones && (
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Observaciones</p>
-                    <p className="text-sm text-foreground">{selectedSolicitud.observaciones}</p>
+                    <p className="text-sm text-foreground whitespace-pre-wrap">{selectedSolicitud.observaciones}</p>
+                  </div>
+                )}
+
+                {(selectedSolicitud as any).odontologo && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Odontólogo(a)</p>
+                    <p className="text-sm text-foreground">{(selectedSolicitud as any).odontologo}</p>
+                  </div>
+                )}
+                {(selectedSolicitud as any).cc_odontologo && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">CC. Odontólogo</p>
+                    <p className="text-sm text-foreground">{(selectedSolicitud as any).cc_odontologo}</p>
+                  </div>
+                )}
+                {(selectedSolicitud as any).paciente && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Paciente</p>
+                    <p className="text-sm text-foreground">{(selectedSolicitud as any).paciente}</p>
+                  </div>
+                )}
+                {(selectedSolicitud as any).cc_paciente && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">CC. Paciente</p>
+                    <p className="text-sm text-foreground">{(selectedSolicitud as any).cc_paciente}</p>
+                  </div>
+                )}
+                {(selectedSolicitud as any).direccion && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Dirección</p>
+                    <p className="text-sm text-foreground">{(selectedSolicitud as any).direccion}</p>
+                  </div>
+                )}
+                {(selectedSolicitud as any).firma && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Firma</p>
+                    <p className="text-sm text-foreground">{(selectedSolicitud as any).firma}</p>
+                  </div>
+                )}
+                {(selectedSolicitud as any).historia_clinica && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Historia Clínica</p>
+                    <p className="text-sm text-foreground">#{(selectedSolicitud as any).historia_clinica}</p>
+                  </div>
+                )}
+                {(selectedSolicitud as any).fecha_elaboracion && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Fecha Elaboración</p>
+                    <p className="text-sm text-foreground">{(selectedSolicitud as any).fecha_elaboracion}</p>
+                  </div>
+                )}
+                {(selectedSolicitud as any).fecha_entrega && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Fecha Entrega</p>
+                    <p className="text-sm text-foreground">{(selectedSolicitud as any).fecha_entrega}</p>
                   </div>
                 )}
 

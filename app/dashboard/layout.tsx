@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { Sidebar } from "@/components/dashboard/sidebar"
+import { Navbar } from "@/components/navbar"
 
 export default function DashboardLayout({
   children,
@@ -12,6 +13,7 @@ export default function DashboardLayout({
 
   return (
     <div className="flex min-h-screen bg-background">
+      <Navbar showClientButtons />
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex flex-1 flex-col lg:ml-0">
         <div className="sticky top-0 z-30 flex h-16 items-center border-b border-border bg-card px-4 lg:hidden">
@@ -36,8 +38,8 @@ export default function DashboardLayout({
           </button>
           <span className="ml-4 font-semibold text-foreground">Admin Panel</span>
         </div>
-        <main className="flex-1 p-4 lg:p-6 lg:max-w-7xl lg:mx-auto">{children}</main>
-      </div>
+                <main className="flex-1 p-4 lg:p-6 lg:max-w-7xl lg:mx-auto pt-24">{children}</main>
+       </div>
     </div>
   )
 }
