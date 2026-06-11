@@ -40,43 +40,49 @@ interface ConversationContext {
 
 const categories: Category[] = [
   {
-    id: "yesos",
-    title: "YESOS",
-    keywords: ["yeso", "modelo", "matriz", "duplicado", "encía", "antagonista"],
+    id: "acrilicos",
+    title: "ACRÍLICOS",
+    keywords: ["acrílico", "acrilico", "plato base", "rodete", "pmma", "hibrida pmma"],
     items: [
-      { name: "DUPLICADO MODELO", price: "$45.000" },
-      { name: "MATRIZ SILICONA", price: "$55.000" },
-      { name: "MODELO CON ENCIA", price: "$65.000" },
-      { name: "MODELO YESO ANTAGONISTA TIPO 3", price: "$30.000" },
-      { name: "MODELO YESO IV", price: "$42.000" },
+      { name: "Provisional PMMA", price: "$100.000" },
+      { name: "Provisional sobre implante", price: "$120.000" },
+      { name: "Híbrida PMMA unidad", price: "$210.000" },
+      { name: "Plato base con rodete", price: "$45.000" },
+    ]
+  },
+  {
+    id: "libre-metal",
+    title: "LIBRE DE METAL",
+    keywords: ["libre metal", "disilicato", "zirconio", "carilla", "incrustacion zirconio", "apoyo disilicato", "apoyo balcón"],
+    items: [
+      { name: "Corona disilicato maquillada", price: "$330.000" },
+      { name: "Carilla disilicato", price: "$310.000" },
+      { name: "Incrustación disilicato", price: "$300.000" },
+      { name: "Apoyo disilicato", price: "$115.000" },
+      { name: "Corona zirconio maquillada", price: "$340.000" },
+      { name: "Incrustación zirconio", price: "$315.000" },
+      { name: "Apoyo, balcón zirconio", price: "$85.000" },
+    ]
+  },
+  {
+    id: "implantologia",
+    title: "IMPLANTOLOGÍA",
+    keywords: ["implante", "implantología", "implantologia", "atornillada", "microfresado"],
+    items: [
+      { name: "Microfresado", price: "$130.000" },
+      { name: "Corona MP atornillada", price: "$320.000" },
+      { name: "Corona atornillada disilicato", price: "$380.000" },
+      { name: "Corona atornillada zirconio", price: "$380.000" },
     ]
   },
   {
     id: "metal",
     title: "METAL",
-    keywords: ["metal", "barra titanio", "cofia", "collar", "núcleo", "gingiva", "hibrida metal"],
+    keywords: ["metal", "hibrida metal-acrilico", "hibrida metal-porcelana"],
     items: [
-      { name: "BARRA TITANIO", price: "$1.800.000" },
-      { name: "CENTRAL UNICO", price: "$330.000" },
-      { name: "COFIA ATORNILLADA", price: "$220.000" },
-      { name: "COFIA METAL", price: "$160.000" },
-      { name: "COLLAR", price: "$60.000" },
-      { name: "CORONA METAL PORCELANA", price: "$315.000" },
-      { name: "GINGIVAS ESTRATIFICADA", price: "$210.000" },
-      { name: "HIBRIDA METAL-ACRILICO", price: "$3.200.000" },
-      { name: "NUCLEO", price: "$90.000" },
-      { name: "PORCELANA HIBRIDA UNIDAD", price: "$600.000" },
-    ]
-  },
-  {
-    id: "acrilicos",
-    title: "ACRILICOS",
-    keywords: ["acrílico", "acrilico", "plato base", "rodete", "pmma", "hibrida pmma"],
-    items: [
-      { name: "PLATO BASE Y RODETE", price: "$45.000" },
-      { name: "PROVISIONAL PMMA", price: "$100.000" },
-      { name: "PROVISIONAL SOBRE IMPLANTE PMMA", price: "$210.000" },
-      { name: "HIBRIDA PMMA UNIDAD", price: "$210.000" },
+      { name: "Corona metal porcelana", price: "$315.000" },
+      { name: "Híbrida metal-acrílico (Duratone)", price: "$3.200.000" },
+      { name: "Híbrida metal-porcelana unidad", price: "$600.000" },
     ]
   },
   {
@@ -84,63 +90,20 @@ const categories: Category[] = [
     title: "ENCERADOS",
     keywords: ["encerado", "dx", "guía", "guia"],
     items: [
-      { name: "ENCERADO DX", price: "$40.000" },
-      { name: "ENCERADO GUIA", price: "$35.000" },
+      { name: "Encerado DX", price: "$40.000" },
+      { name: "Encerado guía", price: "$35.000" },
     ]
   },
   {
     id: "resinas-impresas",
     title: "RESINAS IMPRESAS",
-    keywords: ["resina", "impresa", "3d", "carilla resina", "corona resina", "incrustacion resina"],
+    keywords: ["resina", "impresa", "3d", "modelos 3d", "carillas impresas", "coronas impresas", "incrustaciones impresas"],
     items: [
-      { name: "CARILLA", price: "$180.000" },
-      { name: "CORONA", price: "$200.000" },
-      { name: "INCRUSTACION", price: "$180.000" },
-      { name: "MODELOS 3D COMPLETOS", price: "$100.000" },
-      { name: "MODELOS 3D MEDIA ARCADA", price: "$60.000" },
-    ]
-  },
-  {
-    id: "libre-metal",
-    title: "LIBRE DE METAL",
-    keywords: ["libre metal", "disilicato", "zirconio", "carilla", "incrustacion zirconio", "central unico"],
-    items: [
-      { name: "APOYO DISILICATO", price: "$115.000" },
-      { name: "APOYO, BALCON ZIRCONIO", price: "$85.000" },
-      { name: "CARILLA DISILICATO", price: "$310.000" },
-      { name: "CENTRAL UNICO DISILICATO", price: "$380.000" },
-      { name: "CENTRAL UNICO EN ZIRCONIO", price: "$380.000" },
-      { name: "CORONA DISILICATO ESTRATIFICADA", price: "$365.000" },
-      { name: "CORONA DISILICATO MAQUILADA", price: "$330.000" },
-      { name: "CORONA ZIRCONIO ESTRATIFICADA", price: "$365.000" },
-      { name: "CORONA ZIRCONIO MAQUILADA", price: "$340.000" },
-      { name: "GINGIVA ESTRATIFICADA", price: "$210.000" },
-      { name: "INCRUSTACION DISILICATO", price: "$300.000" },
-      { name: "INCRUSTACION ZIRCONIO", price: "$315.000" },
-    ]
-  },
-  {
-    id: "implantologia",
-    title: "IMPLANTOLOGIA",
-    keywords: ["implante", "implantología", "implantologia", "atonillada", "fresado", "montura", "abutment", "opacado"],
-    items: [
-      { name: "CORONA ATORNILLADA DISILICATO", price: "$380.000" },
-      { name: "CORONA ATORNILLADA ZIRCONIO", price: "$380.000" },
-      { name: "CORONA MP ATORNILLADA", price: "$320.000" },
-      { name: "FRESADO MONTURA", price: "$70.000" },
-      { name: "MICROFRESADO", price: "$130.000" },
-      { name: "OPACADO DE ABUTMENT CERAMIZADO", price: "$70.000" },
-      { name: "OPACADO DE ABUTMENT POLIMERIZADO", price: "$55.000" },
-    ]
-  },
-  {
-    id: "uclas",
-    title: "UCLAS (ANILLO EN CROMO)",
-    keywords: ["ucla", "bh", "zimmer", "straumann", "anillo", "cromo", "bh 3.0"],
-    items: [
-      { name: "BH - ZIMMER 3.5 - 4.5", price: "$210.000", type: "bh", variant: "zimmer" },
-      { name: "BH 3.0", price: "$230.000", type: "bh", variant: "bh30" },
-      { name: "STRAUMANN", price: "$300.000", type: "straumann", variant: "straumann" },
+      { name: "Modelos 3D completos", price: "$100.000" },
+      { name: "Modelos 3D media arcada", price: "$60.000" },
+      { name: "Carillas impresas c/u", price: "$180.000" },
+      { name: "Coronas impresas c/u", price: "$200.000" },
+      { name: "Incrustaciones impresas c/u", price: "$180.000" },
     ]
   }
 ]
@@ -257,31 +220,6 @@ function findServicesByMaterial(query: string): { items: ServiceItem[]; category
   return { items: matchingItems, category: matchedCategory }
 }
 
-function handleUCLAQuery(query: string): { response: string; waitingFor?: string } | null {
-  const normalizedQuery = normalizeText(query)
-  
-  if (normalizedQuery.includes("zimmer") || normalizedQuery.includes("3.5") || normalizedQuery.includes("4.5")) {
-    return { response: `BH - ZIMMER 3.5 - 4.5 tiene un valor de $210.000\n\nNecesitas otro tipo de UCLA?` }
-  }
-  
-  if (normalizedQuery.includes("bh 3.0") || normalizedQuery === "bh3.0" || (normalizedQuery.includes("bh") && normalizedQuery.includes("3.0"))) {
-    return { response: `BH 3.0 tiene un valor de $230.000\n\nNecesitas otro tipo de UCLA?` }
-  }
-  
-  if (normalizedQuery.includes("straumann") && !normalizedQuery.includes("bh")) {
-    return { response: `STRAUMANN tiene un valor de $300.000\n\nNecesitas otro tipo de UCLA?` }
-  }
-  
-  if (normalizedQuery === "bh" || normalizedQuery === "ucla" || normalizedQuery === "anillo cromo") {
-    return { 
-      response: `Tipos de UCLAS disponibles:\n\nBH - ZIMMER 3.5 - 4.5: $210.000\nBH 3.0: $230.000\nSTRAUMANN: $300.000\n\nCuál de estas necesitas? (escribe Zimmer, BH 3.0 o Straumann)`,
-      waitingFor: "ucla_type"
-    }
-  }
-  
-  return null
-}
-
 function getCategoryOptions(categoryId: string): string | null {
   const category = categories.find(c => c.id === categoryId)
   if (!category) return null
@@ -328,15 +266,12 @@ function handleAffirmativeNegative(query: string, context: ConversationContext):
   const affirmatives = ["si", "sí", "claro", "ok", "dale", "bueno", "vale", "sip", "siii"]
   const negatives = ["no", "nop", "nel", "nada", "ninguno", "no gracias"]
   
-  if (affirmatives.includes(normalizedQuery)) {
-    if (context.waitingFor === "directions") {
-      return "Te recomiendo usar Google Maps para las indicaciones exactas:\n" + companyInfo.googleMaps + "\n\nNecesitas otra cosa?"
-    }
-    if (context.waitingFor === "ucla_type") {
-      return "Por favor, indícanos qué tipo de UCLA necesitas:\nZimmer\nBH 3.0\nStraumann"
-    }
-    return "Perfecto, en qué más puedo ayudarte?"
-  }
+if (affirmatives.includes(normalizedQuery)) {
+     if (context.waitingFor === "directions") {
+       return "Te recomiendo usar Google Maps para las indicaciones exactas:\n" + companyInfo.googleMaps + "\n\nNecesitas otra cosa?"
+     }
+     return "Perfecto, en qué más puedo ayudarte?"
+   }
   
   if (negatives.includes(normalizedQuery)) {
     return "De acuerdo! Si necesitas algo más, aquí estoy. Gracias por contactarnos!"
@@ -437,15 +372,29 @@ export async function POST(req: Request): Promise<NextResponse> {
       conversationContext = { lastIntent: "prices", waitingFor: null, lastQuery: message }
     }
 
-    else if (message.includes("bh") || message.includes("ucla") || message.includes("anillo") || message.includes("cromo") || message.includes("zimmer") || message.includes("straumann")) {
-      const uclaResponse = handleUCLAQuery(message)
-      if (uclaResponse) {
-        response = uclaResponse.response
-        conversationContext = { 
-          lastIntent: "uclas", 
-          waitingFor: uclaResponse.waitingFor || null, 
-          lastQuery: message 
-        }
+else if (message.includes("zirconio") || message.includes("disilicato")) {
+      const filtered = findServicesByMaterial(message)
+      response = getFilteredServicesResponse(filtered.items, filtered.category)
+    }
+
+    else if (message.includes("acrilico") || message.includes("acrílico") || message.includes("pmma")) {
+      response = getCategoryOptions("acrilicos") || "No encontré información sobre acrílicos."
+    }
+    else if (message.includes("encerado") || message.includes("dx") || message.includes("guía") || message.includes("guia")) {
+      response = getCategoryOptions("encerados") || "No encontré información sobre encerados."
+    }
+    else if (message.includes("resina impresa") || message.includes("resinas impresas") || (message.includes("3d") && message.includes("modelo"))) {
+      response = getCategoryOptions("resinas-impresas") || "No encontré información sobre resinas impresas."
+    }
+    else if (message.includes("libre metal") || message.includes("libre de metal")) {
+      response = getCategoryOptions("libre-metal") || "No encontré información sobre libre de metal."
+    }
+    else if (message.includes("implante") || message.includes("implantologia") || message.includes("implantología")) {
+      response = getCategoryOptions("implantologia") || "No encontré información sobre implantología."
+    }
+    else if (message.includes("metal")) {
+      response = getCategoryOptions("metal") || "No encontré información sobre metal."
+    }
       } else {
         response = `UCLAS disponibles:\n\nBH - ZIMMER 3.5 - 4.5: $210.000\nBH 3.0: $230.000\nSTRAUMANN: $300.000\n\nCuál necesitas?`
         conversationContext = { lastIntent: "uclas", waitingFor: "ucla_type", lastQuery: message }
@@ -489,7 +438,7 @@ export async function POST(req: Request): Promise<NextResponse> {
       } 
       else {
         response = `Lo siento, no entendí tu consulta. Puedo ayudarte con:\n\n` +
-          `Categorías: Yesos, Metal, Acrílicos, Encerados, Resinas Impresas, Libre de Metal, Implantología, UCLAS\n` +
+          `Categorías: Acrílicos, Libre de Metal, Implantología, Metal, Encerados, Resinas Impresas\n` +
           `Consultar precios de servicios específicos\n` +
           `Información de la empresa (quiénes somos, tecnología, misión, visión)\n` +
           `Tiempos de entrega, materiales, garantía y formas de pago\n` +

@@ -414,30 +414,30 @@ return NextResponse.json(
       )
     }
 
-    const servicioNombre = servicio.includes("|")
+const servicioNombre = servicio.includes("|")
       ? servicio.split("|")[0].trim()
-      : servicio
+      : servicio.split(" - ")[0].trim()
 
     const servicioDescripcion = servicio.includes("|")
       ? servicio
       : observaciones
 
 const servicioData: any = {
-       solicitud_id: solicitudInsertada.id,
-       nombre: servicioNombre,
-       descripcion: servicioDescripcion || observaciones,
-       tipo_trabajo: tiposTrabajo.length > 0 ? tiposTrabajo.join(", ") : null,
-       material: materiales.length > 0 ? materiales.join(", ") : null,
-       dientes: dientesTrabajados.length > 0 ? dientesTrabajados.join(", ") : null,
-       piezas_enviadas: piezasEnviadas.length > 0 ? piezasEnviadas : null,
-     }
+        solicitud_id: solicitudInsertada.id,
+        nombre: servicioNombre,
+        descripcion: servicioDescripcion || observaciones,
+        tipo_trabajo: tiposTrabajo.length > 0 ? tiposTrabajo.join(", ") : null,
+        material: materiales.length > 0 ? materiales.join(", ") : null,
+        dientes: dientesTrabajados.length > 0 ? dientesTrabajados.join(", ") : null,
+        piezas_enviadas: piezasEnviadas.length > 0 ? piezasEnviadas : null,
+      }
 
     const categoria = servicioDescripcion.match(/Categoría: (.+)/i)
     if (categoria && categoria[1]) {
       servicioData.descripcion = `${categoria[1].trim()} - ${observaciones || servicioNombre}`
     }
 
-    const precioMatch = servicioDescripcion.match(/\$[\d\.]+/g)
+    const precioMatch = servicio.match(/\$[\d\.]+/g) || servicioDescripcion.match(/\$[\d\.]+/g)
     if (precioMatch && precioMatch.length > 0) {
       const precioStr = precioMatch[0].replace(/[$,\.]/g, "")
       const precioNum = Number(precioStr)
@@ -490,7 +490,7 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from("solicitudes")
-      .select("id, servicio, estado, created_at, cliente_id")
+      .select("id, servicio, estado, created_at, cliente_id, declaracion_conformidad, guia_fabricacion, manual_uso")
       .order("created_at", { ascending: false })
       .limit(limit)
 
@@ -533,6 +533,9 @@ export async function GET(request: Request) {
       created_at: item.created_at,
       cliente_id: item.cliente_id,
       cliente_nombre: clientesMap.get(item.cliente_id) || "Sin cliente",
+      declaracion_conformidad: item.declaracion_conformidad,
+      guia_fabricacion: item.guia_fabricacion,
+      manual_uso: item.manual_uso,
     }))
 
     return NextResponse.json({ data: formatted })

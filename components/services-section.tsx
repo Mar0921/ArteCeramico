@@ -4,6 +4,34 @@ import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { X, ShoppingCart, ChevronLeft, ChevronRight, Package, ChevronDown } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useSearchParams } from "next/navigation"
+
+const serviceMapping: Record<string, { servicio: string; tipoTrabajo: string[]; material: string[] }> = {
+  "Provisional PMMA": { servicio: "Híbrida PMMA", tipoTrabajo: ["HÍBRIDA"], material: ["PMMA"] },
+  "Provisional sobre implante": { servicio: "Corona sobre Implante", tipoTrabajo: ["CORONA SOBRE IMPLANTE"], material: ["PMMA"] },
+  "Híbrida PMMA unidad": { servicio: "Híbrida PMMA", tipoTrabajo: ["HÍBRIDA"], material: ["PMMA"] },
+  "Plato base con rodete": { servicio: "Prótesis Fija", tipoTrabajo: ["PRÓTESIS FIJA"], material: ["PMMA"] },
+  "Encerado DX": { servicio: "Otro", tipoTrabajo: ["ENCERADO DX"], material: [] },
+  "Encerado guía": { servicio: "Otro", tipoTrabajo: ["ENCERADO DX"], material: [] },
+  "Microfresado": { servicio: "Otro", tipoTrabajo: ["SUB ESTRUCTURA"], material: ["ZIRCONIO"] },
+  "Corona MP atornillada": { servicio: "Corona sobre Implante", tipoTrabajo: ["CORONA SOBRE IMPLANTE"], material: ["ZIRCONIO"] },
+  "Corona atornillada disilicato": { servicio: "Corona sobre Implante", tipoTrabajo: ["CORONA SOBRE IMPLANTE"], material: ["DISILICATO"] },
+  "Corona disilicato maquillada": { servicio: "Corona de Disilicato de Litio", tipoTrabajo: ["CORONA"], material: ["DISILICATO"] },
+  "Carilla disilicato": { servicio: "Carilla de Disilicato", tipoTrabajo: ["CARILLA"], material: ["DISILICATO"] },
+  "Incrustación disilicato": { servicio: "Incrustación", tipoTrabajo: ["INCRUSTACIÓN"], material: ["DISILICATO"] },
+  "Apoyo disilicato": { servicio: "Otro", tipoTrabajo: ["SUB ESTRUCTURA"], material: ["DISILICATO"] },
+  "Corona zirconio maquillada": { servicio: "Corona de Zirconio", tipoTrabajo: ["CORONA"], material: ["ZIRCONIO"] },
+  "Incrustación zirconio": { servicio: "Incrustación", tipoTrabajo: ["INCRUSTACIÓN"], material: ["ZIRCONIO"] },
+  "Apoyo, balcón zirconio": { servicio: "Otro", tipoTrabajo: ["SUB ESTRUCTURA"], material: ["ZIRCONIO"] },
+  "Corona metal porcelana": { servicio: "Corona Metal Porcelana", tipoTrabajo: ["CORONA"], material: ["METAL-CERÁMICA"] },
+  "Híbrida metal-acrílico (Duratone)": { servicio: "Prótesis Fija", tipoTrabajo: ["HÍBRIDA"], material: ["METAL-CERÁMICA"] },
+  "Híbrida metal-porcelana unidad": { servicio: "Prótesis Fija", tipoTrabajo: ["HÍBRIDA"], material: ["METAL-CERÁMICA"] },
+  "Modelos 3D completos": { servicio: "Otro", tipoTrabajo: [], material: [] },
+  "Modelos 3D media arcada": { servicio: "Otro", tipoTrabajo: [], material: [] },
+  "Carillas impresas c/u": { servicio: "Carilla de Resina", tipoTrabajo: ["CARILLA"], material: [] },
+  "Coronas impresas c/u": { servicio: "Corona de Zirconio", tipoTrabajo: ["CORONA"], material: [] },
+  "Incrustaciones impresas c/u": { servicio: "Incrustación", tipoTrabajo: ["INCRUSTACIÓN"], material: [] },
+}
 
 interface Product {
   name: string
@@ -18,99 +46,64 @@ interface Category {
 
 let categories: Category[] = [
   {
-    id: "yesos",
-    title: "YESOS",
-    items: [
-      { name: "DUPLICADO MODELO", price: "$45.000" },
-      { name: "MATRIZ SILICONA", price: "$55.000" },
-      { name: "MODELO CON ENCIA", price: "$65.000" },
-      { name: "MODELO YESO ANTAGONISTA TIPO 3", price: "$30.000" },
-      { name: "MODELO YESO IV", price: "$42.000" },
-    ]
-  },
-  {
-    id: "metal",
-    title: "METAL",
-    items: [
-      { name: "BARRA TITANIO", price: "$1.800.000" },
-      { name: "CENTRAL UNICO", price: "$330.000" },
-      { name: "COFIA ATORNILLADA", price: "$220.000" },
-      { name: "COFIA METAL", price: "$160.000" },
-      { name: "COLLAR", price: "$60.000" },
-      { name: "CORONA METAL PORCELANA", price: "$315.000" },
-      { name: "GINGIVAS ESTRATIFICADA", price: "$210.000" },
-      { name: "HIBRIDA METAL-ACRILICO", price: "$3.200.000" },
-      { name: "NUCLEO", price: "$90.000" },
-      { name: "PORCELANA HIBRIDA UNIDAD", price: "$600.000" },
-    ]
-  },
-  {
     id: "acrilicos",
-    title: "ACRILICOS",
+    title: "ACRÍLICOS",
     items: [
-      { name: "PLATO BASE Y RODETE", price: "$45.000" },
-      { name: "PROVISIONAL PMMA", price: "$100.000" },
-      { name: "PROVISIONAL SOBRE IMPLANTE PMMA", price: "$210.000" },
-      { name: "HIBRIDA PMMA UNIDAD", price: "$210.000" },
+      { name: "Provisional PMMA", price: "$100.000" },
+      { name: "Provisional sobre implante", price: "$120.000" },
+      { name: "Híbrida PMMA unidad", price: "$210.000" },
+      { name: "Plato base con rodete", price: "$45.000" },
     ]
   },
   {
     id: "encerados",
     title: "ENCERADOS",
     items: [
-      { name: "ENCERADO DX", price: "$40.000" },
-      { name: "ENCERADO GUIA", price: "$35.000" },
+      { name: "Encerado DX", price: "$40.000" },
+      { name: "Encerado guía", price: "$35.000" },
     ]
   },
   {
-    id: "resinas-impresas",
-    title: "RESINAS IMPRESAS",
+    id: "implantologia",
+    title: "IMPLANTOLOGÍA",
     items: [
-      { name: "CARILLA", price: "$180.000" },
-      { name: "CORONA", price: "$200.000" },
-      { name: "INCRUSTACION", price: "$180.000" },
-      { name: "MODELOS 3D COMPLETOS", price: "$100.000" },
-      { name: "MODELOS 3D MEDIA ARCADA", price: "$60.000" },
+      { name: "Microfresado", price: "$130.000" },
+      { name: "Corona MP atornillada", price: "$320.000" },
+      { name: "Corona atornillada disilicato", price: "$380.000" },
+      { name: "Corona atornillada zirconio", price: "$380.000" },
     ]
   },
   {
     id: "libre-metal",
     title: "LIBRE DE METAL",
     items: [
-      { name: "APOYO DISILICATO", price: "$115.000" },
-      { name: "APOYO, BALCON ZIRCONIO", price: "$85.000" },
-      { name: "CARILLA DISILICATO", price: "$310.000" },
-      { name: "CENTRAL UNICO DISILICATO", price: "$380.000" },
-      { name: "CENTRAL UNICO EN ZIRCONIO", price: "$380.000" },
-      { name: "CORONA DISILICATO ESTRATIFICADA", price: "$365.000" },
-      { name: "CORONA DISILICATO MAQUILADA", price: "$330.000" },
-      { name: "CORONA ZIRCONIO ESTRATIFICADA", price: "$365.000" },
-      { name: "CORONA ZIRCONIO MAQUILADA", price: "$340.000" },
-      { name: "GINGIVA ESTRATIFICADA", price: "$210.000" },
-      { name: "INCRUSTACION DISILICATO", price: "$300.000" },
-      { name: "INCRUSTACION ZIRCONIO", price: "$315.000" },
+      { name: "Corona disilicato maquillada", price: "$330.000" },
+      { name: "Carilla disilicato", price: "$310.000" },
+      { name: "Incrustación disilicato", price: "$300.000" },
+      { name: "Apoyo disilicato", price: "$115.000" },
+      { name: "Corona zirconio maquillada", price: "$340.000" },
+      { name: "Incrustación zirconio", price: "$315.000" },
+      { name: "Apoyo, balcón zirconio", price: "$85.000" },
     ]
   },
   {
-    id: "implantologia",
-    title: "IMPLANTOLOGIA",
+    id: "metal",
+    title: "METAL",
     items: [
-      { name: "CORONA ATORNILLADA DISILICATO", price: "$380.000" },
-      { name: "CORONA ATORNILLADA ZIRCONIO", price: "$380.000" },
-      { name: "CORONA MP ATORNILLADA", price: "$320.000" },
-      { name: "FRESADO MONTURA", price: "$70.000" },
-      { name: "MICROFRESADO", price: "$130.000" },
-      { name: "OPACADO DE ABUTMENT CERAMIZADO", price: "$70.000" },
-      { name: "OPACADO DE ABUTMENT POLIMERIZADO", price: "$55.000" },
+      { name: "Corona metal porcelana", price: "$315.000" },
+      { name: "Híbrida metal-acrílico (Duratone)", price: "$3.200.000" },
+      { name: "Híbrida metal-porcelana unidad", price: "$600.000" },
     ]
   },
   {
-    id: "uclas",
-    title: "UCLAS ANILLO EN CROMO",
+    id: "resinas-impresas",
+    title: "RESINAS IMPRESAS",
     items: [
-      { name: "BH - ZIMMER 3.5 - 4.5", price: "$210.000" },
-      { name: "BH 3.0", price: "$230.000" },
-      { name: "STRAUMANN", price: "$300.000" },
+      { name: "Modelos 3D completos", price: "$100.000" },
+      { name: "Modelos 3D media arcada", price: "$60.000" },
+      { name: "Carillas impresas c/u", price: "$180.000" },
+      { name: "Coronas impresas c/u", price: "$200.000" },
+      { name: "Incrustaciones impresas c/u", price: "$180.000" },
     ]
   },
 ]
@@ -246,12 +239,19 @@ export function ServicesSection() {
   const [filterCategory, setFilterCategory] = useState<string>("all")
   const router = useRouter()
 
-  const handleComprar = () => {
+  const handleComprar = (product: Product) => {
     const isLoggedIn = sessionStorage.getItem("clienteEmail") || localStorage.getItem("isLoggedIn")
+    const params = new URLSearchParams()
+    params.set("servicio", product.name)
+    const mapping = serviceMapping[product.name]
+    if (mapping?.servicio) params.set("tipoServicio", mapping.servicio)
+    if (mapping?.tipoTrabajo?.length) params.set("tipoTrabajo", mapping.tipoTrabajo.join(","))
+    if (mapping?.material?.length) params.set("material", mapping.material.join(","))
+    const redirectUrl = `/formulario?${params.toString()}`
     if (!isLoggedIn) {
-      router.push('/login?redirect=formulario')
+      router.push(`/login?redirect=${encodeURIComponent(redirectUrl)}`)
     } else {
-      router.push('/formulario')
+      router.push(redirectUrl)
     }
   }
 
@@ -340,21 +340,35 @@ export function ServicesSection() {
                   showCarousel={filterCategory === "all"}
                 />
               </motion.div>
-            ))}
+            )            )}
           </AnimatePresence>
 
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.6 }}
+            className="rounded-xl bg-accent/10 border border-accent/30 p-6 text-center"
+          >
+            <p className="text-base font-medium text-foreground">
+              ⚠️ No se cobra modelo después de 3 restauraciones. Si son 1 o 2 tiene un costo de $40.000 por modelo.
+            </p>
+          </motion.div>
+
           {/* Mensaje cuando no hay resultados */}
-          {filteredCategories.length === 0 && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="py-12 text-center"
-            >
-              <p className="text-lg text-muted-foreground">
-                No hay servicios en esta categoría.
-              </p>
-            </motion.div>
-          )}
+          <AnimatePresence>
+            {filteredCategories.length === 0 && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="py-12 text-center"
+              >
+                <p className="text-lg text-muted-foreground">
+                  No hay servicios en esta categoría.
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </section>
 
@@ -409,7 +423,7 @@ export function ServicesSection() {
                 {/* CTA */}
                 <div className="flex flex-col gap-3">
                   <button
-                    onClick={handleComprar}
+                    onClick={() => handleComprar(selectedProduct!)}
                     className="flex items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3.5 text-center font-semibold text-primary-foreground shadow-lg transition-all duration-300 hover:scale-[1.02] hover:bg-primary-dark hover:shadow-xl"
                   >
                     <ShoppingCart size={18} />

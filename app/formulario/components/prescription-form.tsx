@@ -16,26 +16,29 @@ import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import { useRouter } from "next/navigation"
+import { Navbar } from "@/components/navbar"
 
 interface PrescriptionFormProps {
-   initialData?: {
-     odontologo?: string
-     ccOdontologo?: string
-   }
- }
+  initialData?: {
+    odontologo?: string
+    ccOdontologo?: string
+  }
+  servicio?: string
+  tipoServicio?: string
+  tipoTrabajo?: string[]
+  material?: string[]
+}
 
-  export function PrescriptionForm({ initialData }: PrescriptionFormProps) {
-    const formRef = useRef<HTMLDivElement>(null)
-    const toothDrawRef = useRef<DrawableToothRef>(null)
-    const [selectedTeeth, setSelectedTeeth] = useState<number[]>([])
-    const [isSubmitting, setIsSubmitting] = useState(false)
-    const [showCalendarElaboracion, setShowCalendarElaboracion] = useState(false)
-    const [showCalendarEntrega, setShowCalendarEntrega] = useState(false)
-    const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
-    const [servicioTipo, setServicioTipo] = useState("")
-    const [solicitudEnviada, setSolicitudEnviada] = useState(false)
-    const router = useRouter()
+export function PrescriptionForm({ initialData, servicio = "", tipoServicio = "", tipoTrabajo = [], material = [] }: PrescriptionFormProps) {
+  const formRef = useRef<HTMLDivElement>(null)
+  const toothDrawRef = useRef<DrawableToothRef>(null)
+  const [selectedTeeth, setSelectedTeeth] = useState<number[]>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showCalendarElaboracion, setShowCalendarElaboracion] = useState(false)
+  const [showCalendarEntrega, setShowCalendarEntrega] = useState(false)
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
+  const [servicioTipo, setServicioTipo] = useState("")
+  const [solicitudEnviada, setSolicitudEnviada] = useState(false)
 
   // Obtener fecha actual
   const today = new Date()
@@ -45,29 +48,28 @@ interface PrescriptionFormProps {
     anio: String(today.getFullYear())
   }
 
-const [formData, setFormData] = useState({
-     fechaElaboracion: todayStr,
-     fechaEntrega: { dia: "", mes: "", anio: "" },
-     historiaClinica: "501",
-     odontologo: initialData?.odontologo ?? "",
-     ccOdontologo: initialData?.ccOdontologo ?? "",
-     paciente: "",
-     tarjetaProfesional: "",
-     ccPaciente: "",
-     direccion: "",
-     firma: "",
-     tiposTrabajo: [] as string[],
-     chimenea: null as boolean | null,
-     materiales: [] as string[],
-     prueba: false,
-     terminado: false,
-     color: "",
-     guia: "",
-     indicaciones: "",
-     piezasEnviadas: [] as string[],
-     caja: "",
-     codigoTrazabilidad: "",
-   })
+  const [formData, setFormData] = useState({
+    fechaElaboracion: todayStr,
+    fechaEntrega: { dia: "", mes: "", anio: "" },
+    historiaClinica: "501",
+    odontologo: initialData?.odontologo ?? "",
+    ccOdontologo: initialData?.ccOdontologo ?? "",
+    paciente: "",
+    tarjetaProfesional: "",
+    ccPaciente: "",
+    direccion: "",
+    firma: "",
+    tiposTrabajo: [] as string[],
+    chimenea: null as boolean | null,
+    materiales: [] as string[],
+    prueba: false,
+    terminado: false,
+    color: "",
+    guia: "",
+    indicaciones: "",
+    piezasEnviadas: [] as string[],
+    codigoTrazabilidad: "TRZ-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 6),
+  })
 
   useEffect(() => {
     const fetchClientData = async () => {
@@ -98,20 +100,38 @@ const [formData, setFormData] = useState({
     fetchClientData()
   }, [])
 
-const handleToothToggle = (toothNumber: number) => {
-     setSelectedTeeth((prev) =>
-       prev.includes(toothNumber)
-         ? prev.filter((t) => t !== toothNumber)
-         : [...prev, toothNumber]
-     )
-   }
- 
-   const updateDientesTrabajados = useCallback(() => {
-     setFormData((prev) => ({
-       ...prev,
-       dientesTrabajados: selectedTeeth.map((t) => t.toString()),
-     }))
-   }, [selectedTeeth])
+  const initializedRef = useRef(false)
+  useEffect(() => {
+    if (initializedRef.current) return
+    if (!servicio && !tipoServicio && tipoTrabajo.length === 0 && material.length === 0) return
+    initializedRef.current = true
+    setFormData((prev) => ({
+      ...prev,
+      tiposTrabajo: [...new Set([...prev.tiposTrabajo, ...tipoTrabajo])],
+      materiales: [...new Set([...prev.materiales, ...material])],
+    }))
+    const serv = tipoServicio || servicio
+    if (serv && serv !== "Otro") {
+      setServicioTipo(serv)
+    } else if (tipoServicio) {
+      setServicioTipo(tipoServicio)
+    }
+  }, [servicio, tipoServicio, JSON.stringify(tipoTrabajo), JSON.stringify(material)])
+
+  const handleToothToggle = (toothNumber: number) => {
+    setSelectedTeeth((prev) =>
+      prev.includes(toothNumber)
+        ? prev.filter((t) => t !== toothNumber)
+        : [...prev, toothNumber]
+    )
+  }
+
+  const updateDientesTrabajados = useCallback(() => {
+    setFormData((prev) => ({
+      ...prev,
+      dientesTrabajados: selectedTeeth.map((t) => t.toString()),
+    }))
+  }, [selectedTeeth])
 
   const handleCheckboxChange = (
     field: "tiposTrabajo" | "materiales" | "piezasEnviadas",
@@ -142,41 +162,40 @@ const handleToothToggle = (toothNumber: number) => {
       }
 
       const formatFecha = (fecha: { dia: string; mes: string; anio: string }) => {
-          if (!fecha.dia || !fecha.mes || !fecha.anio) return ""
-          return `${fecha.dia}/${fecha.mes}/${fecha.anio}`
-        }
+        if (!fecha.dia || !fecha.mes || !fecha.anio) return ""
+        return `${fecha.dia}/${fecha.mes}/${fecha.anio}`
+      }
 
-        const formDataPayload = new FormData()
-        formDataPayload.append("correoOdontologo", storedEmail)
-        formDataPayload.append("servicio", servicioTipo)
-        formDataPayload.append("observaciones", formData.indicaciones || "")
-         formDataPayload.append("indicaciones", formData.indicaciones || "")
-        formDataPayload.append("odontologo", formData.odontologo || "")
-        formDataPayload.append("ccOdontologo", formData.ccOdontologo || "")
-        formDataPayload.append("paciente", formData.paciente || "")
-        formDataPayload.append("tarjetaProfesional", formData.tarjetaProfesional || "")
-        formDataPayload.append("ccPaciente", formData.ccPaciente || "")
-        formDataPayload.append("direccion", formData.direccion || "")
-        formDataPayload.append("firma", formData.firma || "")
-        formDataPayload.append("color", formData.color || "")
+      const formDataPayload = new FormData()
+      formDataPayload.append("correoOdontologo", storedEmail)
+      formDataPayload.append("servicio", servicioTipo)
+      formDataPayload.append("observaciones", formData.indicaciones || "")
+      formDataPayload.append("indicaciones", formData.indicaciones || "")
+      formDataPayload.append("odontologo", formData.odontologo || "")
+      formDataPayload.append("ccOdontologo", formData.ccOdontologo || "")
+      formDataPayload.append("paciente", formData.paciente || "")
+      formDataPayload.append("tarjetaProfesional", formData.tarjetaProfesional || "")
+      formDataPayload.append("ccPaciente", formData.ccPaciente || "")
+      formDataPayload.append("direccion", formData.direccion || "")
+      formDataPayload.append("firma", formData.firma || "")
+      formDataPayload.append("color", formData.color || "")
       formDataPayload.append("guia_color", formData.guia || "")
-         formDataPayload.append("caja", formData.caja || "")
-        formDataPayload.append("codigoTrazabilidad", formData.codigoTrazabilidad || "")
-        formDataPayload.append("fechaElaboracion", formatFecha(formData.fechaElaboracion))
-        formDataPayload.append("fechaEntrega", formatFecha(formData.fechaEntrega))
-        formDataPayload.append("historiaClinica", formData.historiaClinica || "")
-        formDataPayload.append("tiposTrabajo", JSON.stringify(formData.tiposTrabajo))
-        formDataPayload.append("materiales", JSON.stringify(formData.materiales))
-        formDataPayload.append("piezasEnviadas", JSON.stringify(formData.piezasEnviadas))
-        formDataPayload.append("chimenea", formData.chimenea ? "true" : "false")
-        formDataPayload.append("prueba", formData.prueba ? "true" : "false")
-        formDataPayload.append("terminado", formData.terminado ? "true" : "false")
-        formDataPayload.append("dientesTrabajados", JSON.stringify(selectedTeeth.map((t) => t.toString())))
-  
-        const drawingDataUrl = toothDrawRef.current?.getDrawingDataUrl()
-        if (drawingDataUrl) {
-          formDataPayload.append("dibujoOdontologo", drawingDataUrl)
-        }
+      formDataPayload.append("codigoTrazabilidad", formData.codigoTrazabilidad || "")
+      formDataPayload.append("fechaElaboracion", formatFecha(formData.fechaElaboracion))
+      formDataPayload.append("fechaEntrega", formatFecha(formData.fechaEntrega))
+      formDataPayload.append("historiaClinica", formData.historiaClinica || "")
+      formDataPayload.append("tiposTrabajo", JSON.stringify(formData.tiposTrabajo))
+      formDataPayload.append("materiales", JSON.stringify(formData.materiales))
+      formDataPayload.append("piezasEnviadas", JSON.stringify(formData.piezasEnviadas))
+      formDataPayload.append("chimenea", formData.chimenea ? "true" : "false")
+      formDataPayload.append("prueba", formData.prueba ? "true" : "false")
+      formDataPayload.append("terminado", formData.terminado ? "true" : "false")
+      formDataPayload.append("dientesTrabajados", JSON.stringify(selectedTeeth.map((t) => t.toString())))
+
+      const drawingDataUrl = toothDrawRef.current?.getDrawingDataUrl()
+      if (drawingDataUrl) {
+        formDataPayload.append("dibujoOdontologo", drawingDataUrl)
+      }
 
       uploadedFiles.forEach((file) => {
         formDataPayload.append("archivos", file, file.name)
@@ -227,7 +246,6 @@ const handleToothToggle = (toothNumber: number) => {
     if (actionButtons) actionButtons.style.display = "none"
 
     try {
-      // Aseguramos que las imágenes/fuentes estén cargadas
       await new Promise((resolve) => setTimeout(resolve, 100))
 
       const canvas = await html2canvas(formRef.current, {
@@ -247,16 +265,13 @@ const handleToothToggle = (toothNumber: number) => {
       const imgWidth = canvas.width
       const imgHeight = canvas.height
 
-      // Calcular ratio para ajustar a una página
       const ratio = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight)
       const finalWidth = imgWidth * ratio
       const finalHeight = imgHeight * ratio
 
-      // Centrar imagen
       const imgX = (pdfWidth - finalWidth) / 2
       const imgY = 0
 
-      // Si la imagen es muy alta, usar múltiples páginas
       if (finalHeight > pdfHeight) {
         let position = 0
         let heightLeft = finalHeight
@@ -276,7 +291,6 @@ const handleToothToggle = (toothNumber: number) => {
 
       pdf.save(`prescripcion-${formData.historiaClinica || "form"}.pdf`)
     } catch {
-      // Fallback: intentar imprimir
       window.print()
     } finally {
       if (actionButtons) actionButtons.style.display = "flex"
@@ -285,20 +299,7 @@ const handleToothToggle = (toothNumber: number) => {
 
   return (
     <div ref={formRef} className="max-w-3xl mx-auto bg-white shadow-lg overflow-hidden border border-gray-300">
-      {/* Header */}
-      <div className="p-3 border-b flex justify-between items-start">
-        <div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-[#7cb342] text-[10px]">impr</span>
-            <h1 className="text-2xl font-bold tracking-wider text-gray-800">
-              ARTE CERÁMICO
-            </h1>
-          </div>
-          <p className="text-sm italic text-gray-600">
-            Laboratorio Dental <span className="font-semibold not-italic">S.A.S</span>
-          </p>
-        </div>
-      </div>
+      <Navbar />
 
       {/* Fechas y Prescripción */}
       <div className="p-3 border-b">
@@ -319,7 +320,7 @@ const handleToothToggle = (toothNumber: number) => {
                 <PopoverContent className="w-auto p-0" align="start">
                   <Calendar
                     mode="single"
-                    selected={formData.fechaElaboracion.dia ? new Date(`${formData.fechaElaboracion.anio}-${formData.fechaElaboracion.mes}-${formData.fechaElaboracion.dia}`) : undefined}
+                    selected={formData.fechaElaboracion.dia ? new Date(parseInt(formData.fechaElaboracion.anio), parseInt(formData.fechaElaboracion.mes) - 1, parseInt(formData.fechaElaboracion.dia)) : undefined}
                     onSelect={(date) => {
                       if (date) {
                         setFormData((prev) => ({
@@ -349,7 +350,7 @@ const handleToothToggle = (toothNumber: number) => {
             <div className="flex items-center gap-2">
               <Popover open={showCalendarEntrega} onOpenChange={setShowCalendarEntrega}>
                 <PopoverTrigger asChild>
-                  <button 
+                  <button
                     className="flex items-center gap-1 rounded bg-[#a5d6a7] px-2 py-1 text-xs hover:bg-[#8bc34a]"
                     disabled={!formData.fechaElaboracion.dia}
                   >
@@ -375,14 +376,11 @@ const handleToothToggle = (toothNumber: number) => {
                       }
                     }}
                     disabled={(date) => {
-                      // Bloquear fechas antes de la fecha de elaboración + 8 días
                       if (!formData.fechaElaboracion.dia) return true
                       const elaboracionDate = new Date(`${formData.fechaElaboracion.anio}-${formData.fechaElaboracion.mes}-${formData.fechaElaboracion.dia}`)
                       const minDate = new Date(elaboracionDate)
-                      minDate.setDate(minDate.getDate() + 1) // Día siguiente
-                      const maxDate = new Date(elaboracionDate)
-                      maxDate.setDate(maxDate.getDate() + 8) // 8 días después
-                      return date < minDate || date > maxDate
+                      minDate.setDate(minDate.getDate() + 9)
+                      return date < minDate
                     }}
                     locale={es}
                     initialFocus
@@ -536,21 +534,12 @@ const handleToothToggle = (toothNumber: number) => {
               <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
                 <div className="flex items-center gap-1">
                   <Checkbox
-                    id="corona"
-                    checked={formData.tiposTrabajo.includes("CORONA")}
-                    onCheckedChange={() => handleCheckboxChange("tiposTrabajo", "CORONA")}
+                    id="apoyo"
+                    checked={formData.tiposTrabajo.includes("APOYO")}
+                    onCheckedChange={() => handleCheckboxChange("tiposTrabajo", "APOYO")}
                     className="h-3 w-3"
                   />
-                  <Label htmlFor="corona" className="text-[11px] cursor-pointer">CORONA</Label>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Checkbox
-                    id="maryland"
-                    checked={formData.tiposTrabajo.includes("MARYLAND")}
-                    onCheckedChange={() => handleCheckboxChange("tiposTrabajo", "MARYLAND")}
-                    className="h-3 w-3"
-                  />
-                  <Label htmlFor="maryland" className="text-[11px] cursor-pointer">MARYLAND</Label>
+                  <Label htmlFor="apoyo" className="text-[11px] cursor-pointer">APOYO</Label>
                 </div>
                 <div className="flex items-center gap-1">
                   <Checkbox
@@ -588,6 +577,7 @@ const handleToothToggle = (toothNumber: number) => {
                   />
                   <Label htmlFor="encerado" className="text-[11px] cursor-pointer">ENCERADO DX</Label>
                 </div>
+
                 <div className="flex items-center gap-1">
                   <Checkbox
                     id="carilla"
@@ -599,30 +589,12 @@ const handleToothToggle = (toothNumber: number) => {
                 </div>
                 <div className="flex items-center gap-1">
                   <Checkbox
-                    id="paracarillas"
-                    checked={formData.tiposTrabajo.includes("PARA CARILLAS")}
-                    onCheckedChange={() => handleCheckboxChange("tiposTrabajo", "PARA CARILLAS")}
+                    id="corona"
+                    checked={formData.tiposTrabajo.includes("CORONA")}
+                    onCheckedChange={() => handleCheckboxChange("tiposTrabajo", "CORONA")}
                     className="h-3 w-3"
                   />
-                  <Label htmlFor="paracarillas" className="text-[11px] cursor-pointer">PARA CARILLAS</Label>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Checkbox
-                    id="protesis"
-                    checked={formData.tiposTrabajo.includes("PRÓTESIS FIJA")}
-                    onCheckedChange={() => handleCheckboxChange("tiposTrabajo", "PRÓTESIS FIJA")}
-                    className="h-3 w-3"
-                  />
-                  <Label htmlFor="protesis" className="text-[11px] cursor-pointer">PRÓTESIS FIJA</Label>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Checkbox
-                    id="paracoronas"
-                    checked={formData.tiposTrabajo.includes("PARA CORONAS")}
-                    onCheckedChange={() => handleCheckboxChange("tiposTrabajo", "PARA CORONAS")}
-                    className="h-3 w-3"
-                  />
-                  <Label htmlFor="paracoronas" className="text-[11px] cursor-pointer">PARA CORONAS</Label>
+                  <Label htmlFor="corona" className="text-[11px] cursor-pointer">CORONA</Label>
                 </div>
                 <div className="flex items-center gap-1">
                   <Checkbox
@@ -633,6 +605,17 @@ const handleToothToggle = (toothNumber: number) => {
                   />
                   <Label htmlFor="coronaimplante" className="text-[11px] cursor-pointer">CORONA SOBRE IMPLANTE</Label>
                 </div>
+                <div className="flex items-center gap-1">
+                  <Checkbox
+                    id="protesis"
+                    checked={formData.tiposTrabajo.includes("PRÓTESIS FIJA")}
+                    onCheckedChange={() => handleCheckboxChange("tiposTrabajo", "PRÓTESIS FIJA")}
+                    className="h-3 w-3"
+                  />
+                  <Label htmlFor="protesis" className="text-[11px] cursor-pointer">PUENTE</Label>
+                </div>
+
+
               </div>
               <div className="flex items-center gap-2 mt-2 text-[11px]">
                 <span>CHIMENEA</span>
@@ -664,21 +647,12 @@ const handleToothToggle = (toothNumber: number) => {
             <div className="p-2 space-y-1">
               <div className="flex items-center gap-1">
                 <Checkbox
-                  id="disilicato-iny"
-                  checked={formData.materiales.includes("DISILICATO INYECTADO")}
-                  onCheckedChange={() => handleCheckboxChange("materiales", "DISILICATO INYECTADO")}
+                  id="disilicato"
+                  checked={formData.materiales.includes("DISILICATO")}
+                  onCheckedChange={() => handleCheckboxChange("materiales", "DISILICATO")}
                   className="h-3 w-3"
                 />
-                <Label htmlFor="disilicato-iny" className="text-[11px] cursor-pointer">DISILICATO INYECTADO</Label>
-              </div>
-              <div className="flex items-center gap-1">
-                <Checkbox
-                  id="disilicato-fre"
-                  checked={formData.materiales.includes("DISILICATO FRESADO")}
-                  onCheckedChange={() => handleCheckboxChange("materiales", "DISILICATO FRESADO")}
-                  className="h-3 w-3"
-                />
-                <Label htmlFor="disilicato-fre" className="text-[11px] cursor-pointer">DISILICATO FRESADO</Label>
+                <Label htmlFor="disilicato" className="text-[11px] cursor-pointer">DISILICATO</Label>
               </div>
               <div className="flex items-center gap-1">
                 <Checkbox
@@ -707,7 +681,17 @@ const handleToothToggle = (toothNumber: number) => {
                 />
                 <Label htmlFor="pmma" className="text-[11px] cursor-pointer">PMMA</Label>
               </div>
-              <div className="flex items-center gap-4 mt-2 pt-2 border-t">
+                <div className="flex items-center gap-1">
+                  <Checkbox
+                    id="resina"
+                    checked={formData.materiales.includes("RESINA")}
+                    onCheckedChange={() => handleCheckboxChange("materiales", "RESINA")}
+                    className="h-3 w-3"
+                  />
+                  <Label htmlFor="resina" className="text-[11px] cursor-pointer">RESINA</Label>
+                </div>
+
+                <div className="flex items-center gap-4 mt-2 pt-2 border-t">
                 <div className="flex items-center gap-1 text-[11px]">
                   <span>PRUEBA</span>
                   <Checkbox
@@ -746,16 +730,15 @@ const handleToothToggle = (toothNumber: number) => {
 
           {/* Color, Guía y Diente dibujable */}
           <div className="space-y-2">
-{/* Diente dibujable con COLOR y GUIA */}
-             <DrawableTooth 
-               ref={toothDrawRef}
-               width={160} 
-               height={180}
-               color={formData.color}
-               guia={formData.guia}
-               onColorChange={(value) => setFormData((prev) => ({ ...prev, color: value }))}
-               onGuiaChange={(value) => setFormData((prev) => ({ ...prev, guia: value }))}
-             />
+            <DrawableTooth
+              ref={toothDrawRef}
+              width={160}
+              height={180}
+              color={formData.color}
+              guia={formData.guia}
+              onColorChange={(value) => setFormData((prev) => ({ ...prev, color: value }))}
+              onGuiaChange={(value) => setFormData((prev) => ({ ...prev, guia: value }))}
+            />
           </div>
         </div>
         {/* Dientes seleccionados */}
@@ -854,7 +837,7 @@ const handleToothToggle = (toothNumber: number) => {
                   onCheckedChange={() => handleCheckboxChange("piezasEnviadas", "REGISTRO DE MORDIDA")}
                   className="h-3 w-3"
                 />
-                <Label htmlFor="registro" className="text-[11px] cursor-pointer">REGISTRO DE<br/>MORDIDA</Label>
+                <Label htmlFor="registro" className="text-[11px] cursor-pointer">REGISTRO DE<br />MORDIDA</Label>
               </div>
               <div className="flex items-center gap-1">
                 <Checkbox
@@ -943,23 +926,11 @@ const handleToothToggle = (toothNumber: number) => {
           </div>
 
           <div className="space-y-2">
-            <div className="flex items-center gap-1">
-              <Label className="text-[11px] whitespace-nowrap"># CAJA</Label>
-              <Input
-                className="w-12 h-6 text-center border border-gray-400 text-xs"
-                value={formData.caja}
-                onChange={(e) => setFormData((prev) => ({ ...prev, caja: e.target.value }))}
-              />
-            </div>
             <div className="border border-gray-400 p-2 rounded">
               <div className="text-[10px] font-semibold mb-1">CÓD. TRAZABILIDAD</div>
               <div className="flex items-center gap-1">
                 <span className="text-[11px]">#</span>
-                <Input
-                  className="flex-1 h-5 text-center text-xs"
-                  value={formData.codigoTrazabilidad}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, codigoTrazabilidad: e.target.value }))}
-                />
+                <span className="flex-1 h-5 text-center text-xs border rounded border-gray-300 bg-gray-50 px-2 py-1">{formData.codigoTrazabilidad}</span>
               </div>
               <div className="text-[9px] text-gray-500 text-center mt-1">
                 INFO EXCLUSIVA DE LABORATORIO
@@ -972,17 +943,11 @@ const handleToothToggle = (toothNumber: number) => {
       {/* Footer */}
       <div className="bg-[#7cb342] text-white p-3">
         <div className="flex flex-col items-center gap-1 text-xs">
-          <div className="flex items-center gap-1">
-            <MapPin className="h-3 w-3" />
-            <span>Carrera 42a #5c 36 Barrio Tequendama</span>
+          <div className="text-center">
+            <span>Los precios que se presentan son de valor unitario.</span>
           </div>
-          <div className="flex items-center gap-1">
-            <Mail className="h-3 w-3" />
-            <span>Lab-arteceramico@hotmail.com</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Phone className="h-3 w-3" />
-            <span>+57 317 728 0804</span>
+          <div className="text-center">
+            <span>El valor calculado corresponde a una estimación preliminar y está sujeto a cambios tras la revisión de la solicitud.</span>
           </div>
         </div>
       </div>
@@ -1018,7 +983,7 @@ const handleToothToggle = (toothNumber: number) => {
             <button
               onClick={() => {
                 setSolicitudEnviada(false)
-                router.push("/page_clientes")
+                window.location.href = "/page_clientes"
               }}
               className="w-full rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all hover:bg-primary-dark"
             >

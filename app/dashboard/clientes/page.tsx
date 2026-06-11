@@ -26,6 +26,7 @@ import {
   CheckCircle,
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
+import { useToast } from "@/hooks/use-toast"
 
 interface Cliente {
   id: number
@@ -69,6 +70,7 @@ interface ClienteConSolicitudes extends Cliente {
 }
 
 export default function ClientesPage() {
+  const { toast } = useToast()
   const [searchTerm, setSearchTerm] = useState("")
   const [clientes, setClientes] = useState<ClienteConSolicitudes[]>([])
   const [loading, setLoading] = useState(true)

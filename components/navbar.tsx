@@ -48,20 +48,26 @@ export function Navbar() {
     document.body.style.overflow = isMobileMenuOpen ? "hidden" : "auto"
   }, [isMobileMenuOpen])
 
-  // Scroll con offset (para navbar fijo)
+  // Navegación con scroll o redirección
   const handleNavClick = (href: string) => {
     setIsMobileMenuOpen(false)
-    const element = document.querySelector(href)
+    const isHomePage = window.location.pathname === "/"
 
-    if (element) {
-      const offset = 80
-      const top =
-        element.getBoundingClientRect().top + window.scrollY - offset
+    if (isHomePage) {
+      const element = document.querySelector(href)
 
-      window.scrollTo({
-        top,
-        behavior: "smooth",
-      })
+      if (element) {
+        const offset = 80
+        const top =
+          element.getBoundingClientRect().top + window.scrollY - offset
+
+        window.scrollTo({
+          top,
+          behavior: "smooth",
+        })
+      }
+    } else {
+      window.location.href = href === "#inicio" ? "/" : `/${href}`
     }
   }
 

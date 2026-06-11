@@ -55,6 +55,9 @@ interface Solicitud {
   urls_documentos: string[]
   created_at: string
   updated_at: string
+  declaracion_conformidad: string | null
+  guia_fabricacion: string | null
+  manual_uso: string | null
 }
 
 interface Cliente {
@@ -323,6 +326,20 @@ export default function ClientesPage() {
       console.error("Error eliminando solicitud", err)
       setSolicitudMensaje("No se pudo eliminar la solicitud.")
     }
+  }
+
+  const formatRelativeTime = (value: string | null) => {
+    if (!value) return null
+    const date = new Date(value)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    if (diffMins < 1) return "recién"
+    if (diffMins < 60) return `hace ${diffMins} min`
+    const diffHours = Math.floor(diffMins / 60)
+    if (diffHours < 24) return `hace ${diffHours} h`
+    const diffDays = Math.floor(diffHours / 24)
+    return `hace ${diffDays} d`
   }
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -928,6 +945,43 @@ export default function ClientesPage() {
                           <span className="text-xs text-muted-foreground">
                             {new Date(solicitud.created_at).toLocaleString()}
                           </span>
+                        </div>
+
+                        <div className="mt-3 flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
+                          {(["declaracion_conformidad", "guia_fabricacion", "manual_uso"] as const).map((campo) => {
+                            const url = solicitud[campo]
+                            const label =
+                              campo === "declaracion_conformidad"
+                                ? "Declaración de Conformidad"
+                                : campo === "guia_fabricacion"
+                                  ? "Guía de Fabricación"
+                                  : "Manual de Uso"
+                            return (
+                              <span
+                                key={campo}
+                                className={
+                                  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 " +
+                                  (url
+                                    ? "border-green-500/40 bg-green-500/10 text-green-700"
+                                    : "border-border bg-background/70 text-muted-foreground")
+                                }
+                              >
+                                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: url ? "#16a34a" : "#a1a1aa" }} />
+                                {url ? (
+                                  <a
+                                    href={url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="underline-offset-2 hover:underline"
+                                  >
+                                    {label}
+                                  </a>
+                                ) : (
+                                  label + " pendiente"
+                                )}
+                              </span>
+                            )
+                          })}
                         </div>
                       </div>
 
