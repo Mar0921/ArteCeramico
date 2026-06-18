@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -33,6 +33,7 @@ export function PrescriptionForm({ initialData, servicio = "", tipoServicio = ""
   const formRef = useRef<HTMLDivElement>(null)
   const toothDrawRef = useRef<DrawableToothRef>(null)
   const [selectedTeeth, setSelectedTeeth] = useState<number[]>([])
+  const [toothStatuses, setToothStatuses] = useState<Record<number, "normal" | "ausencia" | "implante" | "pilar">>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showCalendarElaboracion, setShowCalendarElaboracion] = useState(false)
   const [showCalendarEntrega, setShowCalendarEntrega] = useState(false)
@@ -118,12 +119,28 @@ export function PrescriptionForm({ initialData, servicio = "", tipoServicio = ""
     }
   }, [servicio, tipoServicio, JSON.stringify(tipoTrabajo), JSON.stringify(material)])
 
-  const handleToothToggle = (toothNumber: number) => {
+  const handleToothSelect = (toothNumber: number) => {
     setSelectedTeeth((prev) =>
       prev.includes(toothNumber)
-        ? prev.filter((t) => t !== toothNumber)
+        ? prev
         : [...prev, toothNumber]
     )
+  }
+
+  const handleToothStatusChange = (toothNumber: number, status: "normal" | "ausencia" | "implante" | "pilar") => {
+    setToothStatuses((prev) => ({
+      ...prev,
+      [toothNumber]: status,
+    }))
+  }
+
+  const handleToothStatusClear = (toothNumber: number) => {
+    setToothStatuses((prev) => {
+      const next = { ...prev }
+      delete next[toothNumber]
+      return next
+    })
+    setSelectedTeeth((prev) => prev.filter((t) => t !== toothNumber))
   }
 
   const updateDientesTrabajados = useCallback(() => {
@@ -132,6 +149,19 @@ export function PrescriptionForm({ initialData, servicio = "", tipoServicio = ""
       dientesTrabajados: selectedTeeth.map((t) => t.toString()),
     }))
   }, [selectedTeeth])
+
+  const selectedTeethDisplay = useMemo(() => {
+    if (selectedTeeth.length === 0) return "Ninguno"
+
+    return selectedTeeth
+      .slice()
+      .sort((a, b) => a - b)
+      .map((tooth) => {
+        const status = toothStatuses[tooth]
+        return status ? `${tooth}: ${status}` : tooth.toString()
+      })
+      .join(", ")
+  }, [selectedTeeth, toothStatuses])
 
   const handleCheckboxChange = (
     field: "tiposTrabajo" | "materiales" | "piezasEnviadas",
@@ -191,6 +221,7 @@ export function PrescriptionForm({ initialData, servicio = "", tipoServicio = ""
       formDataPayload.append("prueba", formData.prueba ? "true" : "false")
       formDataPayload.append("terminado", formData.terminado ? "true" : "false")
       formDataPayload.append("dientesTrabajados", JSON.stringify(selectedTeeth.map((t) => t.toString())))
+      formDataPayload.append("estadosDientes", JSON.stringify(toothStatuses))
 
       const drawingDataUrl = toothDrawRef.current?.getDrawingDataUrl()
       if (drawingDataUrl) {
@@ -724,7 +755,10 @@ export function PrescriptionForm({ initialData, servicio = "", tipoServicio = ""
           <div className="col-span-2">
             <DentalChart
               selectedTeeth={selectedTeeth}
-              onToothToggle={handleToothToggle}
+              toothStatuses={toothStatuses}
+              onToothSelect={handleToothSelect}
+              onToothStatusChange={handleToothStatusChange}
+              onToothStatusClear={handleToothStatusClear}
             />
           </div>
 
@@ -745,9 +779,7 @@ export function PrescriptionForm({ initialData, servicio = "", tipoServicio = ""
         <div className="px-2 pb-2 text-xs">
           <span className="font-semibold">Seleccionaste: </span>
           <span className="text-gray-700">
-            {selectedTeeth.length > 0
-              ? selectedTeeth.sort((a, b) => a - b).join(", ")
-              : "Ninguno"}
+            {selectedTeethDisplay}
           </span>
         </div>
       </div>
