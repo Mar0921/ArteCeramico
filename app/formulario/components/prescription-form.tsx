@@ -1,22 +1,19 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback, useMemo } from "react"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Textarea } from "@/components/ui/textarea"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { DentalChart } from "./dental-chart"
-import { DrawableTooth, DrawableToothRef } from "./drawable-tooth"
-import { MapPin, Mail, Phone, FileDown, Send, Calendar as CalendarIcon, Upload, File, X } from "lucide-react"
+import { SolicitudSection } from "./solicitud-section"
+import { DrawableToothRef } from "./drawable-tooth"
+import { FileDown, Send, Plus, Trash2 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
-import { Calendar } from "@/components/ui/calendar"
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
-import { format } from "date-fns"
-import { es } from "date-fns/locale"
 import { Navbar } from "@/components/navbar"
+import {
+  SolicitudEntry,
+  createDefaultSolicitud,
+  formatFecha,
+} from "./solicitud-types"
 
 interface PrescriptionFormProps {
   initialData?: {
@@ -29,48 +26,91 @@ interface PrescriptionFormProps {
   material?: string[]
 }
 
-export function PrescriptionForm({ initialData, servicio = "", tipoServicio = "", tipoTrabajo = [], material = [] }: PrescriptionFormProps) {
-  const formRef = useRef<HTMLDivElement>(null)
-  const toothDrawRef = useRef<DrawableToothRef>(null)
-  const [selectedTeeth, setSelectedTeeth] = useState<number[]>([])
-  const [toothStatuses, setToothStatuses] = useState<Record<number, "normal" | "ausencia" | "implante" | "pilar">>({})
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [showCalendarElaboracion, setShowCalendarElaboracion] = useState(false)
-  const [showCalendarEntrega, setShowCalendarEntrega] = useState(false)
-  const [uploadedFiles, setUploadedFiles] = useState<File[]>([])
-  const [servicioTipo, setServicioTipo] = useState("")
-  const [solicitudEnviada, setSolicitudEnviada] = useState(false)
+function buildFormDataPayload(
+  solicitud: SolicitudEntry,
+  storedEmail: string,
+  drawingDataUrl: string | null
+): FormData {
+  const { formData, servicioTipo, selectedTeeth, toothStatuses, uploadedFiles } = solicitud
+  const payload = new FormData()
 
-  // Obtener fecha actual
-  const today = new Date()
-  const todayStr = {
-    dia: String(today.getDate()).padStart(2, "0"),
-    mes: String(today.getMonth() + 1).padStart(2, "0"),
-    anio: String(today.getFullYear())
+  payload.append("correoOdontologo", storedEmail)
+  payload.append("servicio", servicioTipo)
+  payload.append("observaciones", formData.indicaciones || "")
+  payload.append("indicaciones", formData.indicaciones || "")
+  payload.append("odontologo", formData.odontologo || "")
+  payload.append("ccOdontologo", formData.ccOdontologo || "")
+  payload.append("paciente", formData.paciente || "")
+  payload.append("tarjetaProfesional", formData.tarjetaProfesional || "")
+  payload.append("ccPaciente", formData.ccPaciente || "")
+  payload.append("direccion", formData.direccion || "")
+  payload.append("firma", formData.firma || "")
+  payload.append("color", formData.color || "")
+  payload.append("guia_color", formData.guia || "")
+  payload.append("codigoTrazabilidad", formData.codigoTrazabilidad || "")
+  payload.append("fechaElaboracion", formatFecha(formData.fechaElaboracion))
+  payload.append("fechaEntrega", formatFecha(formData.fechaEntrega))
+  payload.append("historiaClinica", formData.historiaClinica || "")
+  payload.append("tiposTrabajo", JSON.stringify(formData.tiposTrabajo))
+  payload.append("materiales", JSON.stringify(formData.materiales))
+  payload.append("piezasEnviadas", JSON.stringify(formData.piezasEnviadas))
+  payload.append("chimenea", formData.chimenea ? "true" : "false")
+  payload.append("prueba", formData.prueba ? "true" : "false")
+  payload.append("terminado", formData.terminado ? "true" : "false")
+  payload.append("dientesTrabajados", JSON.stringify(
+    selectedTeeth.map((t) => `${t}-${toothStatuses[t] || "normal"}`)
+  ))
+  payload.append("estadosDientes", JSON.stringify(toothStatuses))
+
+  if (drawingDataUrl) {
+    payload.append("dibujoOdontologo", drawingDataUrl)
   }
 
-  const [formData, setFormData] = useState({
-    fechaElaboracion: todayStr,
-    fechaEntrega: { dia: "", mes: "", anio: "" },
-    historiaClinica: "501",
-    odontologo: initialData?.odontologo ?? "",
-    ccOdontologo: initialData?.ccOdontologo ?? "",
-    paciente: "",
-    tarjetaProfesional: "",
-    ccPaciente: "",
-    direccion: "",
-    firma: "",
-    tiposTrabajo: [] as string[],
-    chimenea: null as boolean | null,
-    materiales: [] as string[],
-    prueba: false,
-    terminado: false,
-    color: "",
-    guia: "",
-    indicaciones: "",
-    piezasEnviadas: [] as string[],
-    codigoTrazabilidad: "TRZ-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 6),
+  uploadedFiles.forEach((file) => {
+    payload.append("archivos", file, file.name)
   })
+
+  return payload
+}
+
+export function PrescriptionForm({
+  initialData,
+  servicio = "",
+  tipoServicio = "",
+  tipoTrabajo = [],
+  material = [],
+}: PrescriptionFormProps) {
+  const formRef = useRef<HTMLDivElement>(null)
+  const toothDrawRefs = useRef<Map<string, DrawableToothRef | null>>(new Map())
+  const initializedRef = useRef(false)
+
+  const [solicitudes, setSolicitudes] = useState<SolicitudEntry[]>(() => [
+    createDefaultSolicitud({
+      odontologo: initialData?.odontologo,
+      ccOdontologo: initialData?.ccOdontologo,
+    }),
+  ])
+  const [activeIndex, setActiveIndex] = useState(0)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [solicitudEnviada, setSolicitudEnviada] = useState(false)
+  const [enviadasCount, setEnviadasCount] = useState(0)
+
+  const updateSolicitud = useCallback((index: number, updates: Partial<SolicitudEntry>) => {
+    setSolicitudes((prev) =>
+      prev.map((s, i) => (i === index ? { ...s, ...updates } : s))
+    )
+  }, [])
+
+  const updateFormData = useCallback(
+    (index: number, updates: Partial<SolicitudEntry["formData"]>) => {
+      setSolicitudes((prev) =>
+        prev.map((s, i) =>
+          i === index ? { ...s, formData: { ...s.formData, ...updates } } : s
+        )
+      )
+    },
+    []
+  )
 
   useEffect(() => {
     const fetchClientData = async () => {
@@ -84,100 +124,88 @@ export function PrescriptionForm({ initialData, servicio = "", tipoServicio = ""
           .eq("correo", storedEmail)
           .single()
 
-        if (error) return
+        if (error || !data) return
 
-        if (data) {
-          setFormData((prev) => ({
-            ...prev,
-            odontologo: data.nombre ?? prev.odontologo,
-            ccOdontologo: data.documento ?? prev.ccOdontologo,
+        setSolicitudes((prev) =>
+          prev.map((s) => ({
+            ...s,
+            formData: {
+              ...s.formData,
+              odontologo: data.nombre ?? s.formData.odontologo,
+              ccOdontologo: data.documento ?? s.formData.ccOdontologo,
+            },
           }))
-        }
+        )
       } catch {
-        // Silently fail - form will remain empty
+        // Silently fail
       }
     }
 
     fetchClientData()
   }, [])
 
-  const initializedRef = useRef(false)
   useEffect(() => {
     if (initializedRef.current) return
     if (!servicio && !tipoServicio && tipoTrabajo.length === 0 && material.length === 0) return
     initializedRef.current = true
-    setFormData((prev) => ({
-      ...prev,
-      tiposTrabajo: [...new Set([...prev.tiposTrabajo, ...tipoTrabajo])],
-      materiales: [...new Set([...prev.materiales, ...material])],
-    }))
+
     const serv = tipoServicio || servicio
-    if (serv && serv !== "Otro") {
-      setServicioTipo(serv)
-    } else if (tipoServicio) {
-      setServicioTipo(tipoServicio)
-    }
+    setSolicitudes((prev) =>
+      prev.map((s, i) =>
+        i === 0
+          ? {
+              ...s,
+              servicioTipo: serv && serv !== "Otro" ? serv : tipoServicio || s.servicioTipo,
+              formData: {
+                ...s.formData,
+                tiposTrabajo: [...new Set([...s.formData.tiposTrabajo, ...tipoTrabajo])],
+                materiales: [...new Set([...s.formData.materiales, ...material])],
+              },
+            }
+          : s
+      )
+    )
   }, [servicio, tipoServicio, JSON.stringify(tipoTrabajo), JSON.stringify(material)])
 
-  const handleToothSelect = (toothNumber: number) => {
-    setSelectedTeeth((prev) =>
-      prev.includes(toothNumber)
-        ? prev
-        : [...prev, toothNumber]
-    )
-  }
-
-  const handleToothStatusChange = (toothNumber: number, status: "normal" | "ausencia" | "implante" | "pilar") => {
-    setToothStatuses((prev) => ({
-      ...prev,
-      [toothNumber]: status,
-    }))
-  }
-
-  const handleToothStatusClear = (toothNumber: number) => {
-    setToothStatuses((prev) => {
-      const next = { ...prev }
-      delete next[toothNumber]
-      return next
+  const addSolicitud = () => {
+    const first = solicitudes[0]
+    const nueva = createDefaultSolicitud({
+      odontologo: first.formData.odontologo,
+      ccOdontologo: first.formData.ccOdontologo,
     })
-    setSelectedTeeth((prev) => prev.filter((t) => t !== toothNumber))
+    setSolicitudes((prev) => [...prev, nueva])
+    setActiveIndex(solicitudes.length)
   }
 
-  const updateDientesTrabajados = useCallback(() => {
-    setFormData((prev) => ({
-      ...prev,
-      dientesTrabajados: selectedTeeth.map((t) => t.toString()),
-    }))
-  }, [selectedTeeth])
+  const removeSolicitud = (index: number) => {
+    if (solicitudes.length <= 1) return
+    const removed = solicitudes[index]
+    toothDrawRefs.current.delete(removed.id)
+    setSolicitudes((prev) => prev.filter((_, i) => i !== index))
+    setActiveIndex((prev) => {
+      if (prev >= index && prev > 0) return prev - 1
+      if (prev >= solicitudes.length - 1) return Math.max(0, solicitudes.length - 2)
+      return prev
+    })
+  }
 
-  const selectedTeethDisplay = useMemo(() => {
-    if (selectedTeeth.length === 0) return "Ninguno"
-
-    return selectedTeeth
-      .slice()
-      .sort((a, b) => a - b)
-      .map((tooth) => {
-        const status = toothStatuses[tooth]
-        return status ? `${tooth}: ${status}` : tooth.toString()
-      })
-      .join(", ")
-  }, [selectedTeeth, toothStatuses])
-
-  const handleCheckboxChange = (
-    field: "tiposTrabajo" | "materiales" | "piezasEnviadas",
-    value: string
-  ) => {
-    setFormData((prev) => ({
-      ...prev,
-      [field]: prev[field].includes(value)
-        ? prev[field].filter((item) => item !== value)
-        : [...prev[field], value],
-    }))
+  const validateSolicitudes = (): string | null => {
+    for (let i = 0; i < solicitudes.length; i++) {
+      const s = solicitudes[i]
+      if (!s.servicioTipo) {
+        return `La solicitud #${i + 1} requiere seleccionar el tipo de servicio.`
+      }
+      if (s.uploadedFiles.length === 0) {
+        return `La solicitud #${i + 1} requiere al menos un archivo adjunto.`
+      }
+    }
+    return null
   }
 
   const handleSubmit = async () => {
     if (isSubmitting) return
     setIsSubmitting(true)
+
     try {
       const storedEmail = sessionStorage.getItem("clienteEmail")
       if (!storedEmail) {
@@ -185,96 +213,82 @@ export function PrescriptionForm({ initialData, servicio = "", tipoServicio = ""
         return
       }
 
-      if (!servicioTipo) {
-        alert("Selecciona el tipo de servicio o trabajo a realizar.")
-        setIsSubmitting(false)
+      const validationError = validateSolicitudes()
+      if (validationError) {
+        alert(validationError)
         return
       }
 
-      const formatFecha = (fecha: { dia: string; mes: string; anio: string }) => {
-        if (!fecha.dia || !fecha.mes || !fecha.anio) return ""
-        return `${fecha.dia}/${fecha.mes}/${fecha.anio}`
+      const results: { index: number; ok: boolean; error?: string }[] = []
+
+      for (let i = 0; i < solicitudes.length; i++) {
+        const solicitud = solicitudes[i]
+        const drawRef = toothDrawRefs.current.get(solicitud.id)
+        const drawingDataUrl = drawRef?.getDrawingDataUrl() ?? null
+        const payload = buildFormDataPayload(solicitud, storedEmail, drawingDataUrl)
+
+        try {
+          const response = await fetch("/api/solicitudes", {
+            method: "POST",
+            body: payload,
+          })
+          const result = await response.json()
+
+          if (!response.ok) {
+            const errorMsg = result.message || "Error al enviar la solicitud"
+            const errorDetails = result.details ? ` Detalles: ${result.details}` : ""
+            results.push({ index: i, ok: false, error: `${errorMsg}${errorDetails}` })
+          } else {
+            results.push({ index: i, ok: true })
+          }
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : "Error de conexion"
+          results.push({ index: i, ok: false, error: message })
+        }
       }
 
-      const formDataPayload = new FormData()
-      formDataPayload.append("correoOdontologo", storedEmail)
-      formDataPayload.append("servicio", servicioTipo)
-      formDataPayload.append("observaciones", formData.indicaciones || "")
-      formDataPayload.append("indicaciones", formData.indicaciones || "")
-      formDataPayload.append("odontologo", formData.odontologo || "")
-      formDataPayload.append("ccOdontologo", formData.ccOdontologo || "")
-      formDataPayload.append("paciente", formData.paciente || "")
-      formDataPayload.append("tarjetaProfesional", formData.tarjetaProfesional || "")
-      formDataPayload.append("ccPaciente", formData.ccPaciente || "")
-      formDataPayload.append("direccion", formData.direccion || "")
-      formDataPayload.append("firma", formData.firma || "")
-      formDataPayload.append("color", formData.color || "")
-      formDataPayload.append("guia_color", formData.guia || "")
-      formDataPayload.append("codigoTrazabilidad", formData.codigoTrazabilidad || "")
-      formDataPayload.append("fechaElaboracion", formatFecha(formData.fechaElaboracion))
-      formDataPayload.append("fechaEntrega", formatFecha(formData.fechaEntrega))
-      formDataPayload.append("historiaClinica", formData.historiaClinica || "")
-      formDataPayload.append("tiposTrabajo", JSON.stringify(formData.tiposTrabajo))
-      formDataPayload.append("materiales", JSON.stringify(formData.materiales))
-      formDataPayload.append("piezasEnviadas", JSON.stringify(formData.piezasEnviadas))
-      formDataPayload.append("chimenea", formData.chimenea ? "true" : "false")
-      formDataPayload.append("prueba", formData.prueba ? "true" : "false")
-      formDataPayload.append("terminado", formData.terminado ? "true" : "false")
-      formDataPayload.append("dientesTrabajados", JSON.stringify(selectedTeeth.map((t) => t.toString())))
-      formDataPayload.append("estadosDientes", JSON.stringify(toothStatuses))
+      const failed = results.filter((r) => !r.ok)
+      const succeeded = results.filter((r) => r.ok)
 
-      const drawingDataUrl = toothDrawRef.current?.getDrawingDataUrl()
-      if (drawingDataUrl) {
-        formDataPayload.append("dibujoOdontologo", drawingDataUrl)
+      if (failed.length > 0 && succeeded.length === 0) {
+        const details = failed
+          .map((f) => `Solicitud #${f.index + 1}: ${f.error}`)
+          .join("\n")
+        throw new Error(`No se pudo enviar ninguna solicitud.\n${details}`)
       }
 
-      uploadedFiles.forEach((file) => {
-        formDataPayload.append("archivos", file, file.name)
-      })
-
-      const response = await fetch("/api/solicitudes", {
-        method: "POST",
-        body: formDataPayload,
-      })
-
-      const result = await response.json()
-
-      if (!response.ok) {
-        const errorMsg = result.message || "Error al enviar la solicitud"
-        const errorDetails = result.details ? ` Detalles: ${result.details}` : ""
-        throw new Error(`${errorMsg}${errorDetails}`)
+      if (failed.length > 0) {
+        alert(
+          `Se enviaron ${succeeded.length} de ${solicitudes.length} solicitudes.\n\nErrores:\n${failed
+            .map((f) => `Solicitud #${f.index + 1}: ${f.error}`)
+            .join("\n")}`
+        )
       }
 
-      setServicioTipo("")
-      setUploadedFiles([])
+      setEnviadasCount(succeeded.length)
       setSolicitudEnviada(true)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error en handleSubmit:", error)
-      alert(error.message || "Error al enviar la solicitud. Intenta nuevamente.")
+      const message = error instanceof Error ? error.message : "Error al enviar las solicitudes. Intenta nuevamente."
+      alert(message)
     } finally {
       setIsSubmitting(false)
     }
-  }
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    const validFiles = files.filter((file) => {
-      const validTypes = ["image/jpeg", "image/png", "image/gif", "application/pdf"]
-      const maxSize = 10 * 1024 * 1024
-      return validTypes.includes(file.type) && file.size <= maxSize
-    })
-    setUploadedFiles((prev) => [...prev, ...validFiles])
-  }
-
-  const removeFile = (index: number) => {
-    setUploadedFiles((prev) => prev.filter((_, i) => i !== index))
   }
 
   const handleDownloadPDF = async () => {
     if (!formRef.current) return
 
     const actionButtons = formRef.current.querySelector(".action-buttons") as HTMLElement
+    const tabsBar = formRef.current.querySelector(".solicitudes-tabs") as HTMLElement
     if (actionButtons) actionButtons.style.display = "none"
+    if (tabsBar) tabsBar.style.display = "none"
+
+    let hiddenSections: NodeListOf<Element> | null = null
+    hiddenSections = formRef.current.querySelectorAll(".solicitud-section-hidden")
+    hiddenSections.forEach((el) => {
+      ;(el as HTMLElement).style.display = "block"
+    })
 
     try {
       await new Promise((resolve) => setTimeout(resolve, 100))
@@ -320,11 +334,16 @@ export function PrescriptionForm({ initialData, servicio = "", tipoServicio = ""
         pdf.addImage(imgData, "JPEG", imgX, imgY, finalWidth, finalHeight)
       }
 
-      pdf.save(`prescripcion-${formData.historiaClinica || "form"}.pdf`)
+      const activeSolicitud = solicitudes[activeIndex]
+      pdf.save(`prescripcion-${activeSolicitud?.formData.historiaClinica || "form"}.pdf`)
     } catch {
       window.print()
     } finally {
+      hiddenSections?.forEach((el) => {
+        ;(el as HTMLElement).style.display = "none"
+      })
       if (actionButtons) actionButtons.style.display = "flex"
+      if (tabsBar) tabsBar.style.display = "flex"
     }
   }
 
@@ -332,645 +351,78 @@ export function PrescriptionForm({ initialData, servicio = "", tipoServicio = ""
     <div ref={formRef} className="max-w-3xl mx-auto bg-white shadow-lg overflow-hidden border border-gray-300">
       <Navbar />
 
-      {/* Fechas y Prescripción */}
-      <div className="p-3 border-b">
-        <div className="flex flex-wrap gap-4 items-end justify-between">
-          {/* Fecha de Elaboración */}
-          <div className="flex flex-col">
-            <Label className="text-[10px] text-gray-600 text-center mb-1">
-              FECHA DE<br />ELABORACIÓN
-            </Label>
-            <div className="flex items-center gap-2">
-              <Popover open={showCalendarElaboracion} onOpenChange={setShowCalendarElaboracion}>
-                <PopoverTrigger asChild>
-                  <button className="flex items-center gap-1 rounded bg-[#a5d6a7] px-2 py-1 text-xs hover:bg-[#8bc34a]">
-                    <CalendarIcon size={14} />
-                    {formData.fechaElaboracion.dia || "D"}/{formData.fechaElaboracion.mes || "M"}/{formData.fechaElaboracion.anio || "A"}
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={formData.fechaElaboracion.dia ? new Date(parseInt(formData.fechaElaboracion.anio), parseInt(formData.fechaElaboracion.mes) - 1, parseInt(formData.fechaElaboracion.dia)) : undefined}
-                    onSelect={(date) => {
-                      if (date) {
-                        setFormData((prev) => ({
-                          ...prev,
-                          fechaElaboracion: {
-                            dia: format(date, "dd"),
-                            mes: format(date, "MM"),
-                            anio: format(date, "yyyy"),
-                          },
-                        }))
-                        setShowCalendarElaboracion(false)
-                      }
-                    }}
-                    locale={es}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
-
-          {/* Fecha de Entrega */}
-          <div className="flex flex-col">
-            <Label className="text-[10px] text-gray-600 text-center mb-1">
-              FECHA DE<br />ENTREGA
-            </Label>
-            <div className="flex items-center gap-2">
-              <Popover open={showCalendarEntrega} onOpenChange={setShowCalendarEntrega}>
-                <PopoverTrigger asChild>
-                  <button
-                    className="flex items-center gap-1 rounded bg-[#a5d6a7] px-2 py-1 text-xs hover:bg-[#8bc34a]"
-                    disabled={!formData.fechaElaboracion.dia}
-                  >
-                    <CalendarIcon size={14} />
-                    {formData.fechaEntrega.dia || "D"}/{formData.fechaEntrega.mes || "M"}/{formData.fechaEntrega.anio || "A"}
-                  </button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={formData.fechaEntrega.dia ? new Date(`${formData.fechaEntrega.anio}-${formData.fechaEntrega.mes}-${formData.fechaEntrega.dia}`) : undefined}
-                    onSelect={(date) => {
-                      if (date) {
-                        setFormData((prev) => ({
-                          ...prev,
-                          fechaEntrega: {
-                            dia: format(date, "dd"),
-                            mes: format(date, "MM"),
-                            anio: format(date, "yyyy"),
-                          },
-                        }))
-                        setShowCalendarEntrega(false)
-                      }
-                    }}
-                    disabled={(date) => {
-                      if (!formData.fechaElaboracion.dia) return true
-                      const elaboracionDate = new Date(`${formData.fechaElaboracion.anio}-${formData.fechaElaboracion.mes}-${formData.fechaElaboracion.dia}`)
-                      const minDate = new Date(elaboracionDate)
-                      minDate.setDate(minDate.getDate() + 9)
-                      return date < minDate
-                    }}
-                    locale={es}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
-
-          {/* Prescripción / Historia Clínica */}
-          <div className="text-right">
-            <span className="text-2xl font-serif text-[#c62828] italic">Prescripción</span>
-            <div className="text-[10px] text-gray-600 mt-0.5">HISTORIA CLÍNICA</div>
-            <div className="flex items-center justify-end gap-1 mt-0.5">
-              <span className="text-xs">Nº</span>
-              <Input
-                className="w-16 h-6 text-center border-2 border-[#c62828] text-xs"
-                value={formData.historiaClinica}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, historiaClinica: e.target.value }))
-                }
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Datos del Odontólogo y Paciente */}
-      <div className="p-3 border-b space-y-2 text-xs">
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 flex-1">
-            <Label className="text-xs whitespace-nowrap">ODONTÓLOGO(A):</Label>
-            <Input
-              className="flex-1 h-6 border-b border-gray-400 rounded-none border-t-0 border-l-0 border-r-0 text-xs"
-              value={formData.odontologo}
-              onChange={(e) => setFormData((prev) => ({ ...prev, odontologo: e.target.value }))}
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 flex-1">
-            <Label className="text-xs whitespace-nowrap">CC.:</Label>
-            <Input
-              className="flex-1 h-6 border-b border-gray-400 rounded-none border-t-0 border-l-0 border-r-0 text-xs"
-              value={formData.ccOdontologo}
-              onChange={(e) => setFormData((prev) => ({ ...prev, ccOdontologo: e.target.value }))}
-            />
-          </div>
-          <div className="flex items-center gap-1 flex-1">
-            <Label className="text-xs whitespace-nowrap">PACIENTE:</Label>
-            <Input
-              className="flex-1 h-6 border-b border-gray-400 rounded-none border-t-0 border-l-0 border-r-0 text-xs"
-              value={formData.paciente}
-              onChange={(e) => setFormData((prev) => ({ ...prev, paciente: e.target.value }))}
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 flex-1">
-            <Label className="text-xs whitespace-nowrap">No. TARJETA PROFESIONAL:</Label>
-            <Input
-              className="flex-1 h-6 border-b border-gray-400 rounded-none border-t-0 border-l-0 border-r-0 text-xs"
-              value={formData.tarjetaProfesional}
-              onChange={(e) => setFormData((prev) => ({ ...prev, tarjetaProfesional: e.target.value }))}
-            />
-          </div>
-          <div className="flex items-center gap-1 w-32">
-            <Label className="text-xs whitespace-nowrap">CC.:</Label>
-            <Input
-              className="flex-1 h-6 border-b border-gray-400 rounded-none border-t-0 border-l-0 border-r-0 text-xs"
-              value={formData.ccPaciente}
-              onChange={(e) => setFormData((prev) => ({ ...prev, ccPaciente: e.target.value }))}
-            />
-          </div>
-        </div>
-
-        <div className="flex items-center gap-1">
-          <Label className="text-xs whitespace-nowrap">DIRECCIÓN:</Label>
-          <Input
-            className="flex-1 h-6 border-b border-gray-400 rounded-none border-t-0 border-l-0 border-r-0 text-xs"
-            value={formData.direccion}
-            onChange={(e) => setFormData((prev) => ({ ...prev, direccion: e.target.value }))}
-          />
-        </div>
-
-        <div className="flex items-center gap-1">
-          <Label className="text-xs whitespace-nowrap">FIRMA DE ODONTÓLOGO (A):</Label>
-          <Input
-            className="flex-1 h-6 border-b border-gray-400 rounded-none border-t-0 border-l-0 border-r-0 text-xs"
-            value={formData.firma}
-            onChange={(e) => setFormData((prev) => ({ ...prev, firma: e.target.value }))}
-          />
-        </div>
-      </div>
-
-      {/* Servicio principal para la solicitud */}
-      <div className="p-3 border-b space-y-2 text-xs">
-        <Label className="text-xs font-semibold text-gray-700">TIPO DE SERVICIO PRINCIPAL</Label>
-        <select
-          value={servicioTipo}
-          onChange={(event) => setServicioTipo(event.target.value)}
-          className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-xs"
+      {/* Tabs de solicitudes */}
+      <div className="solicitudes-tabs flex items-center gap-2 p-3 bg-gray-50 border-b flex-wrap">
+        {solicitudes.map((s, i) => (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => setActiveIndex(i)}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+              activeIndex === i
+                ? "bg-primary text-primary-foreground"
+                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
+            }`}
+          >
+            Solicitud {i + 1}
+            {solicitudes.length > 1 && (
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  removeSolicitud(i)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.stopPropagation()
+                    removeSolicitud(i)
+                  }
+                }}
+                className="ml-1 rounded p-0.5 hover:bg-black/10"
+                aria-label={`Eliminar solicitud ${i + 1}`}
+              >
+                <Trash2 size={12} />
+              </span>
+            )}
+          </button>
+        ))}
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={addSolicitud}
+          className="flex items-center gap-1 text-xs h-8"
         >
-          <option value="">Selecciona el servicio...</option>
-          <option value="Corona de Zirconio">Corona de Zirconio</option>
-          <option value="Corona de Disilicato de Litio">Corona de Disilicato de Litio</option>
-          <option value="Corona Metal Porcelana">Corona Metal Porcelana</option>
-          <option value="Carilla de Disilicato">Carilla de Disilicato</option>
-          <option value="Carilla de Resina">Carilla de Resina</option>
-          <option value="Incrustación">Incrustación</option>
-          <option value="Híbrida PMMA">Híbrida PMMA</option>
-          <option value="Prótesis Fija">Prótesis Fija</option>
-          <option value="Corona sobre Implante">Corona sobre Implante</option>
-          <option value="Modelo de Yeso">Modelo de Yeso</option>
-          <option value="Otro">Otro</option>
-        </select>
-
-        {servicioTipo === "Otro" && (
-          <Input
-            placeholder="Especifica el servicio"
-            value={formData.tiposTrabajo.find((item) => item.startsWith("OTRO:"))?.replace("OTRO:", "") || ""}
-            onChange={(e) => {
-              const custom = `OTRO: ${e.target.value || "Sin especificar"}`
-              setFormData((prev) => ({
-                ...prev,
-                tiposTrabajo: prev.tiposTrabajo.filter((item) => !item.startsWith("OTRO:")),
-              }))
-              if (e.target.value.trim()) {
-                setFormData((prev) => ({
-                  ...prev,
-                  tiposTrabajo: [...prev.tiposTrabajo, custom],
-                }))
-              }
-            }}
-            className="mt-2"
-          />
+          <Plus size={14} />
+          Agregar solicitud
+        </Button>
+        {solicitudes.length > 1 && (
+          <span className="text-[10px] text-gray-500 ml-auto">
+            {solicitudes.length} solicitudes en esta sesion
+          </span>
         )}
       </div>
 
-      {/* Tipo de Trabajo y Material */}
-      <div className="border-b">
-        <div className="grid grid-cols-3">
-          {/* Tipo de Trabajo */}
-          <div className="col-span-2 border-r">
-            <div className="bg-[#8bc34a] text-white text-center py-1 text-xs font-semibold">
-              TIPO DE TRABAJO
-            </div>
-            <div className="p-2">
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
-                <div className="flex items-center gap-1">
-                  <Checkbox
-                    id="apoyo"
-                    checked={formData.tiposTrabajo.includes("APOYO")}
-                    onCheckedChange={() => handleCheckboxChange("tiposTrabajo", "APOYO")}
-                    className="h-3 w-3"
-                  />
-                  <Label htmlFor="apoyo" className="text-[11px] cursor-pointer">APOYO</Label>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Checkbox
-                    id="hibrida"
-                    checked={formData.tiposTrabajo.includes("HÍBRIDA")}
-                    onCheckedChange={() => handleCheckboxChange("tiposTrabajo", "HÍBRIDA")}
-                    className="h-3 w-3"
-                  />
-                  <Label htmlFor="hibrida" className="text-[11px] cursor-pointer">HÍBRIDA</Label>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Checkbox
-                    id="subestructura"
-                    checked={formData.tiposTrabajo.includes("SUB ESTRUCTURA")}
-                    onCheckedChange={() => handleCheckboxChange("tiposTrabajo", "SUB ESTRUCTURA")}
-                    className="h-3 w-3"
-                  />
-                  <Label htmlFor="subestructura" className="text-[11px] cursor-pointer">SUB ESTRUCTURA</Label>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Checkbox
-                    id="incrustacion"
-                    checked={formData.tiposTrabajo.includes("INCRUSTACIÓN")}
-                    onCheckedChange={() => handleCheckboxChange("tiposTrabajo", "INCRUSTACIÓN")}
-                    className="h-3 w-3"
-                  />
-                  <Label htmlFor="incrustacion" className="text-[11px] cursor-pointer">INCRUSTACIÓN</Label>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Checkbox
-                    id="encerado"
-                    checked={formData.tiposTrabajo.includes("ENCERADO DX")}
-                    onCheckedChange={() => handleCheckboxChange("tiposTrabajo", "ENCERADO DX")}
-                    className="h-3 w-3"
-                  />
-                  <Label htmlFor="encerado" className="text-[11px] cursor-pointer">ENCERADO DX</Label>
-                </div>
-
-                <div className="flex items-center gap-1">
-                  <Checkbox
-                    id="carilla"
-                    checked={formData.tiposTrabajo.includes("CARILLA")}
-                    onCheckedChange={() => handleCheckboxChange("tiposTrabajo", "CARILLA")}
-                    className="h-3 w-3"
-                  />
-                  <Label htmlFor="carilla" className="text-[11px] cursor-pointer">CARILLA</Label>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Checkbox
-                    id="corona"
-                    checked={formData.tiposTrabajo.includes("CORONA")}
-                    onCheckedChange={() => handleCheckboxChange("tiposTrabajo", "CORONA")}
-                    className="h-3 w-3"
-                  />
-                  <Label htmlFor="corona" className="text-[11px] cursor-pointer">CORONA</Label>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Checkbox
-                    id="coronaimplante"
-                    checked={formData.tiposTrabajo.includes("CORONA SOBRE IMPLANTE")}
-                    onCheckedChange={() => handleCheckboxChange("tiposTrabajo", "CORONA SOBRE IMPLANTE")}
-                    className="h-3 w-3"
-                  />
-                  <Label htmlFor="coronaimplante" className="text-[11px] cursor-pointer">CORONA SOBRE IMPLANTE</Label>
-                </div>
-                <div className="flex items-center gap-1">
-                  <Checkbox
-                    id="protesis"
-                    checked={formData.tiposTrabajo.includes("PRÓTESIS FIJA")}
-                    onCheckedChange={() => handleCheckboxChange("tiposTrabajo", "PRÓTESIS FIJA")}
-                    className="h-3 w-3"
-                  />
-                  <Label htmlFor="protesis" className="text-[11px] cursor-pointer">PUENTE</Label>
-                </div>
-
-
-              </div>
-              <div className="flex items-center gap-2 mt-2 text-[11px]">
-                <span>CHIMENEA</span>
-                <span>SÍ</span>
-                <Input
-                  type="text"
-                  className="w-8 h-5 border border-gray-400 text-center text-[10px]"
-                  value={formData.chimenea === true ? "X" : ""}
-                  onClick={() => setFormData((prev) => ({ ...prev, chimenea: prev.chimenea === true ? null : true }))}
-                  readOnly
-                />
-                <span>NO</span>
-                <Input
-                  type="text"
-                  className="w-8 h-5 border border-gray-400 text-center text-[10px]"
-                  value={formData.chimenea === false ? "X" : ""}
-                  onClick={() => setFormData((prev) => ({ ...prev, chimenea: prev.chimenea === false ? null : false }))}
-                  readOnly
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Material */}
-          <div>
-            <div className="bg-[#8bc34a] text-white text-center py-1 text-xs font-semibold">
-              MATERIAL
-            </div>
-            <div className="p-2 space-y-1">
-              <div className="flex items-center gap-1">
-                <Checkbox
-                  id="disilicato"
-                  checked={formData.materiales.includes("DISILICATO")}
-                  onCheckedChange={() => handleCheckboxChange("materiales", "DISILICATO")}
-                  className="h-3 w-3"
-                />
-                <Label htmlFor="disilicato" className="text-[11px] cursor-pointer">DISILICATO</Label>
-              </div>
-              <div className="flex items-center gap-1">
-                <Checkbox
-                  id="zirconio"
-                  checked={formData.materiales.includes("ZIRCONIO")}
-                  onCheckedChange={() => handleCheckboxChange("materiales", "ZIRCONIO")}
-                  className="h-3 w-3"
-                />
-                <Label htmlFor="zirconio" className="text-[11px] cursor-pointer">ZIRCONIO</Label>
-              </div>
-              <div className="flex items-center gap-1">
-                <Checkbox
-                  id="metal-ceramica"
-                  checked={formData.materiales.includes("METAL-CERÁMICA")}
-                  onCheckedChange={() => handleCheckboxChange("materiales", "METAL-CERÁMICA")}
-                  className="h-3 w-3"
-                />
-                <Label htmlFor="metal-ceramica" className="text-[11px] cursor-pointer">METAL-CERÁMICA</Label>
-              </div>
-              <div className="flex items-center gap-1">
-                <Checkbox
-                  id="pmma"
-                  checked={formData.materiales.includes("PMMA")}
-                  onCheckedChange={() => handleCheckboxChange("materiales", "PMMA")}
-                  className="h-3 w-3"
-                />
-                <Label htmlFor="pmma" className="text-[11px] cursor-pointer">PMMA</Label>
-              </div>
-                <div className="flex items-center gap-1">
-                  <Checkbox
-                    id="resina"
-                    checked={formData.materiales.includes("RESINA")}
-                    onCheckedChange={() => handleCheckboxChange("materiales", "RESINA")}
-                    className="h-3 w-3"
-                  />
-                  <Label htmlFor="resina" className="text-[11px] cursor-pointer">RESINA</Label>
-                </div>
-
-                <div className="flex items-center gap-4 mt-2 pt-2 border-t">
-                <div className="flex items-center gap-1 text-[11px]">
-                  <span>PRUEBA</span>
-                  <Checkbox
-                    checked={formData.prueba}
-                    onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, prueba: checked === true }))}
-                    className="h-3 w-3"
-                  />
-                </div>
-                <div className="flex items-center gap-1 text-[11px]">
-                  <span>TERMINADO</span>
-                  <Checkbox
-                    checked={formData.terminado}
-                    onCheckedChange={(checked) => setFormData((prev) => ({ ...prev, terminado: checked === true }))}
-                    className="h-3 w-3"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Dientes a Trabajar */}
-      <div className="border-b">
-        <div className="bg-[#8bc34a] text-white text-center py-1 text-xs font-semibold">
-          DIENTES A TRABAJAR
-        </div>
-        <div className="p-2 grid grid-cols-3 gap-2">
-          {/* Dental Chart */}
-          <div className="col-span-2">
-            <DentalChart
-              selectedTeeth={selectedTeeth}
-              toothStatuses={toothStatuses}
-              onToothSelect={handleToothSelect}
-              onToothStatusChange={handleToothStatusChange}
-              onToothStatusClear={handleToothStatusClear}
-            />
-          </div>
-
-          {/* Color, Guía y Diente dibujable */}
-          <div className="space-y-2">
-            <DrawableTooth
-              ref={toothDrawRef}
-              width={160}
-              height={180}
-              color={formData.color}
-              guia={formData.guia}
-              onColorChange={(value) => setFormData((prev) => ({ ...prev, color: value }))}
-              onGuiaChange={(value) => setFormData((prev) => ({ ...prev, guia: value }))}
-            />
-          </div>
-        </div>
-        {/* Dientes seleccionados */}
-        <div className="px-2 pb-2 text-xs">
-          <span className="font-semibold">Seleccionaste: </span>
-          <span className="text-gray-700">
-            {selectedTeethDisplay}
-          </span>
-        </div>
-      </div>
-
-      {/* Indicaciones del Odontólogo */}
-      <div className="border-b">
-        <div className="bg-[#8bc34a] text-white text-center py-1 text-xs font-semibold">
-          INDICACIONES DEL ODONTÓLOGO
-        </div>
-        <div className="p-2">
-          <Textarea
-            className="w-full min-h-[60px] border border-gray-300 text-xs"
-            placeholder="Escriba las indicaciones..."
-            value={formData.indicaciones}
-            onChange={(e) => setFormData((prev) => ({ ...prev, indicaciones: e.target.value }))}
+      {/* Secciones de solicitud */}
+      {solicitudes.map((solicitud, index) => (
+        <div
+          key={solicitud.id}
+          className={index !== activeIndex ? "solicitud-section-hidden hidden" : ""}
+        >
+          <SolicitudSection
+            solicitud={solicitud}
+            index={index}
+            idPrefix={`sol-${solicitud.id}`}
+            onToothDrawRef={(ref) => {
+              if (ref) toothDrawRefs.current.set(solicitud.id, ref)
+              else toothDrawRefs.current.delete(solicitud.id)
+            }}
+            onUpdate={(updates) => updateSolicitud(index, updates)}
+            onFormDataChange={(updates) => updateFormData(index, updates)}
           />
         </div>
-      </div>
-
-      {/* Archivos Adjuntos */}
-      <div className="border-b">
-        <div className="bg-[#8bc34a] text-white text-center py-1 text-xs font-semibold">
-          ARCHIVOS ADJUNTOS
-        </div>
-        <div className="p-3">
-          <div className="flex items-center gap-2 mb-2">
-            <Upload className="h-4 w-4 text-gray-600" />
-            <span className="text-xs text-gray-600">Adjunte imágenes o PDFs (máx. 10MB c/u)</span>
-          </div>
-          <input
-            type="file"
-            id="file-upload"
-            className="hidden"
-            accept="image/jpeg,image/png,image/gif,application/pdf"
-            multiple
-            onChange={handleFileChange}
-          />
-          <label
-            htmlFor="file-upload"
-            className="inline-flex items-center gap-2 rounded-lg bg-secondary px-3 py-2 text-xs font-medium text-secondary-foreground transition-all hover:bg-accent cursor-pointer"
-          >
-            <Upload size={14} />
-            Seleccionar archivos
-          </label>
-          {uploadedFiles.length > 0 && (
-            <div className="mt-3 space-y-2">
-              {uploadedFiles.map((file, index) => (
-                <div key={index} className="flex items-center justify-between rounded-lg bg-gray-50 px-3 py-2 text-xs">
-                  <div className="flex items-center gap-2">
-                    <File size={14} className="text-gray-600" />
-                    <span className="truncate max-w-[200px]">{file.name}</span>
-                    <span className="text-gray-400">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeFile(index)}
-                    className="text-red-500 hover:text-red-700"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Piezas Enviadas */}
-      <div className="p-3 border-b">
-        <div className="grid grid-cols-3 gap-4">
-          <div className="col-span-2">
-            <h3 className="font-semibold text-xs mb-2">PIEZAS ENVIADAS</h3>
-            <div className="grid grid-cols-3 gap-x-2 gap-y-1 text-[11px]">
-              <div className="flex items-center gap-1">
-                <Checkbox
-                  id="analogo"
-                  checked={formData.piezasEnviadas.includes("ANÁLOGO")}
-                  onCheckedChange={() => handleCheckboxChange("piezasEnviadas", "ANÁLOGO")}
-                  className="h-3 w-3"
-                />
-                <Label htmlFor="analogo" className="text-[11px] cursor-pointer">ANÁLOGO</Label>
-              </div>
-              <div className="flex items-center gap-1">
-                <Checkbox
-                  id="registro"
-                  checked={formData.piezasEnviadas.includes("REGISTRO DE MORDIDA")}
-                  onCheckedChange={() => handleCheckboxChange("piezasEnviadas", "REGISTRO DE MORDIDA")}
-                  className="h-3 w-3"
-                />
-                <Label htmlFor="registro" className="text-[11px] cursor-pointer">REGISTRO DE<br />MORDIDA</Label>
-              </div>
-              <div className="flex items-center gap-1">
-                <Checkbox
-                  id="antagonista"
-                  checked={formData.piezasEnviadas.includes("ANTAGONISTA")}
-                  onCheckedChange={() => handleCheckboxChange("piezasEnviadas", "ANTAGONISTA")}
-                  className="h-3 w-3"
-                />
-                <Label htmlFor="antagonista" className="text-[11px] cursor-pointer">ANTAGONISTA</Label>
-              </div>
-              <div className="flex items-center gap-1">
-                <Checkbox
-                  id="coping"
-                  checked={formData.piezasEnviadas.includes("COPING DE IMP")}
-                  onCheckedChange={() => handleCheckboxChange("piezasEnviadas", "COPING DE IMP")}
-                  className="h-3 w-3"
-                />
-                <Label htmlFor="coping" className="text-[11px] cursor-pointer">COPING DE IMP</Label>
-              </div>
-              <div className="flex items-center gap-1">
-                <Checkbox
-                  id="cubeta"
-                  checked={formData.piezasEnviadas.includes("CUBETA")}
-                  onCheckedChange={() => handleCheckboxChange("piezasEnviadas", "CUBETA")}
-                  className="h-3 w-3"
-                />
-                <Label htmlFor="cubeta" className="text-[11px] cursor-pointer">CUBETA</Label>
-              </div>
-              <div className="flex items-center gap-1">
-                <Checkbox
-                  id="modelo"
-                  checked={formData.piezasEnviadas.includes("MODELO DE REF.")}
-                  onCheckedChange={() => handleCheckboxChange("piezasEnviadas", "MODELO DE REF.")}
-                  className="h-3 w-3"
-                />
-                <Label htmlFor="modelo" className="text-[11px] cursor-pointer">MODELO DE REF.</Label>
-              </div>
-              <div className="flex items-center gap-1">
-                <Checkbox
-                  id="transfer"
-                  checked={formData.piezasEnviadas.includes("TRANSFER")}
-                  onCheckedChange={() => handleCheckboxChange("piezasEnviadas", "TRANSFER")}
-                  className="h-3 w-3"
-                />
-                <Label htmlFor="transfer" className="text-[11px] cursor-pointer">TRANSFER</Label>
-              </div>
-              <div className="flex items-center gap-1">
-                <Checkbox
-                  id="articulador"
-                  checked={formData.piezasEnviadas.includes("ARTICULADOR")}
-                  onCheckedChange={() => handleCheckboxChange("piezasEnviadas", "ARTICULADOR")}
-                  className="h-3 w-3"
-                />
-                <Label htmlFor="articulador" className="text-[11px] cursor-pointer">ARTICULADOR</Label>
-              </div>
-              <div></div>
-              <div className="flex items-center gap-1">
-                <Checkbox
-                  id="ucla"
-                  checked={formData.piezasEnviadas.includes("UCLA")}
-                  onCheckedChange={() => handleCheckboxChange("piezasEnviadas", "UCLA")}
-                  className="h-3 w-3"
-                />
-                <Label htmlFor="ucla" className="text-[11px] cursor-pointer">UCLA</Label>
-              </div>
-              <div className="flex items-center gap-1">
-                <Checkbox
-                  id="guiacolor"
-                  checked={formData.piezasEnviadas.includes("GUÍA DE COLOR")}
-                  onCheckedChange={() => handleCheckboxChange("piezasEnviadas", "GUÍA DE COLOR")}
-                  className="h-3 w-3"
-                />
-                <Label htmlFor="guiacolor" className="text-[11px] cursor-pointer">GUÍA DE COLOR</Label>
-              </div>
-              <div></div>
-              <div className="flex items-center gap-1">
-                <Checkbox
-                  id="aditamento"
-                  checked={formData.piezasEnviadas.includes("ADITAMENTO")}
-                  onCheckedChange={() => handleCheckboxChange("piezasEnviadas", "ADITAMENTO")}
-                  className="h-3 w-3"
-                />
-                <Label htmlFor="aditamento" className="text-[11px] cursor-pointer">ADITAMENTO</Label>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <div className="border border-gray-400 p-2 rounded">
-              <div className="text-[10px] font-semibold mb-1">CÓD. TRAZABILIDAD</div>
-              <div className="flex items-center gap-1">
-                <span className="text-[11px]">#</span>
-                <span className="flex-1 h-5 text-center text-xs border rounded border-gray-300 bg-gray-50 px-2 py-1">{formData.codigoTrazabilidad}</span>
-              </div>
-              <div className="text-[9px] text-gray-500 text-center mt-1">
-                INFO EXCLUSIVA DE LABORATORIO
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      ))}
 
       {/* Footer */}
       <div className="bg-[#7cb342] text-white p-3">
@@ -1003,15 +455,25 @@ export function PrescriptionForm({ initialData, servicio = "", tipoServicio = ""
           }`}
         >
           <Send size={16} />
-          {isSubmitting ? "Enviando..." : "Enviar Solicitud"}
+          {isSubmitting
+            ? "Enviando..."
+            : solicitudes.length > 1
+              ? `Enviar ${solicitudes.length} solicitudes`
+              : "Enviar Solicitud"}
         </button>
       </div>
 
       {solicitudEnviada && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
           <div className="rounded-2xl bg-white p-6 shadow-2xl max-w-sm w-full mx-4">
-            <h3 className="text-lg font-bold text-gray-800 mb-2">Solicitud enviada</h3>
-            <p className="text-sm text-gray-600 mb-4">Te contactaremos pronto.</p>
+            <h3 className="text-lg font-bold text-gray-800 mb-2">
+              {enviadasCount > 1 ? "Solicitudes enviadas" : "Solicitud enviada"}
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              {enviadasCount > 1
+                ? `Se registraron ${enviadasCount} solicitudes correctamente. Te contactaremos pronto.`
+                : "Te contactaremos pronto."}
+            </p>
             <button
               onClick={() => {
                 setSolicitudEnviada(false)

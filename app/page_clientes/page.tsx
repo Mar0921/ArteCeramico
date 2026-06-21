@@ -29,9 +29,11 @@ import {
   Eye,
   AlertCircle,
   Wallet,
+  Check,
 } from "lucide-react"
 
 import { Navbar } from "@/components/navbar"
+import { Checkbox } from "@/components/ui/checkbox"
 
 interface Servicio {
   id: number
@@ -138,9 +140,19 @@ export default function ClientesPage() {
   const [uploadError, setUploadError] = useState<Record<string, string>>({})
   const [uploadSuccess, setUploadSuccess] = useState<Record<string, boolean>>({})
   const [mostrarEstadoCuenta, setMostrarEstadoCuenta] = useState(false)
-  const [itemsEstadoCuenta, setItemsEstadoCuenta] = useState<{ solicitudId: number; servicio: string; precio: number | null; estado: string; fecha: string }[]>([])
+  const [itemsEstadoCuenta, setItemsEstadoCuenta] = useState<{
+        id: number
+        solicitudId: number
+        nombre: string
+        descripcion: string
+        precio: number
+        cantidad: number
+        fecha: string
+        estado: string
+      }[]>([]) 
   const [totalPagar, setTotalPagar] = useState(0)
   const [procesandoPago, setProcesandoPago] = useState(false)
+  const [seleccionados, setSeleccionados] = useState<Set<number>>(new Set())
 
   const [editMode, setEditMode] = useState(false)
   const [editData, setEditData] = useState<Partial<Cliente>>({})
@@ -210,82 +222,172 @@ export default function ClientesPage() {
     loadClient()
   }, [router])
 
-   const cargarSolicitudes = async (clienteId: number) => {
-     setLoadingSolicitudes(true)
-     try {
-       const { data, error } = await supabase
-         .from("solicitudes")
-         .select("*")
-         .eq("cliente_id", clienteId)
-         .order("created_at", { ascending: false })
+  const cargarSolicitudes = async (clienteId: number) => {
+    setLoadingSolicitudes(true)
+    try {
+      const { data, error } = await supabase
+        .from("solicitudes")
+        .select("*")
+        .eq("cliente_id", clienteId)
+        .order("created_at", { ascending: false })
 
-       if (error) throw error
+      if (error) throw error
 
-       setSolicitudes(data ?? [])
-       await cargarEstadoCuenta(clienteId, data ?? [])
-     } catch (err) {
-       console.error("Error cargando solicitudes", err)
-     } finally {
-       setLoadingSolicitudes(false)
-     }
-   }
+      const solicitudesData = data ?? []
+      
+      const solicitudIds = solicitudesData.map(s => s.id)
+      const preciosMap = new Map<number, number>()
+      
+      if (solicitudIds.length > 0) {
+        const { data: servicios } = await supabase
+          .from("servicios")
+          .select("solicitud_id, precio")
+          .in("solicitud_id", solicitudIds)
+        
+        servicios?.forEach((serv: any) => {
+          if (serv.precio && Number(serv.precio) > 0) {
+            preciosMap.set(serv.solicitud_id, Number(serv.precio))
+          }
+        })
+      }
+      
+      const solicitudesConPrecio = solicitudesData.map((s: any) => ({
+        ...s,
+        precio: preciosMap.get(s.id) || s.precio || null,
+      }))
+      
+      setSolicitudes(solicitudesConPrecio)
+      await cargarEstadoCuenta(clienteId, solicitudesConPrecio)
+    } catch (err) {
+      console.error("Error cargando solicitudes", err)
+    } finally {
+      setLoadingSolicitudes(false)
+    }
+  }
 
-   const cargarEstadoCuenta = async (clienteId: number, solicitudesData: Solicitud[]) => {
-     try {
-       const { data, error } = await supabase
-         .from("servicios")
-         .select("id, solicitud_id, nombre, precio, created_at")
-         .in("solicitud_id", solicitudesData.map(s => s.id))
-         .order("created_at", { ascending: true })
+  const cargarEstadoCuenta = async (clienteId: number, solicitudesData: Solicitud[]) => {
+    try {
+      const { data, error } = await supabase
+        .from("servicios")
+        .select(`
+                id,
+                solicitud_id,
+                nombre,
+                descripcion,
+                precio,
+                cantidad,
+                created_at
+              `)
+        .in("solicitud_id", solicitudesData.map(s => s.id))
+        .order("created_at", { ascending: true })
 
-       if (error) throw error
+      if (error) throw error
 
-       const solicitudesMap = new Map(solicitudesData.map(s => [s.id, s]))
+      const solicitudesMap = new Map(solicitudesData.map(s => [s.id, s]))
 
-       const items = (data ?? [])
-         .filter((item: any) => item.precio && Number(item.precio) > 0)
-         .map((item: any) => {
+      const items = (data ?? [])
+        .filter((item: any) => item.precio && Number(item.precio) > 0)
+.map((item: any) => {
            const solicitud = solicitudesMap.get(item.solicitud_id)
            return {
+             id: item.id,
              solicitudId: item.solicitud_id,
-             servicio: item.nombre,
+             nombre: item.nombre,
+             descripcion: item.descripcion || "",
              precio: Number(item.precio),
+             cantidad: item.cantidad || 1,
              estado: solicitud?.estado || "pendiente",
-             fecha: solicitud?.created_at || item.created_at || "",
+             fecha: solicitud?.created_at || item.created_at,
            }
          })
 
-       setItemsEstadoCuenta(items)
-       setTotalPagar(items.reduce((acc, item) => acc + item.precio, 0))
-     } catch (err) {
-       console.error("Error cargando estado de cuenta:", err)
-     }
-   }
+      setItemsEstadoCuenta(items)
+      setTotalPagar(items.reduce((acc, item) => acc + item.precio, 0))
+    } catch (err) {
+      console.error("Error cargando estado de cuenta:", err)
+    }
+  }
 
-   const handlePagar = async () => {
-     if (totalPagar <= 0 || itemsEstadoCuenta.length === 0) return
+  const handlePagarSeleccionados = async () => {
+    const itemsPagar = itemsEstadoCuenta.filter(item =>
+      seleccionados.has(item.solicitudId * 1000 + itemsEstadoCuenta.findIndex(i => i.solicitudId === item.solicitudId))
+    )
 
-     setProcesandoPago(true)
-     try {
-       await new Promise(resolve => setTimeout(resolve, 600))
-       const resumen = itemsEstadoCuenta
-         .map(item => `• ${item.servicio} (${new Date(item.fecha).toLocaleDateString()}): $${item.precio.toLocaleString("es-CO")}`)
-         .join("\n")
-       alert(
-         `RESUMEN DE PAGO\n\n${resumen}\n\n TOTAL: $${totalPagar.toLocaleString("es-CO")}\n\n` +
-         `Formas de pago disponibles:\n` +
-         `• Efectivo\n` +
-         `• Transferencia bancaria\n` +
-         `• PSE\n` +
-         `• Tarjetas crédito y débito\n\n` +
-         `Una vez realizado el pago, envía el comprobante por este medio para validar.`
-       )
-     } catch (err) {
-       console.error("Error preparando pago:", err)
-     } finally {
-       setProcesandoPago(false)
-     }
-   }
+    if (itemsPagar.length === 0) {
+      const itemsConPrecio = itemsEstadoCuenta.filter(item => item.precio && item.precio > 0)
+      if (itemsConPrecio.length === 0) return
+
+      setProcesandoPago(true)
+      try {
+        await new Promise(resolve => setTimeout(resolve, 600))
+        const resumen = itemsConPrecio
+          .map(item => `• ${item.nombre} (${new Date(item.fecha).toLocaleDateString()}): $${item.precio?.toLocaleString("es-CO")}`)
+          .join("\n")
+        const total = itemsConPrecio.reduce((acc, item) => acc + (item.precio || 0), 0)
+        alert(
+          `RESUMEN DE PAGO TOTAL\n\n${resumen}\n\n TOTAL: $${total.toLocaleString("es-CO")}\n\n` +
+          `Formas de pago disponibles:\n` +
+          `• Efectivo\n` +
+          `• Transferencia bancaria\n` +
+          `• PSE\n` +
+          `• Tarjetas crédito y débito\n\n` +
+          `Una vez realizado el pago, envía el comprobante por este medio para validar.`
+        )
+      } catch (err) {
+        console.error("Error preparando pago:", err)
+      } finally {
+        setProcesandoPago(false)
+      }
+      return
+    }
+
+    setProcesandoPago(true)
+    try {
+      await new Promise(resolve => setTimeout(resolve, 600))
+      const resumen = itemsPagar
+        .map(item => `• ${item.nombre} (${new Date(item.fecha).toLocaleDateString()}): $${item.precio?.toLocaleString("es-CO")}`)
+        .join("\n")
+      const totalSeleccionado = itemsPagar.reduce((acc, item) => acc + (item.precio || 0), 0)
+      alert(
+        `RESUMEN DE PAGO PARCIAL\n\n${resumen}\n\n TOTAL: $${totalSeleccionado.toLocaleString("es-CO")}\n\n` +
+        `Formas de pago disponibles:\n` +
+        `• Efectivo\n` +
+        `• Transferencia bancaria\n` +
+        `• PSE\n` +
+        `• Tarjetas crédito y débito\n\n` +
+        `Una vez realizado el pago, envía el comprobante por este medio para validar.`
+      )
+    } catch (err) {
+      console.error("Error preparando pago:", err)
+    } finally {
+      setProcesandoPago(false)
+    }
+  }
+
+  const toggleSeleccion = (itemId: number) => {
+    const nuevoSet = new Set(seleccionados)
+    if (nuevoSet.has(itemId)) {
+      nuevoSet.delete(itemId)
+    } else {
+      nuevoSet.add(itemId)
+    }
+    setSeleccionados(nuevoSet)
+  }
+
+  const seleccionarTodos = () => {
+    const todosLosIds = itemsEstadoCuenta
+      .filter(item => item.precio && item.precio > 0)
+      .map((item, index) => item.solicitudId * 1000 + index)
+    setSeleccionados(new Set(todosLosIds))
+  }
+
+  const deseleccionarTodos = () => {
+    setSeleccionados(new Set())
+  }
+
+  const totalSeleccionado = itemsEstadoCuenta
+    .filter((item, index) => seleccionados.has(item.solicitudId * 1000 + index))
+    .reduce((acc, item) => acc + (item.precio || 0), 0)
 
   const formatearBytes = (bytes: number) => {
     if (bytes === 0) return "0 Bytes"
@@ -646,126 +748,126 @@ export default function ClientesPage() {
       {/* CONTENT */}
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 py-8 pt-20">
         {/* INFO CARD */}
-<section className="rounded-3xl border border-border/50 bg-card/60 p-8 shadow-2xl backdrop-blur-xl">
-           <div className="mb-6 flex items-center justify-between gap-3">
-             <div className="flex items-center gap-3">
-               <div className="rounded-xl bg-primary/10 p-2">
-                 <User className="text-primary" size={20} />
-               </div>
+        <section className="rounded-3xl border border-border/50 bg-card/60 p-8 shadow-2xl backdrop-blur-xl">
+          <div className="mb-6 flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-primary/10 p-2">
+                <User className="text-primary" size={20} />
+              </div>
 
-               <div>
-                 <h2 className="text-2xl font-bold text-foreground">
-                   Información del Cliente
-                 </h2>
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">
+                  Información del Cliente
+                </h2>
 
-                 <p className="text-sm text-muted-foreground">
-                   Datos registrados en el sistema
-                 </p>
-               </div>
-             </div>
-
-              {!editMode && (
-                <div className="flex gap-2">
-                  <button
-                    onClick={handleStartEdit}
-                    className="flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition-all hover:bg-primary/20"
-                  >
-                    <Edit size={16} />
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => setShowLogoutConfirm(true)}
-                    className="flex items-center gap-2 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-600 transition-all hover:bg-red-500/20"
-                  >
-                    <LogOut size={16} />
-                    Cerrar sesión
-                  </button>
-                </div>
-              )}
-               {editMode && (
-                 <div className="flex gap-2">
-                   <button
-                     onClick={handleCancelEdit}
-                     disabled={saving}
-                     className="flex items-center gap-2 rounded-xl border border-border bg-card/50 px-4 py-2 text-sm font-medium transition-all hover:bg-muted"
-                   >
-                     <X size={16} />
-                     Cancelar
-                   </button>
-                   <button
-                     onClick={handleSave}
-                     disabled={saving}
-                     className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all hover:scale-[1.02] disabled:opacity-50"
-                   >
-                     {saving ? (
-                       <Loader2 size={16} className="animate-spin" />
-                     ) : (
-                       <Save size={16} />
-                     )}
-                     Guardar
-                   </button>
-                 </div>
-               )}
+                <p className="text-sm text-muted-foreground">
+                  Datos registrados en el sistema
+                </p>
+              </div>
             </div>
 
-           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-             <EditableInfoItem
-               label="Nombre"
-               value={editMode ? editData.nombre ?? "" : clientData.nombre}
-               field="nombre"
-               editData={editData}
-               setEditData={setEditData}
-               editMode={editMode}
-               type="text"
-             />
+            {!editMode && (
+              <div className="flex gap-2">
+                <button
+                  onClick={handleStartEdit}
+                  className="flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2 text-sm font-medium text-primary transition-all hover:bg-primary/20"
+                >
+                  <Edit size={16} />
+                  Editar
+                </button>
+                <button
+                  onClick={() => setShowLogoutConfirm(true)}
+                  className="flex items-center gap-2 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-600 transition-all hover:bg-red-500/20"
+                >
+                  <LogOut size={16} />
+                  Cerrar sesión
+                </button>
+              </div>
+            )}
+            {editMode && (
+              <div className="flex gap-2">
+                <button
+                  onClick={handleCancelEdit}
+                  disabled={saving}
+                  className="flex items-center gap-2 rounded-xl border border-border bg-card/50 px-4 py-2 text-sm font-medium transition-all hover:bg-muted"
+                >
+                  <X size={16} />
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all hover:scale-[1.02] disabled:opacity-50"
+                >
+                  {saving ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Save size={16} />
+                  )}
+                  Guardar
+                </button>
+              </div>
+            )}
+          </div>
 
-             <InfoItem
-               label="Tipo de Documento"
-               value={clientData.tipo}
-               editable={false}
-             />
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            <EditableInfoItem
+              label="Nombre"
+              value={editMode ? editData.nombre ?? "" : clientData.nombre}
+              field="nombre"
+              editData={editData}
+              setEditData={setEditData}
+              editMode={editMode}
+              type="text"
+            />
 
-             <InfoItem
-               label="Número de Documento"
-               value={clientData.documento}
-               editable={false}
-             />
+            <InfoItem
+              label="Tipo de Documento"
+              value={clientData.tipo}
+              editable={false}
+            />
 
-             <EditableInfoItem
-               label="Correo Electrónico"
-               value={editMode ? editData.correo ?? "" : clientData.correo}
-               field="correo"
-               editData={editData}
-               setEditData={setEditData}
-               editMode={editMode}
-               type="email"
-             />
+            <InfoItem
+              label="Número de Documento"
+              value={clientData.documento}
+              editable={false}
+            />
 
-             <EditableInfoItem
-               label="Teléfono"
-               value={editMode ? editData.telefono ?? "" : clientData.telefono}
-               field="telefono"
-               editData={editData}
-               setEditData={setEditData}
-               editMode={editMode}
-               type="tel"
-             />
+            <EditableInfoItem
+              label="Correo Electrónico"
+              value={editMode ? editData.correo ?? "" : clientData.correo}
+              field="correo"
+              editData={editData}
+              setEditData={setEditData}
+              editMode={editMode}
+              type="email"
+            />
 
-             <EditableInfoItem
-               label="Clínica"
-               value={editMode ? editData.clinica ?? "" : clientData.clinica}
-               field="clinica"
-               editData={editData}
-               setEditData={setEditData}
-               editMode={editMode}
-               type="text"
-             />
+            <EditableInfoItem
+              label="Teléfono"
+              value={editMode ? editData.telefono ?? "" : clientData.telefono}
+              field="telefono"
+              editData={editData}
+              setEditData={setEditData}
+              editMode={editMode}
+              type="tel"
+            />
 
-             <InfoItem
-               label="Fecha de Registro"
-               value={new Date(clientData.created_at).toLocaleDateString()}
-               editable={false}
-             />
+            <EditableInfoItem
+              label="Clínica"
+              value={editMode ? editData.clinica ?? "" : clientData.clinica}
+              field="clinica"
+              editData={editData}
+              setEditData={setEditData}
+              editMode={editMode}
+              type="text"
+            />
+
+            <InfoItem
+              label="Fecha de Registro"
+              value={new Date(clientData.created_at).toLocaleDateString()}
+              editable={false}
+            />
           </div>
         </section>
 
@@ -851,6 +953,12 @@ export default function ClientesPage() {
                     <table className="w-full text-left text-sm">
                       <thead>
                         <tr className="border-b border-border/60">
+                          <th className="pb-3 pr-2 font-medium text-muted-foreground w-10">
+                            <Checkbox
+                              checked={seleccionados.size === itemsEstadoCuenta.filter(i => i.precio && i.precio > 0).length}
+                              onCheckedChange={(checked) => checked ? seleccionarTodos() : deseleccionarTodos()}
+                            />
+                          </th>
                           <th className="pb-3 pr-4 font-medium text-muted-foreground">#</th>
                           <th className="pb-3 pr-4 font-medium text-muted-foreground">Servicio</th>
                           <th className="pb-3 pr-4 font-medium text-muted-foreground">Solicitud</th>
@@ -860,28 +968,40 @@ export default function ClientesPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border/40">
-                        {itemsEstadoCuenta.map((item, index) => (
-                          <tr key={item.solicitudId} className="transition-colors hover:bg-background/30">
-                            <td className="py-3 pr-4 text-muted-foreground">{index + 1}</td>
-                            <td className="py-3 pr-4 font-medium text-foreground">{item.servicio}</td>
-                            <td className="py-3 pr-4">
-                              <span className="inline-flex items-center rounded-full border border-border bg-background/70 px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                                SOL-{String(item.solicitudId).padStart(3, "0")}
-                              </span>
-                            </td>
-                            <td className="py-3 pr-4 text-muted-foreground">
-                              {new Date(item.fecha).toLocaleDateString()}
-                            </td>
-                            <td className="py-3 pr-4">
-                              <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary capitalize">
-                                {item.estado.replace("_", " ")}
-                              </span>
-                            </td>
-                            <td className="py-3 text-right font-semibold text-foreground">
-                              {item.precio ? `$${item.precio.toLocaleString("es-CO")}` : "-"}
-                            </td>
-                          </tr>
-                        ))}
+                        {itemsEstadoCuenta.map((item, index) => {
+                          const itemId = item.solicitudId * 1000 + index
+                          const isSeleccionado = seleccionados.has(itemId)
+                          const tienePrecio = item.precio && item.precio > 0
+                          return (
+                            <tr key={`${item.solicitudId}-${index}`} className="transition-colors hover:bg-background/30">
+                              <td className="py-3 pr-2">
+                                <Checkbox
+                                  checked={isSeleccionado}
+                                  onCheckedChange={() => toggleSeleccion(itemId)}
+                                  disabled={!tienePrecio}
+                                />
+                              </td>
+                              <td className="py-3 pr-4 text-muted-foreground">{index + 1}</td>
+                              <td className="py-3 pr-4 font-medium text-foreground">{item.nombre}</td>
+                              <td className="py-3 pr-4">
+                                <span className="inline-flex items-center rounded-full border border-border bg-background/70 px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                                  SOL-{String(item.solicitudId).padStart(3, "0")}
+                                </span>
+                              </td>
+                              <td className="py-3 pr-4 text-muted-foreground">
+                                {new Date(item.fecha).toLocaleDateString()}
+                              </td>
+                              <td className="py-3 pr-4">
+                                <span className="inline-flex items-center rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary capitalize">
+                                  {item.estado.replace("_", " ")}
+                                </span>
+                              </td>
+                              <td className="py-3 text-right font-semibold text-foreground">
+                                {item.precio ? `$${item.precio.toLocaleString("es-CO")}` : "-"}
+                              </td>
+                            </tr>
+                          )
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -892,27 +1012,48 @@ export default function ClientesPage() {
                         Total a pagar
                       </span>
                       <span className="text-2xl font-bold text-foreground">
-                        ${totalPagar.toLocaleString("es-CO")}
+                        ${seleccionados.size > 0 ? totalSeleccionado.toLocaleString("es-CO") : totalPagar.toLocaleString("es-CO")}
                       </span>
                     </div>
 
-                    <button
-                      onClick={handlePagar}
-                      disabled={procesandoPago || totalPagar === 0}
-                      className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg transition-all duration-300 hover:scale-[1.02] hover:bg-primary-dark hover:shadow-xl disabled:opacity-50"
-                    >
-                      {procesandoPago ? (
-                        <>
-                          <Loader2 size={18} className="animate-spin" />
-                          Procesando pago...
-                        </>
-                      ) : (
-                        <>
-                          <Wallet size={18} />
-                          Pagar ahora
-                        </>
+                    <div className="flex gap-3">
+                      {seleccionados.size > 0 && (
+                        <button
+                          onClick={handlePagarSeleccionados}
+                          disabled={procesandoPago}
+                          className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg transition-all duration-300 hover:scale-[1.02] hover:bg-primary-dark hover:shadow-xl disabled:opacity-50"
+                        >
+                          {procesandoPago ? (
+                            <>
+                              <Loader2 size={18} className="animate-spin" />
+                              Procesando pago...
+                            </>
+                          ) : (
+                            <>
+                              <Wallet size={18} />
+                              Pagar seleccionados
+                            </>
+                          )}
+                        </button>
                       )}
-                    </button>
+                      <button
+                        onClick={handlePagarSeleccionados}
+                        disabled={procesandoPago || (seleccionados.size === 0 && totalPagar === 0)}
+                        className="flex items-center gap-2 rounded-xl bg-primary px-6 py-3 text-sm font-semibold text-primary-foreground shadow-lg transition-all duration-300 hover:scale-[1.02] hover:bg-primary-dark hover:shadow-xl disabled:opacity-50"
+                      >
+                        {procesandoPago ? (
+                          <>
+                            <Loader2 size={18} className="animate-spin" />
+                            Procesando pago...
+                          </>
+                        ) : (
+                          <>
+                            <Wallet size={18} />
+                            {seleccionados.size > 0 ? "Pagar seleccionados" : "Pagar total"}
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </>
               )}
@@ -1142,11 +1283,11 @@ export default function ClientesPage() {
                           {solicitud.servicio}
                         </p>
 
-                         {solicitud.observaciones && (
-                           <p className="mt-1 text-sm text-muted-foreground">
-                             {solicitud.observaciones}
-                           </p>
-                         )}
+                        {solicitud.observaciones && (
+                          <p className="mt-1 text-sm text-muted-foreground">
+                            {solicitud.observaciones}
+                          </p>
+                        )}
 
                         {(solicitud.odontologo || solicitud.cc_odontologo || solicitud.paciente || solicitud.cc_paciente || solicitud.historia_clinica || solicitud.fecha_elaboracion || solicitud.fecha_entrega || solicitud.caja || solicitud.codigo_trazabilidad || solicitud.guia) && (
                           <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground">
@@ -1201,15 +1342,21 @@ export default function ClientesPage() {
                                 ))}
                               </div>
                             )}
-                            {(solicitud as any).dientes_trabajados?.length > 0 && (
-                              <div className="contents">
-                                {(solicitud as any).dientes_trabajados.map((diente: string, i: number) => (
-                                  <span key={i} className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700 w-fit">#{diente}</span>
-                                ))}
-                              </div>
-                            )}
-                          </div>
-                        )}
+{(solicitud as any).dientes_trabajados?.length > 0 && (
+                               <div className="contents">
+                                 {(solicitud as any).dientes_trabajados.map((diente: string, i: number) => (
+                                   <span key={i} className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700 w-fit">#{diente}</span>
+                                 ))}
+                               </div>
+                             )}
+                             {solicitud.precio !== null && solicitud.precio !== undefined && (
+                               <div>
+                                 <span className="text-gray-500">Precio:</span>{" "}
+                                 <span className="text-gray-800 font-semibold">${solicitud.precio.toLocaleString("es-CO")}</span>
+                               </div>
+                             )}
+                           </div>
+                         )}
 
                         <div className="mt-3 flex flex-wrap items-center gap-3">
                           <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary capitalize">
@@ -1602,18 +1749,16 @@ export default function ClientesPage() {
                 {messages.map((message) => (
                   <div
                     key={message.id}
-                    className={`flex ${
-                      message.isBot
-                        ? "justify-start"
-                        : "justify-end"
-                    }`}
+                    className={`flex ${message.isBot
+                      ? "justify-start"
+                      : "justify-end"
+                      }`}
                   >
                     <div
-                      className={`max-w-[80%] rounded-3xl px-5 py-3 text-sm shadow-lg ${
-                        message.isBot
-                          ? "bg-muted text-foreground"
-                          : "bg-primary text-primary-foreground"
-                      }`}
+                      className={`max-w-[80%] rounded-3xl px-5 py-3 text-sm shadow-lg ${message.isBot
+                        ? "bg-muted text-foreground"
+                        : "bg-primary text-primary-foreground"
+                        }`}
                     >
                       <p className="whitespace-pre-line break-words">
                         {message.text}

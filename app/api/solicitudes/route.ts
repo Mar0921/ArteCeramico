@@ -1,20 +1,23 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import jsPDF from "jspdf"
+import { SERVICE_PRICES, parsePrice } from "@/lib/service-prices"
 
 export const runtime = "nodejs"
 
 async function buildPdfBuffer(data: {
-  clienteNombre: string
-  clienteDocumento: string
-  clienteClinica: string
-  clienteCorreo: string
-  clienteTelefono: string
-  servicio: string
-  observaciones: string
-  archivosNombres: string[]
-  createdAt: string
-}) {
+   clienteNombre: string
+   clienteDocumento: string
+   clienteClinica: string
+   clienteCorreo: string
+   clienteTelefono: string
+   servicio: string
+   observaciones: string
+   archivosNombres: string[]
+   createdAt: string
+   dientesTrabajados?: string[]
+   precio?: number | null
+ }) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" })
   const pageWidth = doc.internal.pageSize.getWidth()
   let y = 15
@@ -77,7 +80,7 @@ async function buildPdfBuffer(data: {
 
   doc.setFont("helvetica", "bold")
   doc.text("Observaciones o detalles adicionales", 15, y)
-  y += 2
+y += 2
   doc.setFont("helvetica", "normal")
   const splitObs = doc.splitTextToSize(data.observaciones || "Sin observaciones.", pageWidth - 30)
   doc.text(splitObs, 15, y)
@@ -86,16 +89,36 @@ async function buildPdfBuffer(data: {
   if (data.archivosNombres.length > 0) {
     doc.line(15, y, pageWidth - 15, y)
     y += 6
-
     doc.setFont("helvetica", "bold")
     doc.text("Archivos adjuntos", 15, y)
     y += 5
-
     doc.setFont("helvetica", "normal")
     for (const nombre of data.archivosNombres) {
       doc.text(`- ${nombre}`, 20, y)
       y += 4.5
     }
+  }
+
+  if (data.dientesTrabajados && data.dientesTrabajados.length > 0) {
+    doc.line(15, y, pageWidth - 15, y)
+    y += 6
+    doc.setFont("helvetica", "bold")
+    doc.text("Dientes trabajados", 15, y)
+    y += 2
+    doc.setFont("helvetica", "normal")
+    doc.text(data.dientesTrabajados.join(", "), 15, y)
+    y += 5
+  }
+
+  if (data.precio !== null && data.precio !== undefined) {
+    doc.line(15, y, pageWidth - 15, y)
+    y += 6
+    doc.setFont("helvetica", "bold")
+    doc.text("Precio", 15, y)
+    y += 2
+    doc.setFont("helvetica", "normal")
+    doc.text(`$${Number(data.precio).toLocaleString("es-CO")}`, 15, y)
+    y += 5
   }
 
   y += 6
@@ -141,35 +164,51 @@ export async function POST(request: Request) {
     const prueba = String(formData.get("prueba") || "false") === "true"
     const terminado = String(formData.get("terminado") || "false") === "true"
     const color = String(formData.get("color") || "").trim()
-const guia = String(formData.get("guia_color") || "").trim()
-     const piezasEnviadasJson = String(formData.get("piezasEnviadas") || "[]").trim()
-      const caja = String(formData.get("caja") || "").trim()
-     const codigoTrazabilidad = String(formData.get("codigoTrazabilidad") || "").trim()
-     const dientesTrabajadosJson = String(formData.get("dientesTrabajados") || "[]").trim()
-     const dibujoOdontologo = String(formData.get("dibujoOdontologo") || "").trim()
+    const guia = String(formData.get("guia_color") || "").trim()
+    const piezasEnviadasJson = String(formData.get("piezasEnviadas") || "[]").trim()
+    const caja = String(formData.get("caja") || "").trim()
+    const codigoTrazabilidad = String(formData.get("codigoTrazabilidad") || "").trim()
+    const dientesTrabajadosJson = String(formData.get("dientesTrabajados") || "[]").trim()
+    const dibujoOdontologo = String(formData.get("dibujoOdontologo") || "").trim()
 
-     let tiposTrabajo: string[] = []
-     let materiales: string[] = []
-     let piezasEnviadas: string[] = []
-     let dientesTrabajados: string[] = []
+    let tiposTrabajo: string[] = []
+    let materiales: string[] = []
+    let piezasEnviadas: string[] = []
+    let dientesTrabajados: string[] = []
 
     try {
       tiposTrabajo = JSON.parse(tiposTrabajoJson)
-    } catch { tiposTrabajo = [] }
+    } catch {
+      tiposTrabajo = []
+    }
     try {
       materiales = JSON.parse(materialesJson)
-    } catch { materiales = [] }
-try {
-       piezasEnviadas = JSON.parse(piezasEnviadasJson)
-     } catch { piezasEnviadas = [] }
-     try {
-       dientesTrabajados = JSON.parse(dientesTrabajadosJson)
-     } catch { dientesTrabajados = [] }
+    } catch {
+      materiales = []
+    }
+    try {
+      piezasEnviadas = JSON.parse(piezasEnviadasJson)
+    } catch {
+      piezasEnviadas = []
+    }
+    try {
+      dientesTrabajados = JSON.parse(dientesTrabajadosJson)
+    } catch {
+      dientesTrabajados = []
+    }
 
     if (!servicio || !correoOdontologo || archivos.length === 0) {
       return NextResponse.json(
         { message: "Datos de solicitud invalidos. Verifica servicio, correo y adjuntos." },
         { status: 400 }
+      )
+    }
+
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+      console.error("Faltan variables de entorno de Supabase")
+      return NextResponse.json(
+        { message: "Error de configuración del servidor." },
+        { status: 500 }
       )
     }
 
@@ -227,37 +266,49 @@ try {
         )
       }
 
-      const { data: urlData } = supabase.storage
+const { data: urlData } = supabase.storage
         .from("documentos")
         .getPublicUrl(rutaStorage)
 
-urlsDocumentos.push(urlData.publicUrl)
-       nombresArchivos.push(archivo.name)
-     }
+      urlsDocumentos.push(urlData.publicUrl)
+      nombresArchivos.push(archivo.name)
+    }
 
-     if (dibujoOdontologo) {
-       const dibujoNombre = `dibujo-${cliente.id}-${Date.now()}.png`
-       const rutaDibujo = `solicitudes/${cliente.id}/${dibujoNombre}`
-       const dibujoBase64 = dibujoOdontologo.split(",")[1]
-       const dibujoBuffer = Buffer.from(dibujoBase64, "base64")
+    if (dibujoOdontologo) {
+      const dibujoNombre = `dibujo-${cliente.id}-${Date.now()}.png`
+      const rutaDibujo = `solicitudes/${cliente.id}/${dibujoNombre}`
+      const dibujoBase64 = dibujoOdontologo.split(",")[1]
+      const dibujoBuffer = Buffer.from(dibujoBase64, "base64")
 
-       const { error: dibujoUploadError } = await supabase.storage
-         .from("documentos")
-         .upload(rutaDibujo, dibujoBuffer, {
-           upsert: false,
-           contentType: "image/png",
-         })
+      const { error: dibujoUploadError } = await supabase.storage
+        .from("documentos")
+        .upload(rutaDibujo, dibujoBuffer, {
+          upsert: false,
+          contentType: "image/png",
+        })
 
-       if (!dibujoUploadError) {
-         const { data: urlDibujo } = supabase.storage
-           .from("documentos")
-           .getPublicUrl(rutaDibujo)
-         urlsDocumentos.push(urlDibujo.publicUrl)
-         nombresArchivos.push("Dibujo del odontólogo.png")
-       } else {
-         console.error("Error uploading drawing:", dibujoUploadError)
-       }
-     }
+      if (!dibujoUploadError) {
+        const { data: urlDibujo } = supabase.storage
+          .from("documentos")
+          .getPublicUrl(rutaDibujo)
+        urlsDocumentos.push(urlDibujo.publicUrl)
+        nombresArchivos.push("Dibujo del odontólogo.png")
+      } else {
+        console.error("Error uploading drawing:", dibujoUploadError)
+      }
+    }
+
+    const servicioNombre = servicio.includes("|")
+      ? servicio.split("|")[0].trim()
+      : servicio
+
+    const servicioDescripcion = servicio.includes("|")
+      ? servicio
+      : observaciones
+
+    const unitPrice = SERVICE_PRICES[servicioNombre] ?? parsePrice(servicioDescripcion)
+    const cantidad = Math.max(dientesTrabajados.length, 1)
+    const total = unitPrice * cantidad
 
     const pdfBytes = await buildPdfBuffer({
       clienteNombre: (cliente.nombre || "").trim(),
@@ -269,6 +320,8 @@ urlsDocumentos.push(urlData.publicUrl)
       observaciones,
       archivosNombres: nombresArchivos,
       createdAt: new Date().toISOString(),
+      dientesTrabajados: dientesTrabajados.length > 0 ? dientesTrabajados : undefined,
+      precio: total > 0 ? total : null,
     })
 
     const nombrePdf = `solicitud-${cliente.id}-${Date.now()}.pdf`
@@ -283,10 +336,10 @@ urlsDocumentos.push(urlData.publicUrl)
 
     if (pdfUploadError) {
       console.error("Error subiendo PDF:", pdfUploadError)
-return NextResponse.json(
-      { message: "Error interno del servidor.", details: String(Error) },
-      { status: 500 }
-    )
+      return NextResponse.json(
+        { message: "Error interno del servidor.", details: String(pdfUploadError) },
+        { status: 500 }
+      )
     }
 
     const { data: urlPdf } = supabase.storage
@@ -297,34 +350,39 @@ return NextResponse.json(
 
     let solicitudInsertada: any = null
 
-const insertData: Record<string, unknown> = {
-       cliente_id: cliente.id,
-       servicio,
-       observaciones,
-       archivos_adjuntos: todosLosDocumentos,
-       estado: "pendiente",
-       codigo_trazabilidad: codigoTrazabilidad || null,
-     }
+    const insertData: Record<string, unknown> = {
+      cliente_id: cliente.id,
+      servicio,
+      observaciones,
+      urls_documentos: todosLosDocumentos,
+      estado: "pendiente",
+      codigo_trazabilidad: codigoTrazabilidad || null,
+    }
 
-const extraFields: Record<string, unknown> = {
-       fecha_elaboracion: fechaElaboracionFormateada,
-       fecha_entrega: fechaEntregaFormateada,
-       numero_historia_clinica: historiaClinica || null,
-       odontologo_nombre: formData.get("odontologo")?.toString() || null,
-       odontologo_documento: formData.get("ccOdontologo")?.toString() || null,
-       odontologo_tarjeta_profesional: tarjetaProfesional || null,
-       odontologo_direccion: direccion || null,
-       odontologo_firma: firma || null,
-       paciente_nombre: paciente || null,
-       paciente_documento: ccPaciente || null,
-       indicaciones: indicaciones || null,
-       color: color || null,
-       guia_color: guia || null,
-       chimenea: chimenea,
-       prueba: prueba,
-       terminado: terminado,
-       numero_caja: caja || null,
-      }
+    const extraFields: Record<string, unknown> = {
+      fecha_elaboracion: fechaElaboracionFormateada,
+      fecha_entrega: fechaEntregaFormateada,
+      historia_clinica: historiaClinica || null,
+      odontologo: formData.get("odontologo")?.toString() || null,
+      cc_odontologo: formData.get("ccOdontologo")?.toString() || null,
+      odontologo_tarjeta_profesional: tarjetaProfesional || null,
+      odontologo_direccion: direccion || null,
+      odontologo_firma: firma || null,
+      paciente: paciente || null,
+      cc_paciente: ccPaciente || null,
+      observaciones: observaciones || null,
+      color: color || null,
+      guia: guia || null,
+      chimenea: chimenea,
+      prueba: prueba,
+      terminado: terminado,
+      caja: caja || null,
+      tipos_trabajo: tiposTrabajo,
+      materiales: materiales,
+      dientes_trabajados: dientesTrabajados,
+      piezas_enviadas: piezasEnviadas,
+      dibujo_odontologo: dibujoOdontologo || null,
+    }
 
     const { data: inserted, error: firstError } = await supabase
       .from("solicitudes")
@@ -338,7 +396,7 @@ const extraFields: Record<string, unknown> = {
       if (msg.includes("column") || msg.includes("schema") || msg.includes("does not exist")) {
         const { data: fallback, error: fallbackError } = await supabase
           .from("solicitudes")
-          .insert(insertData)
+          .insert({ ...insertData, ...extraFields })
           .select("id")
           .single()
 
@@ -365,43 +423,22 @@ const extraFields: Record<string, unknown> = {
       )
     }
 
-    const servicioNombre = servicio.includes("|")
-      ? servicio.split("|")[0].trim()
-      : servicio
-
-    const servicioDescripcion = servicio.includes("|")
-      ? servicio
-      : observaciones
-
-const servicioData: any = {
-       solicitud_id: solicitudInsertada.id,
-       nombre: servicioNombre,
-       descripcion: servicioDescripcion || observaciones,
-       tipo_trabajo: tiposTrabajo.length > 0 ? tiposTrabajo.join(", ") : null,
-       material: materiales.length > 0 ? materiales.join(", ") : null,
-       dientes: dientesTrabajados.length > 0 ? dientesTrabajados.join(", ") : null,
-       piezas_enviadas: piezasEnviadas.length > 0 ? piezasEnviadas : null,
-     }
+    const servicioData: any = {
+      solicitud_id: solicitudInsertada.id,
+      nombre: servicioNombre,
+      descripcion: servicioDescripcion || observaciones,
+      tipo_trabajo: tiposTrabajo.length > 0 ? tiposTrabajo.join(", ") : null,
+      material: materiales.length > 0 ? materiales.join(", ") : null,
+      dientes: dientesTrabajados.length > 0 ? dientesTrabajados.join(", ") : null,
+      piezas_enviadas: piezasEnviadas.length > 0 ? piezasEnviadas : null,
+      precio: total,
+      cantidad: cantidad,
+    }
 
     const categoria = servicioDescripcion.match(/Categoría: (.+)/i)
     if (categoria && categoria[1]) {
       servicioData.descripcion = `${categoria[1].trim()} - ${observaciones || servicioNombre}`
     }
-
-    const precioMatch = servicioDescripcion.match(/\$[\d\.]+/g)
-    if (precioMatch && precioMatch.length > 0) {
-      const precioStr = precioMatch[0].replace(/[$,\.]/g, "")
-      const precioNum = Number(precioStr)
-      if (Number.isFinite(precioNum) && precioNum > 0) {
-        servicioData.precio = precioNum
-      }
-    }
-
-    if (!servicioData.precio) {
-      servicioData.precio = 0
-    }
-
-    servicioData.cantidad = 1
 
     const { error: serviciosInsertError } = await supabase
       .from("servicios")
@@ -441,7 +478,7 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from("solicitudes")
-      .select("id, servicio, estado, created_at, cliente_id")
+      .select("id, servicio, estado, created_at, cliente_id, dientes_trabajados")
       .order("created_at", { ascending: false })
       .limit(limit)
 
@@ -477,6 +514,22 @@ export async function GET(request: Request) {
       }
     }
 
+    const solicitudIds = solicitudes.map((s) => s.id)
+    
+    const { data: servicios, error: serviciosError } = await supabase
+      .from("servicios")
+      .select("solicitud_id, precio, cantidad")
+      .in("solicitud_id", solicitudIds)
+      .order("solicitud_id", { ascending: true })
+      .limit(1)
+
+    const preciosMap = new Map<number, number>()
+    if (!serviciosError && servicios) {
+      servicios.forEach((serv: any) => {
+        preciosMap.set(serv.solicitud_id, serv.precio || 0)
+      })
+    }
+
     const formatted = solicitudes.map((item: any) => ({
       id: item.id,
       servicio: item.servicio || "Servicio",
@@ -484,6 +537,8 @@ export async function GET(request: Request) {
       created_at: item.created_at,
       cliente_id: item.cliente_id,
       cliente_nombre: clientesMap.get(item.cliente_id) || "Sin cliente",
+      dientes_trabajados: item.dientes_trabajados || [],
+      precio: preciosMap.get(item.id) || null,
     }))
 
     return NextResponse.json({ data: formatted })
