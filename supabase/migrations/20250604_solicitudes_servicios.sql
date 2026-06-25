@@ -21,19 +21,6 @@ create table if not exists public.servicios (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
--- Agregar columna urls_documentos a prescripciones si no existe
-do $$
-begin
-  if not exists (
-    select 1 from information_schema.columns
-    where table_schema = 'public'
-      and table_name = 'prescripciones'
-      and column_name = 'urls_documentos'
-  ) then
-    alter table public.prescripciones add column urls_documentos text[] default '{}';
-  end if;
-end $$;
-
 -- Indices para mejorar rendimiento
 create index if not exists idx_solicitudes_cliente_id on public.solicitudes(cliente_id);
 create index if not exists idx_solicitudes_estado on public.solicitudes(estado);
@@ -43,36 +30,98 @@ create index if not exists idx_servicios_solicitud_id on public.servicios(solici
 alter table public.solicitudes enable row level security;
 alter table public.servicios enable row level security;
 
+-- Eliminar políticas existentes para evitar conflictos
+drop policy if exists "Los clientes pueden ver sus propias solicitudes" on public.solicitudes;
+drop policy if exists "Los clientes pueden crear sus propias solicitudes" on public.solicitudes;
+drop policy if exists "Los clientes pueden actualizar sus propias solicitudes" on public.solicitudes;
+drop policy if exists "Los clientes pueden eliminar sus propias solicitudes" on public.solicitudes;
+drop policy if exists "Los clientes pueden ver servicios de sus solicitudes" on public.servicios;
+drop policy if exists "Los clientes pueden crear servicios en sus solicitudes" on public.servicios;
+drop policy if exists "Los clientes pueden actualizar servicios de sus solicitudes" on public.servicios;
+drop policy if exists "Los clientes pueden eliminar servicios de sus solicitudes" on public.servicios;
+
 -- Políticas RLS para solicitudes
 create policy "Los clientes pueden ver sus propias solicitudes"
   on public.solicitudes for select
-  using (auth.uid() in (select id from public.clientes where id = cliente_id));
+  using (
+    exists (
+      select 1 from public.clientes
+      where clientes.id = solicitudes.cliente_id
+      and clientes.user_id = auth.uid()
+    )
+  );
 
 create policy "Los clientes pueden crear sus propias solicitudes"
   on public.solicitudes for insert
-  with check (auth.uid() in (select id from public.clientes where id = cliente_id));
+  with check (
+    exists (
+      select 1 from public.clientes
+      where clientes.id = solicitudes.cliente_id
+      and clientes.user_id = auth.uid()
+    )
+  );
 
 create policy "Los clientes pueden actualizar sus propias solicitudes"
   on public.solicitudes for update
-  using (auth.uid() in (select id from public.clientes where id = cliente_id));
+  using (
+    exists (
+      select 1 from public.clientes
+      where clientes.id = solicitudes.cliente_id
+      and clientes.user_id = auth.uid()
+    )
+  );
 
 create policy "Los clientes pueden eliminar sus propias solicitudes"
   on public.solicitudes for delete
-  using (auth.uid() in (select id from public.clientes where id = cliente_id));
+  using (
+    exists (
+      select 1 from public.clientes
+      where clientes.id = solicitudes.cliente_id
+      and clientes.user_id = auth.uid()
+    )
+  );
 
 -- Políticas RLS para servicios
 create policy "Los clientes pueden ver servicios de sus solicitudes"
   on public.servicios for select
-  using (auth.uid() in (select id from public.clientes where id = (select cliente_id from public.solicitudes where id = solicitud_id)));
+  using (
+    exists (
+      select 1 from public.solicitudes
+      join public.clientes on clientes.id = solicitudes.cliente_id
+      where solicitudes.id = servicios.solicitud_id
+      and clientes.user_id = auth.uid()
+    )
+  );
 
 create policy "Los clientes pueden crear servicios en sus solicitudes"
   on public.servicios for insert
-  with check (auth.uid() in (select id from public.clientes where id = (select cliente_id from public.solicitudes where id = solicitud_id)));
+  with check (
+    exists (
+      select 1 from public.solicitudes
+      join public.clientes on clientes.id = solicitudes.cliente_id
+      where solicitudes.id = servicios.solicitud_id
+      and clientes.user_id = auth.uid()
+    )
+  );
 
 create policy "Los clientes pueden actualizar servicios de sus solicitudes"
   on public.servicios for update
-  using (auth.uid() in (select id from public.clientes where id = (select cliente_id from public.solicitudes where id = solicitud_id)));
+  using (
+    exists (
+      select 1 from public.solicitudes
+      join public.clientes on clientes.id = solicitudes.cliente_id
+      where solicitudes.id = servicios.solicitud_id
+      and clientes.user_id = auth.uid()
+    )
+  );
 
 create policy "Los clientes pueden eliminar servicios de sus solicitudes"
   on public.servicios for delete
-  using (auth.uid() in (select id from public.clientes where id = (select cliente_id from public.solicitudes where id = solicitud_id)));
+  using (
+    exists (
+      select 1 from public.solicitudes
+      join public.clientes on clientes.id = solicitudes.cliente_id
+      where solicitudes.id = servicios.solicitud_id
+      and clientes.user_id = auth.uid()
+    )
+  );

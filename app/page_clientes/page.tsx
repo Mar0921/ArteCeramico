@@ -643,6 +643,14 @@ export default function ClientesPage() {
     if (!clientData?.id) return
 
     try {
+      if (!clientData?.id) return
+
+      console.log("CLIENT DATA:", clientData)
+      console.log("SOLICITUD:", solicitud)
+
+      const auth = await supabase.auth.getUser()
+      console.log("AUTH UID:", auth.data.user?.id)
+
       let { data: conversacion, error: conversacionError } = await supabase
         .from("conversaciones")
         .select("*")
@@ -654,16 +662,20 @@ export default function ClientesPage() {
       }
 
       if (!conversacion) {
-        const { data: nuevaConversacion, error: insertError } = await supabase
-          .from("conversaciones")
-          .insert({
-            solicitud_id: solicitud.id,
-            cliente_id: clientData.id,
-            admin_id: null,
-            estado: "activa",
-          })
-          .select()
-          .single()
+        const { data: nuevaConversacion, error: insertError } =
+          await supabase
+            .from("conversaciones")
+            .insert({
+              solicitud_id: solicitud.id,
+              cliente_id: clientData.id,
+              admin_id: null,
+              estado: "activa",
+            })
+            .select()
+            .single()
+
+        console.log("INSERT ERROR:", insertError)
+        console.log("NUEVA CONVERSACION:", nuevaConversacion)
 
         if (insertError) {
           throw insertError
@@ -678,26 +690,23 @@ export default function ClientesPage() {
       if (conversacion?.id) {
         await cargarMensajesSolicitud(conversacion.id)
         await marcarMensajesSolicitudLeidos(conversacion.id)
+
         setTimeout(() => {
-          mensajesSolicitudEndRef.current?.scrollIntoView({ behavior: "smooth" })
+          mensajesSolicitudEndRef.current?.scrollIntoView({
+            behavior: "smooth",
+          })
         }, 100)
       }
-    } catch (err) {
-      const conversacionLocal = {
-        id: solicitud.id,
-        solicitud_id: solicitud.id,
-        cliente_id: clientData.id,
-        admin_id: null,
-        estado: "activa",
-      }
+    } catch (err: any) {
+      console.error("ERROR CREANDO CONVERSACION:", err)
 
-      setConversacionActual(conversacionLocal)
-      setMensajesSolicitud([])
-      setChatSolicitudOpen(true)
       toast({
-        title: "Chat no disponible",
-        description: "La base de datos de mensajes aún no está configurada.",
+        title: "Error creando conversación",
+        description: err?.message,
+        variant: "destructive",
       })
+
+      return
     }
   }
 
@@ -738,8 +747,6 @@ export default function ClientesPage() {
 
     const conversacionId = conversacionActual.id
 
-    alert(JSON.stringify(conversacionActual, null, 2))
-
     setEnviandoMensajeSolicitud(true)
 
     try {
@@ -762,6 +769,10 @@ export default function ClientesPage() {
         remitente: "cliente",
         leido: false,
       })
+
+      const { data: authData } = await supabase.auth.getUser()
+      console.log("USER:", authData.user)
+      console.log("UID:", authData.user?.id)
 
       const response = await supabase
         .from("mensajes")

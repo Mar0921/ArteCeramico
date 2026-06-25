@@ -133,6 +133,7 @@ export default function ClientePerfilPage() {
   const [enviandoMensaje, setEnviandoMensaje] = useState<{ [solicitudId: number]: boolean }>({})
   const [loadingMensajes, setLoadingMensajes] = useState<{ [solicitudId: number]: boolean }>({})
   const chatBottomRefs = useRef<{ [solicitudId: number]: HTMLDivElement | null }>({})
+  const [adminId, setAdminId] = useState<number | null>(null)
 
   const [guardandoServicio, setGuardandoServicio] = useState<number | null>(null)
 
@@ -201,12 +202,12 @@ export default function ClientePerfilPage() {
         fecha_entrega: selectedSolicitud.fecha_entrega,
         estado: selectedSolicitud.estado,
       }
-      ;["chimenea", "prueba", "terminado", "color", "guia", "caja", "codigo_trazabilidad", "piezas_enviadas", "historia_clinica", "fecha_elaboracion"].forEach((campo) => {
-        const val = (selectedSolicitud as any)[campo]
-        if (val !== undefined && val !== null) {
-          payload[campo] = val
-        }
-      })
+        ;["chimenea", "prueba", "terminado", "color", "guia", "caja", "codigo_trazabilidad", "piezas_enviadas", "historia_clinica", "fecha_elaboracion"].forEach((campo) => {
+          const val = (selectedSolicitud as any)[campo]
+          if (val !== undefined && val !== null) {
+            payload[campo] = val
+          }
+        })
 
       const { error } = await supabase
         .from("solicitudes")
@@ -350,6 +351,25 @@ export default function ClientePerfilPage() {
 
     loadSolicitudes()
   }, [id])
+
+  useEffect(() => {
+    const loadAdmin = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data } = await supabase
+        .from("admins")
+        .select("id")
+        .eq("user_id", user.id)
+        .single()
+
+      if (data) setAdminId(data.id)
+    }
+
+    loadAdmin()
+  }, [])
 
   const handleVerSolicitud = async (solicitud: Solicitud) => {
     setSelectedSolicitud(solicitud)
@@ -545,57 +565,156 @@ export default function ClientePerfilPage() {
 
   const cargarMensajes = async (solicitudId: number) => {
     setLoadingMensajes((prev) => ({ ...prev, [solicitudId]: true }))
+
     try {
-      const solicitud = solicitudes.find(s => s.id === solicitudId)
-      const conversacionId = solicitud.conversacion_id || solicitudId
-      
+
+      // buscar conversación por solicitud
+      const { data: conversacion, error: convError } = await supabase
+        .from("conversaciones")
+        .select("id")
+        .eq("solicitud_id", solicitudId)
+        .single()
+
+
+      let conversacionId = conversacion?.id
+
+
+      // si no existe la crea
+      if (!conversacionId && client) {
+
+        const { data: nueva, error } = await supabase
+          .from("conversaciones")
+          .insert({
+            solicitud_id: solicitudId,
+            cliente_id: client.id,
+            admin_id: adminId,
+            estado: "activa"
+          })
+          .select()
+          .single()
+
+
+        if (error) {
+          console.error(error)
+          return
+        }
+
+
+        conversacionId = nueva.id
+      }
+
+
+
       const { data, error } = await supabase
         .from("mensajes")
         .select("*")
         .eq("conversacion_id", conversacionId)
         .order("created_at", { ascending: true })
 
+
       if (error) throw error
-      setMensajesPorSolicitud((prev) => ({ ...prev, [solicitudId]: data || [] }))
-      
-      const noLeidos = (data || []).filter((m: any) => !m.leido && m.remitente === "cliente").length
-      setMensajesNoLeidos((prev) => ({ ...prev, [solicitudId]: noLeidos }))
+
+
+      setMensajesPorSolicitud(prev => ({
+        ...prev,
+        [solicitudId]: data || []
+      }))
+
+
     } catch (err) {
-      console.error("Error cargando mensajes:", err)
-    } finally {
-      setLoadingMensajes((prev) => ({ ...prev, [solicitudId]: false }))
+      console.error("chat error", err)
+    }
+    finally {
+      setLoadingMensajes(prev => ({
+        ...prev,
+        [solicitudId]: false
+      }))
     }
   }
 
   const handleEnviarMensaje = async (solicitudId: number) => {
+
     const mensaje = mensajeInput[solicitudId]?.trim()
+
     if (!mensaje) return
-    
-    setEnviandoMensaje((prev) => ({ ...prev, [solicitudId]: true }))
+
+
+    setEnviandoMensaje(prev => ({
+      ...prev,
+      [solicitudId]: true
+    }))
+
+
     try {
-      const solicitud = solicitudes.find(s => s.id === solicitudId)
-      const conversacionId = solicitud.conversacion_id || solicitudId
-      
+
+
+      const { data: conv } = await supabase
+        .from("conversaciones")
+        .select("id")
+        .eq("solicitud_id", solicitudId)
+        .single()
+
+
+
+      if (!conv) return
+
+
+
       const { error } = await supabase
         .from("mensajes")
         .insert({
-          conversacion_id: conversacionId,
-          remitente: "admin",
+
+          conversacion_id: conv.id,
           contenido: mensaje,
+          remitente: "admin",
+          leido: false
+
         })
+
 
       if (error) throw error
 
-      setMensajesPorSolicitud((prev) => ({
+
+
+      setMensajesPorSolicitud(prev => ({
+
         ...prev,
-        [solicitudId]: [...(prev[solicitudId] || []), { ...mensaje, id: Date.now(), remitente: "admin", created_at: new Date().toISOString() }],
+
+        [solicitudId]: [
+          ...(prev[solicitudId] || []),
+
+          {
+            id: Date.now(),
+            contenido: mensaje,
+            remitente: "admin",
+            created_at: new Date().toISOString()
+          }
+        ]
+
       }))
-      setMensajeInput((prev) => ({ ...prev, [solicitudId]: "" }))
-    } catch (err) {
-      console.error("Error enviando mensaje:", err)
-    } finally {
-      setEnviandoMensaje((prev) => ({ ...prev, [solicitudId]: false }))
+
+
+
+      setMensajeInput(prev => ({
+        ...prev,
+        [solicitudId]: ""
+      }))
+
+
+
+    } catch (e) {
+      console.error(e)
     }
+
+    finally {
+
+      setEnviandoMensaje(prev => ({
+        ...prev,
+        [solicitudId]: false
+      }))
+
+    }
+
   }
 
   const formatFechaMensaje = (fecha: string) => {
@@ -1206,10 +1325,10 @@ export default function ClientePerfilPage() {
 
                               {/* Botón editar */}
                               {editandoSolicitudId !== solicitud.id ? (
-                                 <button
-                                   onClick={() => {
-                                     setEditandoSolicitudId(solicitud.id)
-                                   }}
+                                <button
+                                  onClick={() => {
+                                    setEditandoSolicitudId(solicitud.id)
+                                  }}
                                   className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-3 py-1.5 text-[10px] font-medium text-foreground hover:bg-muted"
                                 >
                                   <Edit3 size={12} />
@@ -1360,20 +1479,20 @@ export default function ClientePerfilPage() {
                                                 : "Adjuntar"}
                                           </label>
                                           {(solicitudDocs[campo] || url) && (
-                                          <button
-                                            onClick={() => handleUploadDocSolicitud(solicitud.id, campo)}
-                                            disabled={uploadingSolicitudDoc[campo]}
-                                            className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
-                                          >
-                                            {uploadingSolicitudDoc[campo] ? (
-                                              <>
-                                                <Loader2 size={12} className="animate-spin" />
-                                                Guardando
-                                              </>
-                                            ) : (
-                                              "Guardar"
-                                            )}
-                                          </button>
+                                            <button
+                                              onClick={() => handleUploadDocSolicitud(solicitud.id, campo)}
+                                              disabled={uploadingSolicitudDoc[campo]}
+                                              className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
+                                            >
+                                              {uploadingSolicitudDoc[campo] ? (
+                                                <>
+                                                  <Loader2 size={12} className="animate-spin" />
+                                                  Guardando
+                                                </>
+                                              ) : (
+                                                "Guardar"
+                                              )}
+                                            </button>
                                           )}
                                         </div>
                                       </div>
@@ -1788,9 +1907,9 @@ export default function ClientePerfilPage() {
                             {item.precio ? `$${item.precio.toLocaleString("es-CO")}` : "-"}
                           </td>
                         </tr>
-                    ))}
-                  </tbody>
-                </table>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}
