@@ -787,7 +787,7 @@ export default function ClientePerfilPage() {
   return (
     <div className="space-y-6">
       {/* Page Header */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mt-6">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between mt-12">
         <div>
           <h1 className="text-2xl font-bold text-foreground">{client.nombre}</h1>
           <p className="text-muted-foreground">
