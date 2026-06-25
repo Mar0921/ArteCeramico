@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Menu, X, LogOut, Users, User } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+import { useRouter } from "next/navigation"
+import { supabase } from "@/lib/supabase"
 
 const navItems = [
   { label: "Inicio", href: "#inicio" },
@@ -18,6 +20,7 @@ export function Navbar({ showClientButtons = false }: { showClientButtons?: bool
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const router = useRouter()
 
   // Detectar scroll
   useEffect(() => {
@@ -28,19 +31,17 @@ export function Navbar({ showClientButtons = false }: { showClientButtons?: bool
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
-  // Verificar si el usuario está logueado
+// Verificar si el usuario está logueado
   useEffect(() => {
-    const checkLogin = () => {
-      const loggedIn = sessionStorage.getItem("clienteEmail") || localStorage.getItem("isLoggedIn")
-      setIsLoggedIn(!!loggedIn)
+    const checkLogin = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setIsLoggedIn(!!user)
     }
     checkLogin()
-    window.addEventListener("storage", checkLogin)
-    window.addEventListener("loginStateChange", checkLogin)
-    return () => {
-      window.removeEventListener("storage", checkLogin)
-      window.removeEventListener("loginStateChange", checkLogin)
-    }
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+      checkLogin()
+    })
+    return () => subscription.unsubscribe()
   }, [])
 
   // Bloquear scroll cuando menú está abierto
@@ -71,10 +72,9 @@ export function Navbar({ showClientButtons = false }: { showClientButtons?: bool
     }
   }
 
-  const handleLogout = () => {
-    sessionStorage.removeItem("clienteEmail")
-    localStorage.removeItem("isLoggedIn")
-    window.location.href = "/"
+  const handleLogout = async () => {
+    await supabase.auth.signOut()
+    router.push("/")
   }
 
   return (

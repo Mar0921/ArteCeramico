@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { PrescriptionForm } from "@/app/formulario/components/prescription-form"
 import { Navbar } from "@/components/navbar"
+import { supabase } from "@/lib/supabase"
 
 export default function FormPage() {
   const router = useRouter()
@@ -16,10 +17,13 @@ export default function FormPage() {
 
   useEffect(() => {
     if (!mounted) return
-    const isLoggedIn = sessionStorage.getItem("clienteEmail") || localStorage.getItem("isLoggedIn") === "true"
-    if (!isLoggedIn) {
-      router.push("/login?redirect=formulario")
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push("/login?redirect=formulario")
+      }
     }
+    checkAuth()
   }, [router, mounted])
 
   if (!mounted) return null

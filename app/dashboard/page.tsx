@@ -65,20 +65,18 @@ const statusStyles: Record<string, string> = {
   cancelado: "bg-red-100 text-red-700",
 }
 
-interface Solicitud {
-  id: number
-  servicio: string
-  estado: string
-  created_at: string
-  cliente: {
-    nombre: string
-  }
-  precio?: number
+interface RecentOrder {
+  id: string
+  client: string
+  product: string
+  status: string
+  date: string
+  amount: string
 }
 
 export default function DashboardPage() {
   const [totalClientes, setTotalClientes] = useState<number | null>(null)
-  const [recentSolicitudes, setRecentSolicitudes] = useState<Solicitud[]>([])
+  const [recentSolicitudes, setRecentSolicitudes] = useState<RecentOrder[]>([])
   const [loadingOrders, setLoadingOrders] = useState(true)
 
   useEffect(() => {
@@ -110,7 +108,7 @@ export default function DashboardPage() {
               ? item.estado.replace(/_/g, " ").replace(/\b\w/g, (l: string) => l.toUpperCase())
               : "Pendiente",
             date: new Date(item.created_at).toLocaleDateString("es-CO"),
-            amount: "-",
+            amount: item.precio ? `$${item.precio.toLocaleString("es-CO")}` : "-",
           }))
           setRecentSolicitudes(formatted)
         }

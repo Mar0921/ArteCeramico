@@ -3,8 +3,8 @@
 import { useState } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { X, ShoppingCart, ChevronLeft, ChevronRight, Package, ChevronDown } from "lucide-react"
-import { useRouter } from "next/navigation"
-import { useSearchParams } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
+import { supabase } from "@/lib/supabase"
 
 const serviceMapping: Record<string, { servicio: string; tipoTrabajo: string[]; material: string[] }> = {
   "Provisional PMMA": { servicio: "Híbrida PMMA", tipoTrabajo: ["HÍBRIDA"], material: ["PMMA"] },
@@ -239,8 +239,8 @@ export function ServicesSection() {
   const [filterCategory, setFilterCategory] = useState<string>("all")
   const router = useRouter()
 
-  const handleComprar = (product: Product) => {
-    const isLoggedIn = sessionStorage.getItem("clienteEmail") || localStorage.getItem("isLoggedIn")
+  const handleComprar = async (product: Product) => {
+    const { data: { user } } = await supabase.auth.getUser()
     const params = new URLSearchParams()
     params.set("servicio", product.name)
     const mapping = serviceMapping[product.name]
@@ -248,7 +248,7 @@ export function ServicesSection() {
     if (mapping?.tipoTrabajo?.length) params.set("tipoTrabajo", mapping.tipoTrabajo.join(","))
     if (mapping?.material?.length) params.set("material", mapping.material.join(","))
     const redirectUrl = `/formulario?${params.toString()}`
-    if (!isLoggedIn) {
+    if (!user) {
       router.push(`/login?redirect=${encodeURIComponent(redirectUrl)}`)
     } else {
       router.push(redirectUrl)

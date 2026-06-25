@@ -28,14 +28,17 @@ interface PrescriptionFormProps {
 
 function buildFormDataPayload(
   solicitud: SolicitudEntry,
-  storedEmail: string,
+  email: string,
+  userId: string,
   drawingDataUrl: string | null
 ): FormData {
   const { formData, servicioTipo, selectedTeeth, toothStatuses, uploadedFiles } = solicitud
   const payload = new FormData()
 
-  payload.append("correoOdontologo", storedEmail)
+  payload.append("userId", userId)
+  payload.append("correoOdontologo", email)
   payload.append("servicio", servicioTipo)
+
   payload.append("observaciones", formData.indicaciones || "")
   payload.append("indicaciones", formData.indicaciones || "")
   payload.append("odontologo", formData.odontologo || "")
@@ -57,9 +60,14 @@ function buildFormDataPayload(
   payload.append("chimenea", formData.chimenea ? "true" : "false")
   payload.append("prueba", formData.prueba ? "true" : "false")
   payload.append("terminado", formData.terminado ? "true" : "false")
-  payload.append("dientesTrabajados", JSON.stringify(
-    selectedTeeth.map((t) => `${t}-${toothStatuses[t] || "normal"}`)
-  ))
+
+  payload.append(
+    "dientesTrabajados",
+    JSON.stringify(
+      selectedTeeth.map((t) => `${t}-${toothStatuses[t] || "normal"}`)
+    )
+  )
+
   payload.append("estadosDientes", JSON.stringify(toothStatuses))
 
   if (drawingDataUrl) {
@@ -115,16 +123,22 @@ export function PrescriptionForm({
   useEffect(() => {
     const fetchClientData = async () => {
       try {
-        const storedEmail = sessionStorage.getItem("clienteEmail")
-        if (!storedEmail) return
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+
+        if (!user) return
 
         const { data, error } = await supabase
           .from("clientes")
           .select("nombre, documento")
-          .eq("correo", storedEmail)
+          .eq("user_id", user.id)
           .single()
 
-        if (error || !data) return
+        if (error || !data) {
+          console.error("Cliente no encontrado:", error)
+          return
+        }
 
         setSolicitudes((prev) =>
           prev.map((s) => ({
@@ -136,13 +150,14 @@ export function PrescriptionForm({
             },
           }))
         )
-      } catch {
-        // Silently fail
+      } catch (err) {
+        console.error(err)
       }
     }
 
     fetchClientData()
   }, [])
+
 
   useEffect(() => {
     if (initializedRef.current) return
@@ -154,14 +169,14 @@ export function PrescriptionForm({
       prev.map((s, i) =>
         i === 0
           ? {
-              ...s,
-              servicioTipo: serv && serv !== "Otro" ? serv : tipoServicio || s.servicioTipo,
-              formData: {
-                ...s.formData,
-                tiposTrabajo: [...new Set([...s.formData.tiposTrabajo, ...tipoTrabajo])],
-                materiales: [...new Set([...s.formData.materiales, ...material])],
-              },
-            }
+            ...s,
+            servicioTipo: serv && serv !== "Otro" ? serv : tipoServicio || s.servicioTipo,
+            formData: {
+              ...s.formData,
+              tiposTrabajo: [...new Set([...s.formData.tiposTrabajo, ...tipoTrabajo])],
+              materiales: [...new Set([...s.formData.materiales, ...material])],
+            },
+          }
           : s
       )
     )
@@ -207,11 +222,18 @@ export function PrescriptionForm({
     setIsSubmitting(true)
 
     try {
-      const storedEmail = sessionStorage.getItem("clienteEmail")
-      if (!storedEmail) {
-        alert("No se encontro la sesion del usuario. Inicia sesion nuevamente.")
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      const email = user?.email
+      const userId = user?.id
+
+      if (!email || !userId) {
+        alert("No se encontró la sesión del usuario")
         return
       }
+
 
       const validationError = validateSolicitudes()
       if (validationError) {
@@ -225,7 +247,7 @@ export function PrescriptionForm({
         const solicitud = solicitudes[i]
         const drawRef = toothDrawRefs.current.get(solicitud.id)
         const drawingDataUrl = drawRef?.getDrawingDataUrl() ?? null
-        const payload = buildFormDataPayload(solicitud, storedEmail, drawingDataUrl)
+        const payload = buildFormDataPayload(solicitud, email, userId, drawingDataUrl)
 
         try {
           const response = await fetch("/api/solicitudes", {
@@ -287,7 +309,7 @@ export function PrescriptionForm({
     let hiddenSections: NodeListOf<Element> | null = null
     hiddenSections = formRef.current.querySelectorAll(".solicitud-section-hidden")
     hiddenSections.forEach((el) => {
-      ;(el as HTMLElement).style.display = "block"
+      ; (el as HTMLElement).style.display = "block"
     })
 
     try {
@@ -340,7 +362,7 @@ export function PrescriptionForm({
       window.print()
     } finally {
       hiddenSections?.forEach((el) => {
-        ;(el as HTMLElement).style.display = "none"
+        ; (el as HTMLElement).style.display = "none"
       })
       if (actionButtons) actionButtons.style.display = "flex"
       if (tabsBar) tabsBar.style.display = "flex"
@@ -358,11 +380,10 @@ export function PrescriptionForm({
             key={s.id}
             type="button"
             onClick={() => setActiveIndex(i)}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-              activeIndex === i
-                ? "bg-primary text-primary-foreground"
-                : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
-            }`}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${activeIndex === i
+              ? "bg-primary text-primary-foreground"
+              : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
+              }`}
           >
             Solicitud {i + 1}
             {solicitudes.length > 1 && (
@@ -450,9 +471,8 @@ export function PrescriptionForm({
           type="button"
           onClick={handleSubmit}
           disabled={isSubmitting}
-          className={`flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all hover:bg-primary-dark disabled:opacity-50 ${
-            isSubmitting ? "cursor-not-allowed" : ""
-          }`}
+          className={`flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all hover:bg-primary-dark disabled:opacity-50 ${isSubmitting ? "cursor-not-allowed" : ""
+            }`}
         >
           <Send size={16} />
           {isSubmitting

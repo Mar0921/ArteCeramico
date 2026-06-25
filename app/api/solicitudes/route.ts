@@ -6,18 +6,18 @@ import { SERVICE_PRICES, parsePrice } from "@/lib/service-prices"
 export const runtime = "nodejs"
 
 async function buildPdfBuffer(data: {
-   clienteNombre: string
-   clienteDocumento: string
-   clienteClinica: string
-   clienteCorreo: string
-   clienteTelefono: string
-   servicio: string
-   observaciones: string
-   archivosNombres: string[]
-   createdAt: string
-   dientesTrabajados?: string[]
-   precio?: number | null
- }) {
+  clienteNombre: string
+  clienteDocumento: string
+  clienteClinica: string
+  clienteCorreo: string
+  clienteTelefono: string
+  servicio: string
+  observaciones: string
+  archivosNombres: string[]
+  createdAt: string
+  dientesTrabajados?: string[]
+  precio?: number | null
+}) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" })
   const pageWidth = doc.internal.pageSize.getWidth()
   let y = 15
@@ -80,7 +80,7 @@ async function buildPdfBuffer(data: {
 
   doc.setFont("helvetica", "bold")
   doc.text("Observaciones o detalles adicionales", 15, y)
-y += 2
+  y += 2
   doc.setFont("helvetica", "normal")
   const splitObs = doc.splitTextToSize(data.observaciones || "Sin observaciones.", pageWidth - 30)
   doc.text(splitObs, 15, y)
@@ -136,7 +136,7 @@ export async function POST(request: Request) {
     const servicio = String(formData.get("servicio") || "").trim()
     const observaciones = String(formData.get("observaciones") || "").trim()
     const indicaciones = String(formData.get("indicaciones") || "").trim()
-    const correoOdontologo = String(formData.get("correoOdontologo") || "").trim()
+    const userId = String(formData.get("userId") || "").trim()
     const archivos = formData.getAll("archivos").filter((value): value is File => value instanceof File)
 
     const fechaElaboracion = String(formData.get("fechaElaboracion") || "").trim()
@@ -196,10 +196,26 @@ export async function POST(request: Request) {
     } catch {
       dientesTrabajados = []
     }
+    console.log("================================")
+    console.log("SERVICIO:", servicio)
+    console.log("USER ID:", userId)
+    console.log("ARCHIVOS:", archivos)
+    console.log("ARCHIVOS LENGTH:", archivos?.length)
+    console.log("SERVICIO VACIO:", !servicio)
+    console.log("USER ID VACIO:", !userId)
+    console.log("SIN ARCHIVOS:", archivos.length === 0)
+    console.log("================================")
 
-    if (!servicio || !correoOdontologo || archivos.length === 0) {
+    if (!servicio || !userId || archivos.length === 0) {
       return NextResponse.json(
-        { message: "Datos de solicitud invalidos. Verifica servicio, correo y adjuntos." },
+        {
+          message: "Datos de solicitud invalidos. Verifica servicio, usuario y adjuntos.",
+          debug: {
+            servicio,
+            userId,
+            archivosLength: archivos?.length ?? 0,
+          },
+        },
         { status: 400 }
       )
     }
@@ -220,7 +236,7 @@ export async function POST(request: Request) {
     const { data: cliente, error: clienteError } = await supabase
       .from("clientes")
       .select("id, nombre, tipo, documento, correo, telefono, clinica")
-      .eq("correo", correoOdontologo)
+      .eq("user_id", userId)
       .single()
 
     if (clienteError || !cliente) {
@@ -266,7 +282,7 @@ export async function POST(request: Request) {
         )
       }
 
-const { data: urlData } = supabase.storage
+      const { data: urlData } = supabase.storage
         .from("documentos")
         .getPublicUrl(rutaStorage)
 
@@ -468,7 +484,8 @@ const { data: urlData } = supabase.storage
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const clienteId = searchParams.get("cliente_id")
-  const limit = parseInt(searchParams.get("limit") || "5")
+  const estado = searchParams.get("estado")
+  const limit = parseInt(searchParams.get("limit") || "50")
 
   try {
     const supabase = createClient(
@@ -484,6 +501,10 @@ export async function GET(request: Request) {
 
     if (clienteId) {
       query = query.eq("cliente_id", parseInt(clienteId))
+    }
+
+    if (estado) {
+      query = query.eq("estado", estado)
     }
 
     const { data: solicitudes, error } = await query
@@ -515,31 +536,82 @@ export async function GET(request: Request) {
     }
 
     const solicitudIds = solicitudes.map((s) => s.id)
-    
+
     const { data: servicios, error: serviciosError } = await supabase
       .from("servicios")
-      .select("solicitud_id, precio, cantidad")
+      .select(`
+        solicitud_id,
+        precio,
+        dientes,
+        tipo_trabajo,
+        material,
+        piezas_enviadas
+      `)
       .in("solicitud_id", solicitudIds)
       .order("solicitud_id", { ascending: true })
-      .limit(1)
 
-    const preciosMap = new Map<number, number>()
+    const serviciosMap = new Map<
+      number,
+      {
+        precio: number
+        dientes: string[]
+        tipoTrabajo: string[]
+        materiales: string[]
+        piezas: number
+      }
+    >()
+
     if (!serviciosError && servicios) {
       servicios.forEach((serv: any) => {
-        preciosMap.set(serv.solicitud_id, serv.precio || 0)
+        const actual = serviciosMap.get(serv.solicitud_id) || {
+          precio: 0,
+          dientes: [],
+          tipoTrabajo: [],
+          materiales: [],
+          piezas: 0,
+        }
+
+        const piezas = Array.isArray(serv.piezas_enviadas)
+          ? serv.piezas_enviadas.length
+          : Number(serv.piezas_enviadas || 0)
+
+        serviciosMap.set(serv.solicitud_id, {
+          precio: actual.precio + Number(serv.precio || 0),
+          dientes: [
+            ...actual.dientes,
+            ...(serv.dientes ? [serv.dientes] : []),
+          ],
+          tipoTrabajo: [
+            ...actual.tipoTrabajo,
+            ...(serv.tipo_trabajo ? [serv.tipo_trabajo] : []),
+          ],
+          materiales: [
+            ...actual.materiales,
+            ...(serv.material ? [serv.material] : []),
+          ],
+          piezas: actual.piezas + (Number.isFinite(piezas) ? piezas : 0),
+        })
       })
     }
 
-    const formatted = solicitudes.map((item: any) => ({
-      id: item.id,
-      servicio: item.servicio || "Servicio",
-      estado: item.estado || "pendiente",
-      created_at: item.created_at,
-      cliente_id: item.cliente_id,
-      cliente_nombre: clientesMap.get(item.cliente_id) || "Sin cliente",
-      dientes_trabajados: item.dientes_trabajados || [],
-      precio: preciosMap.get(item.id) || null,
-    }))
+    const formatted = solicitudes.map((item: any) => {
+      const info = serviciosMap.get(item.id)
+
+      return {
+        id: item.id,
+        servicio: item.servicio || "Servicio",
+        estado: item.estado || "pendiente",
+        created_at: item.created_at,
+        cliente_id: item.cliente_id,
+        cliente_nombre: clientesMap.get(item.cliente_id) || "Sin cliente",
+        dientes_trabajados: item.dientes_trabajados || [],
+        dientesTrabajados: info?.dientes || [],
+        tiposTrabajo: info?.tipoTrabajo || [],
+        materiales: info?.materiales || [],
+        piezasEnviadas: info?.piezas || 0,
+        precio: info?.precio || null,
+      }
+    })
 
     return NextResponse.json({ data: formatted })
   } catch (error) {

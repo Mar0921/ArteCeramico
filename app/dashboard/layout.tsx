@@ -1,8 +1,11 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Sidebar } from "@/components/dashboard/sidebar"
 import { Navbar } from "@/components/navbar"
+import { supabase } from "@/lib/supabase"
+import { useRouter } from "next/navigation"
+import { Spinner } from "@/components/ui/spinner"
 
 export default function DashboardLayout({
   children,
@@ -10,6 +13,46 @@ export default function DashboardLayout({
   children: React.ReactNode
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [authorized, setAuthorized] = useState(false)
+  const router = useRouter()
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) {
+        router.push("/admin/login")
+        return
+      }
+
+      const { data, error } = await supabase
+        .from("admins")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("activo", true)
+        .single()
+
+      if (error || !data) {
+        await supabase.auth.signOut()
+        router.push("/admin/login")
+        return
+      }
+
+      setAuthorized(true)
+    }
+
+    checkAdmin()
+  }, [router])
+
+  if (!authorized) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <Spinner className="size-8 text-primary" />
+      </div>
+    )
+  }
 
   return (
     <div className="flex min-h-screen bg-background">

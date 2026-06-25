@@ -11,6 +11,7 @@ import {
   User,
   LogOut,
   MessageSquare,
+  MessageCircle,
   Package,
   Send,
   X,
@@ -81,6 +82,9 @@ interface Solicitud {
   caja: string | null
   codigo_trazabilidad: string | null
   dientes_trabajados: string[] | null
+  dientesTrabajados: string[]
+  tiposTrabajo: string[]
+  piezasEnviadas: number
   dibujo_odontologo: string | null
   declaracion_conformidad: string | null
   guia_fabricacion: string | null
@@ -104,6 +108,15 @@ interface Message {
   isBot: boolean
 }
 
+interface MensajeSolicitud {
+  id: number
+  conversacion_id: number
+  remitente: string
+  contenido: string
+  leido: boolean
+  created_at: string
+}
+
 export default function ClientesPage() {
   const router = useRouter()
 
@@ -112,6 +125,11 @@ export default function ClientesPage() {
   const [error, setError] = useState<string | null>(null)
 
   const [chatOpen, setChatOpen] = useState(false)
+  const [chatSolicitudOpen, setChatSolicitudOpen] = useState(false)
+  const [conversacionActual, setConversacionActual] = useState<any>(null)
+  const [mensajesSolicitud, setMensajesSolicitud] = useState<any[]>([])
+  const [mensajeSolicitudInput, setMensajeSolicitudInput] = useState("")
+  const [enviandoMensajeSolicitud, setEnviandoMensajeSolicitud] = useState(false)
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -141,15 +159,15 @@ export default function ClientesPage() {
   const [uploadSuccess, setUploadSuccess] = useState<Record<string, boolean>>({})
   const [mostrarEstadoCuenta, setMostrarEstadoCuenta] = useState(false)
   const [itemsEstadoCuenta, setItemsEstadoCuenta] = useState<{
-        id: number
-        solicitudId: number
-        nombre: string
-        descripcion: string
-        precio: number
-        cantidad: number
-        fecha: string
-        estado: string
-      }[]>([]) 
+    id: number
+    solicitudId: number
+    nombre: string
+    descripcion: string
+    precio: number
+    cantidad: number
+    fecha: string
+    estado: string
+  }[]>([])
   const [totalPagar, setTotalPagar] = useState(0)
   const [procesandoPago, setProcesandoPago] = useState(false)
   const [seleccionados, setSeleccionados] = useState<Set<number>>(new Set())
@@ -162,6 +180,7 @@ export default function ClientesPage() {
   const { toast } = useToast()
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const mensajesSolicitudEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -171,26 +190,24 @@ export default function ClientesPage() {
   }, [messages])
 
   useEffect(() => {
+    mensajesSolicitudEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+    })
+  }, [mensajesSolicitud])
+
+  useEffect(() => {
     const loadClient = async () => {
       try {
         setLoading(true)
 
-        const storedEmail = sessionStorage.getItem("clienteEmail")
+        const {
+          data: { user },
+          error: authError,
+        } = await supabase.auth.getUser()
 
-        let email = storedEmail
+        if (authError) throw authError
 
-        if (!email) {
-          const {
-            data: { user },
-            error,
-          } = await supabase.auth.getUser()
-
-          if (error) throw error
-
-          email = user?.email || null
-        }
-
-        if (!email) {
+        if (!user) {
           router.push("/login")
           return
         }
@@ -198,8 +215,10 @@ export default function ClientesPage() {
         const { data, error } = await supabase
           .from("clientes")
           .select("*")
-          .eq("correo", email)
+          .eq("user_id", user.id)
           .single()
+
+
 
         if (error) throw error
 
@@ -234,28 +253,79 @@ export default function ClientesPage() {
       if (error) throw error
 
       const solicitudesData = data ?? []
-      
+
       const solicitudIds = solicitudesData.map(s => s.id)
-      const preciosMap = new Map<number, number>()
-      
+      const serviciosMap = new Map<
+        number,
+        {
+          precio: number
+          dientes: string[]
+          tipoTrabajo: string[]
+          materiales: string[]
+          piezas: number
+        }
+      >()
+
+      const normalizarPiezas = (valor: any) => {
+        if (Array.isArray(valor)) return valor.length
+        const numero = Number(valor)
+        return Number.isFinite(numero) ? numero : 0
+      }
+
       if (solicitudIds.length > 0) {
         const { data: servicios } = await supabase
           .from("servicios")
-          .select("solicitud_id, precio")
+          .select(`
+            solicitud_id,
+            precio,
+            dientes,
+            tipo_trabajo,
+            material,
+            piezas_enviadas
+          `)
           .in("solicitud_id", solicitudIds)
-        
+
         servicios?.forEach((serv: any) => {
-          if (serv.precio && Number(serv.precio) > 0) {
-            preciosMap.set(serv.solicitud_id, Number(serv.precio))
+          const actual = serviciosMap.get(serv.solicitud_id) || {
+            precio: 0,
+            dientes: [],
+            tipoTrabajo: [],
+            materiales: [],
+            piezas: 0,
           }
+
+          serviciosMap.set(serv.solicitud_id, {
+            precio: actual.precio + Number(serv.precio || 0),
+            dientes: [
+              ...actual.dientes,
+              ...(serv.dientes ? [serv.dientes] : []),
+            ],
+            tipoTrabajo: [
+              ...actual.tipoTrabajo,
+              ...(serv.tipo_trabajo ? [serv.tipo_trabajo] : []),
+            ],
+            materiales: [
+              ...actual.materiales,
+              ...(serv.material ? [serv.material] : []),
+            ],
+            piezas: actual.piezas + normalizarPiezas(serv.piezas_enviadas),
+          })
         })
       }
-      
-      const solicitudesConPrecio = solicitudesData.map((s: any) => ({
-        ...s,
-        precio: preciosMap.get(s.id) || s.precio || null,
-      }))
-      
+
+      const solicitudesConPrecio = solicitudesData.map((s: any) => {
+        const info = serviciosMap.get(s.id)
+
+        return {
+          ...s,
+          precio: info?.precio || 0,
+          dientesTrabajados: info?.dientes || [],
+          tiposTrabajo: info?.tipoTrabajo || [],
+          materiales: info?.materiales || [],
+          piezasEnviadas: info?.piezas || 0,
+        }
+      })
+
       setSolicitudes(solicitudesConPrecio)
       await cargarEstadoCuenta(clienteId, solicitudesConPrecio)
     } catch (err) {
@@ -287,19 +357,19 @@ export default function ClientesPage() {
 
       const items = (data ?? [])
         .filter((item: any) => item.precio && Number(item.precio) > 0)
-.map((item: any) => {
-           const solicitud = solicitudesMap.get(item.solicitud_id)
-           return {
-             id: item.id,
-             solicitudId: item.solicitud_id,
-             nombre: item.nombre,
-             descripcion: item.descripcion || "",
-             precio: Number(item.precio),
-             cantidad: item.cantidad || 1,
-             estado: solicitud?.estado || "pendiente",
-             fecha: solicitud?.created_at || item.created_at,
-           }
-         })
+        .map((item: any) => {
+          const solicitud = solicitudesMap.get(item.solicitud_id)
+          return {
+            id: item.id,
+            solicitudId: item.solicitud_id,
+            nombre: item.nombre,
+            descripcion: item.descripcion || "",
+            precio: Number(item.precio),
+            cantidad: item.cantidad || 1,
+            estado: solicitud?.estado || "pendiente",
+            fecha: solicitud?.created_at || item.created_at,
+          }
+        })
 
       setItemsEstadoCuenta(items)
       setTotalPagar(items.reduce((acc, item) => acc + item.precio, 0))
@@ -569,6 +639,190 @@ export default function ClientesPage() {
     }
   }
 
+  const abrirChatSolicitud = async (solicitud: Solicitud) => {
+    if (!clientData?.id) return
+
+    try {
+      let { data: conversacion, error: conversacionError } = await supabase
+        .from("conversaciones")
+        .select("*")
+        .eq("solicitud_id", solicitud.id)
+        .maybeSingle()
+
+      if (conversacionError) {
+        throw conversacionError
+      }
+
+      if (!conversacion) {
+        const { data: nuevaConversacion, error: insertError } = await supabase
+          .from("conversaciones")
+          .insert({
+            solicitud_id: solicitud.id,
+            cliente_id: clientData.id,
+            admin_id: null,
+            estado: "activa",
+          })
+          .select()
+          .single()
+
+        if (insertError) {
+          throw insertError
+        }
+
+        conversacion = nuevaConversacion
+      }
+
+      setConversacionActual(conversacion)
+      setChatSolicitudOpen(true)
+
+      if (conversacion?.id) {
+        await cargarMensajesSolicitud(conversacion.id)
+        await marcarMensajesSolicitudLeidos(conversacion.id)
+        setTimeout(() => {
+          mensajesSolicitudEndRef.current?.scrollIntoView({ behavior: "smooth" })
+        }, 100)
+      }
+    } catch (err) {
+      const conversacionLocal = {
+        id: solicitud.id,
+        solicitud_id: solicitud.id,
+        cliente_id: clientData.id,
+        admin_id: null,
+        estado: "activa",
+      }
+
+      setConversacionActual(conversacionLocal)
+      setMensajesSolicitud([])
+      setChatSolicitudOpen(true)
+      toast({
+        title: "Chat no disponible",
+        description: "La base de datos de mensajes aún no está configurada.",
+      })
+    }
+  }
+
+  const cargarMensajesSolicitud = async (conversacionId: number) => {
+    try {
+      const { data, error } = await supabase
+        .from("mensajes")
+        .select("*")
+        .eq("conversacion_id", conversacionId)
+        .order("created_at", { ascending: true })
+
+      if (!error && data) {
+        setMensajesSolicitud(data as MensajeSolicitud[])
+      }
+    } catch (err) {
+      console.error("Error cargando mensajes de solicitud:", err)
+      setMensajesSolicitud([])
+    }
+  }
+
+  const marcarMensajesSolicitudLeidos = async (conversacionId: number) => {
+    try {
+      await supabase
+        .from("mensajes")
+        .update({ leido: true })
+        .eq("conversacion_id", conversacionId)
+        .eq("remitente", "admin")
+        .eq("leido", false)
+    } catch (err) {
+      console.error("Error marcando mensajes como leídos:", err)
+    }
+  }
+
+  const handleEnviarMensajeSolicitud = async () => {
+    const texto = mensajeSolicitudInput.trim()
+
+    if (!texto || !conversacionActual) return
+
+    const conversacionId = conversacionActual.id
+
+    alert(JSON.stringify(conversacionActual, null, 2))
+
+    setEnviandoMensajeSolicitud(true)
+
+    try {
+      // DEBUG
+      const authResult = await supabase.auth.getUser()
+
+      console.log("================================")
+      console.log("AUTH USER:", authResult.data.user?.id)
+      console.log("CONVERSACION ACTUAL:", conversacionActual)
+      console.log("CONVERSACION ID:", conversacionId)
+      console.log("AUTH USER:", authResult.data.user?.id)
+      console.log("CONVERSACION ACTUAL:", JSON.stringify(conversacionActual, null, 2))
+      console.log("CONVERSACION ID:", conversacionId)
+
+      console.log("AUTH USER:", authResult.data.user?.id)
+
+      console.log("INSERTANDO:", {
+        conversacion_id: conversacionId,
+        contenido: texto,
+        remitente: "cliente",
+        leido: false,
+      })
+
+      const response = await supabase
+        .from("mensajes")
+        .insert({
+          conversacion_id: conversacionId,
+          contenido: texto,
+          remitente: "cliente",
+          leido: false,
+        })
+        .select()
+        .single()
+
+      console.log("RESPUESTA SUPABASE:", response)
+
+      const { data, error } = response
+
+      if (error) {
+        console.error("ERROR SUPABASE:", error)
+        throw error
+      }
+
+      if (data) {
+        setMensajesSolicitud((prev) => [
+          ...prev,
+          data as MensajeSolicitud,
+        ])
+
+        setMensajeSolicitudInput("")
+
+        setTimeout(() => {
+          mensajesSolicitudEndRef.current?.scrollIntoView({
+            behavior: "smooth",
+          })
+        }, 50)
+      }
+    } catch (err: any) {
+      console.error("================================")
+      console.error("ERROR COMPLETO:", err)
+      console.error("ERROR STRING:", JSON.stringify(err, null, 2))
+      console.error("ERROR MESSAGE:", err?.message)
+      console.error("ERROR DETAILS:", err?.details)
+      console.error("ERROR HINT:", err?.hint)
+      console.error("================================")
+    } finally {
+      setEnviandoMensajeSolicitud(false)
+    }
+  }
+
+  const formatFechaMensajeSolicitud = (fecha: string) => {
+    const d = new Date(fecha)
+    const hoy = new Date()
+    const ayer = new Date()
+    ayer.setDate(hoy.getDate() - 1)
+
+    const hora = d.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })
+
+    if (d.toDateString() === hoy.toDateString()) return `Hoy ${hora}`
+    if (d.toDateString() === ayer.toDateString()) return `Ayer ${hora}`
+    return d.toLocaleDateString("es-CO", { day: "2-digit", month: "short" }) + " " + hora
+  }
+
   const handleCerrarDetalle = () => {
     setSelectedSolicitud(null)
     setServiciosDetalle([])
@@ -640,10 +894,6 @@ export default function ClientesPage() {
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut()
-
-      sessionStorage.removeItem("clienteEmail")
-      localStorage.removeItem("isLoggedIn")
-
       router.push("/")
     } catch {
       setError("Error al cerrar sesión")
@@ -1342,21 +1592,21 @@ export default function ClientesPage() {
                                 ))}
                               </div>
                             )}
-{(solicitud as any).dientes_trabajados?.length > 0 && (
-                               <div className="contents">
-                                 {(solicitud as any).dientes_trabajados.map((diente: string, i: number) => (
-                                   <span key={i} className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700 w-fit">#{diente}</span>
-                                 ))}
-                               </div>
-                             )}
-                             {solicitud.precio !== null && solicitud.precio !== undefined && (
-                               <div>
-                                 <span className="text-gray-500">Precio:</span>{" "}
-                                 <span className="text-gray-800 font-semibold">${solicitud.precio.toLocaleString("es-CO")}</span>
-                               </div>
-                             )}
-                           </div>
-                         )}
+                            {(solicitud as any).dientes_trabajados?.length > 0 && (
+                              <div className="contents">
+                                {(solicitud as any).dientes_trabajados.map((diente: string, i: number) => (
+                                  <span key={i} className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700 w-fit">#{diente}</span>
+                                ))}
+                              </div>
+                            )}
+                            {solicitud.precio !== null && solicitud.precio !== undefined && (
+                              <div>
+                                <span className="text-gray-500">Precio:</span>{" "}
+                                <span className="text-gray-800 font-semibold">${solicitud.precio.toLocaleString("es-CO")}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         <div className="mt-3 flex flex-wrap items-center gap-3">
                           <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary capitalize">
@@ -1366,6 +1616,44 @@ export default function ClientesPage() {
                           <span className="text-xs text-muted-foreground">
                             {new Date(solicitud.created_at).toLocaleString()}
                           </span>
+                        </div>
+
+                        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                          <div className="rounded-xl bg-muted/30 p-3">
+                            <p className="text-xs text-muted-foreground">
+                              Valor
+                            </p>
+                            <p className="font-bold text-primary">
+                              ${solicitud.precio?.toLocaleString("es-CO")}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl bg-muted/30 p-3">
+                            <p className="text-xs text-muted-foreground">
+                              Dientes
+                            </p>
+                            <p className="font-medium">
+                              {solicitud.dientesTrabajados?.join(", ") || "-"}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl bg-muted/30 p-3">
+                            <p className="text-xs text-muted-foreground">
+                              Material
+                            </p>
+                            <p className="font-medium">
+                              {solicitud.materiales?.join(", ") || "-"}
+                            </p>
+                          </div>
+
+                          <div className="rounded-xl bg-muted/30 p-3">
+                            <p className="text-xs text-muted-foreground">
+                              Piezas
+                            </p>
+                            <p className="font-medium">
+                              {solicitud.piezasEnviadas}
+                            </p>
+                          </div>
                         </div>
 
                         <div className="mt-3 flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
@@ -1407,6 +1695,13 @@ export default function ClientesPage() {
                       </div>
 
                       <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => abrirChatSolicitud(solicitud)}
+                          className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-white"
+                        >
+                          <MessageCircle size={16} />
+                          Chat Arte Cerámico
+                        </button>
                         <button
                           onClick={() => handleVerSolicitud(solicitud)}
                           className="flex items-center gap-1 rounded-xl border border-border bg-card/50 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:border-primary/60 hover:bg-primary/10 hover:text-primary"
@@ -1700,6 +1995,108 @@ export default function ClientesPage() {
                 >
                   Cerrar
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {chatSolicitudOpen && conversacionActual && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setChatSolicitudOpen(false)}>
+            <div className="flex h-[min(620px,90vh)] w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-card shadow-xl" onClick={(e) => e.stopPropagation()}>
+              <div className="border-b border-border p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">
+                      Chat Arte Cerámico
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      SOL-{String(conversacionActual.solicitud_id || conversacionActual.id).padStart(3, "0")}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setChatSolicitudOpen(false)}
+                    className="rounded-lg p-2 hover:bg-muted transition-colors"
+                  >
+                    <X size={18} className="text-muted-foreground" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex-1 space-y-3 overflow-y-auto p-4">
+                {mensajesSolicitud.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-10 text-center">
+                    <MessageCircle size={32} className="mb-2 text-muted-foreground opacity-40" />
+                    <p className="text-sm font-medium text-foreground">Sin mensajes aún.</p>
+                    <p className="mt-1 text-xs text-muted-foreground">Escribe tu mensaje sobre esta solicitud.</p>
+                  </div>
+                ) : (
+                  mensajesSolicitud.map((msg, index, arr) => {
+                    const esAdmin = msg.remitente === "admin"
+                    const mostrarFecha = index === 0 || new Date(msg.created_at).toDateString() !== new Date(arr[index - 1].created_at).toDateString()
+
+                    return (
+                      <div key={msg.id}>
+                        {mostrarFecha && (
+                          <div className="my-3 flex items-center gap-2">
+                            <div className="h-px flex-1 bg-border" />
+                            <span className="text-[10px] text-muted-foreground">
+                              {new Date(msg.created_at).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" })}
+                            </span>
+                            <div className="h-px flex-1 bg-border" />
+                          </div>
+                        )}
+                        <div className={`flex ${esAdmin ? "justify-end" : "justify-start"}`}>
+                          <div className={`max-w-[80%] rounded-3xl px-4 py-2.5 text-sm shadow-sm ${esAdmin ? "bg-primary text-primary-foreground rounded-tr-sm" : "bg-muted text-foreground rounded-tl-sm"}`}>
+                            <p className="whitespace-pre-line break-words">
+                              {msg.contenido}
+                            </p>
+                            <p className={`mt-1 text-[10px] ${esAdmin ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
+                              {formatFechaMensajeSolicitud(msg.created_at)}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })
+                )}
+                <div ref={mensajesSolicitudEndRef} />
+              </div>
+
+              <div className="border-t border-border p-4">
+                <div className="flex gap-3">
+                  <textarea
+                    value={mensajeSolicitudInput}
+                    onChange={(e) => setMensajeSolicitudInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault()
+                        handleEnviarMensajeSolicitud()
+                      }
+                    }}
+                    placeholder="Escribe tu mensaje..."
+                    rows={1}
+                    className="flex-1 resize-none rounded-xl border border-border bg-background/70 px-4 py-3 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
+                    onInput={(e) => {
+                      const el = e.currentTarget
+                      el.style.height = "auto"
+                      el.style.height = `${Math.min(el.scrollHeight, 120)}px`
+                    }}
+                  />
+                  <button
+                    onClick={handleEnviarMensajeSolicitud}
+                    disabled={enviandoMensajeSolicitud || !mensajeSolicitudInput.trim()}
+                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground transition-all hover:scale-105 disabled:opacity-50"
+                  >
+                    {enviandoMensajeSolicitud ? (
+                      <Loader2 className="animate-spin" size={18} />
+                    ) : (
+                      <Send size={18} />
+                    )}
+                  </button>
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Shift+Enter para nueva línea
+                </p>
               </div>
             </div>
           </div>

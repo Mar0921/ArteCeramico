@@ -4,28 +4,17 @@ import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
 import { motion } from "framer-motion"
-import { Eye, EyeOff, ArrowLeft, Mail, Lock } from "lucide-react"
+import { Eye, EyeOff, ArrowLeft, Mail, Lock, Shield } from "lucide-react"
 import { supabase } from "@/lib/supabase"
-import { useRouter, useSearchParams } from "next/navigation"
+import { useRouter } from "next/navigation"
 
-export default function LoginPage() {
+export default function AdminLoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [redirectUrl, setRedirectUrl] = useState<string | null>(null)
   const router = useRouter()
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const params = new URLSearchParams(window.location.search)
-      const redirect = params.get('redirect')
-      if (redirect === 'formulario') {
-        setRedirectUrl('/formulario')
-      }
-    }
-  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -33,39 +22,29 @@ export default function LoginPage() {
     setError(null)
 
     try {
-      // Login con Supabase Auth
       const { data: authData, error: authError } =
         await supabase.auth.signInWithPassword({
           email,
           password,
         })
 
-      console.log("AUTH DATA:", authData)
-      console.log("AUTH ERROR:", authError)
-
       if (authError) {
         throw authError
       }
-      // Buscar cliente asociado
-      const { data: cliente, error: clienteError } = await supabase
-        .from("clientes")
+
+      const { data: admin, error: adminError } = await supabase
+        .from("admins")
         .select("*")
         .eq("user_id", authData.user.id)
+        .eq("activo", true)
         .single()
 
-      if (clienteError || !cliente) {
-        throw new Error("Cliente no encontrado")
+      if (adminError || !admin) {
+        await supabase.auth.signOut()
+        throw new Error("No tienes acceso de administrador")
       }
 
-// Guardar sesión
-      sessionStorage.setItem("clienteId", String(cliente.id))
-      localStorage.setItem("isLoggedIn", "true")
-
-      if (redirectUrl) {
-        router.push(redirectUrl)
-      } else {
-        router.push("/page_clientes")
-      }
+      router.push("/dashboard")
     } catch (err: any) {
       setError(err.message || "Error al iniciar sesión")
     } finally {
@@ -104,11 +83,16 @@ export default function LoginPage() {
               />
             </Link>
 
+            <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+              <Shield size={14} />
+              Administrador
+            </div>
+
             <h1 className="mt-4 text-2xl font-bold text-foreground">
-              Iniciar Sesión
+              Acceso Administrativo
             </h1>
             <p className="mt-2 text-muted-foreground">
-              Accede al portal de clientes de Arte Cerámico
+              Ingresa al panel de administración de Arte Cerámico
             </p>
           </div>
 
@@ -182,7 +166,7 @@ export default function LoginPage() {
               </div>
 
               {error && (
-                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
+                <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
                   {error}
                 </div>
               )}
@@ -196,33 +180,7 @@ export default function LoginPage() {
                 {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
               </button>
             </div>
-
-            <div className="my-6 flex items-center gap-4">
-              <div className="h-px flex-1 bg-border" />
-              <span className="text-sm text-muted-foreground">o</span>
-              <div className="h-px flex-1 bg-border" />
-            </div>
-
-            <p className="text-center text-sm text-muted-foreground">
-              ¿No tienes una cuenta?{" "}
-              <Link
-                href="/registro"
-                className="font-medium text-primary hover:text-primary-dark"
-              >
-                Regístrate
-              </Link>
-            </p>
           </form>
-
-          <p className="mt-6 text-center text-xs text-muted-foreground">
-            Para acceso de administrador,{" "}
-            <Link
-              href="/dashboard"
-              className="font-medium text-primary hover:text-primary-dark"
-            >
-              ir al panel de administración
-            </Link>
-          </p>
         </motion.div>
       </div>
     </div>

@@ -365,14 +365,15 @@ export async function POST(req: Request): Promise<NextResponse> {
       conversationContext = { lastIntent: "advisor", waitingFor: null, lastQuery: message }
     }
 
-    else if (["precios", "precio", "valores", "costo", "tarifas", "cuánto cuesta", "cuanto cuesta", "cuánto vale", "cuanto vale"].some(word => message.includes(word))) {
+else if (message.includes("precios") || message.includes("precio") || message.includes("valores") || message.includes("costo") || message.includes("tarifas") || message.includes("cuánto cuesta") || message.includes("cuanto cuesta") || message.includes("cuánto vale") || message.includes("cuanto vale")) {
       response = `Te ayudo con los precios. Qué categoría te interesa?\n\n` +
         categories.map(c => `${c.title}`).join("\n") +
         `\n\nO puedes preguntar por un servicio específico (ej: "corona zirconio") o escribir "todos" para ver la lista completa.`
       conversationContext = { lastIntent: "prices", waitingFor: null, lastQuery: message }
     }
 
-else if (message.includes("zirconio") || message.includes("disilicato")) {
+    else if ((message.includes("zirconio") || message.includes("disilicato")) && 
+             (message.includes("hacen") || message.includes("manejan") || message.includes("ofrecen"))) {
       const filtered = findServicesByMaterial(message)
       response = getFilteredServicesResponse(filtered.items, filtered.category)
     }
@@ -392,42 +393,17 @@ else if (message.includes("zirconio") || message.includes("disilicato")) {
     else if (message.includes("implante") || message.includes("implantologia") || message.includes("implantología")) {
       response = getCategoryOptions("implantologia") || "No encontré información sobre implantología."
     }
-    else if (message.includes("metal")) {
-      response = getCategoryOptions("metal") || "No encontré información sobre metal."
-    }
-      } else {
-        response = `UCLAS disponibles:\n\nBH - ZIMMER 3.5 - 4.5: $210.000\nBH 3.0: $230.000\nSTRAUMANN: $300.000\n\nCuál necesitas?`
-        conversationContext = { lastIntent: "uclas", waitingFor: "ucla_type", lastQuery: message }
-      }
-    }
-
-    else if ((message.includes("zirconio") || message.includes("disilicato")) && 
-             (message.includes("corona") || message.includes("carilla") || message.includes("incrustacion") || 
-              message.includes("hacen") || message.includes("manejan"))) {
-      const filtered = findServicesByMaterial(message)
-      response = getFilteredServicesResponse(filtered.items, filtered.category)
-    }
-
-    else if (message.includes("yeso") || message.includes("modelo")) {
-      response = getCategoryOptions("yesos") || "No encontré información sobre yesos."
-    }
     else if (message.includes("metal") || (message.includes("cofia") && !message.includes("implantologia"))) {
       response = getCategoryOptions("metal") || "No encontré información sobre metal."
     }
-    else if (message.includes("acrilico") || message.includes("acrílico") || message.includes("pmma")) {
-      response = getCategoryOptions("acrilicos") || "No encontré información sobre acrílicos."
+
+    else if (message.includes("yeso") || message.includes("modelo")) {
+      response = "No encontré información sobre yesos. Ten en cuenta que trabajamos con múltiples materiales y servicios. ¿Buscas algo específico?"
     }
-    else if (message.includes("encerado") || message.includes("dx") || message.includes("guía") || message.includes("guia")) {
-      response = getCategoryOptions("encerados") || "No encontré información sobre encerados."
-    }
-    else if (message.includes("resina impresa") || message.includes("resinas impresas") || (message.includes("3d") && message.includes("modelo"))) {
-      response = getCategoryOptions("resinas-impresas") || "No encontré información sobre resinas impresas."
-    }
-    else if (message.includes("libre metal") || message.includes("libre de metal")) {
-      response = getCategoryOptions("libre-metal") || "No encontré información sobre libre de metal."
-    }
-    else if (message.includes("implante") || message.includes("implantologia") || message.includes("abutment") || message.includes("fresado") || message.includes("implantología")) {
-      response = getCategoryOptions("implantologia") || "No encontré información sobre implantología."
+
+    else if (message.includes("zirconio") || message.includes("disilicato") || message.includes("zircon")) {
+      const filtered = findServicesByMaterial(message)
+      response = getFilteredServicesResponse(filtered.items, filtered.category)
     }
 
     else {
