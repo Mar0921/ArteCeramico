@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import Link from "next/link"
+import { useRouter } from "next/navigation"
 import {
   Search,
   Plus,
@@ -101,11 +102,13 @@ export default function ClientesPage() {
   const [loadingServicios, setLoadingServicios] = useState<{ [key: number]: boolean }>({})
   const [loadingEstadoCuenta, setLoadingEstadoCuenta] = useState<{ [key: number]: boolean }>({})
   const [serviciosPorSolicitud, setServiciosPorSolicitud] = useState<{ [key: number]: any[] }>({})
-  const [solicitudDocs, setSolicitudDocs] = useState<{ [key: number]: {
-    declaracion_conformidad: File | null
-    guia_fabricacion: File | null
-    manual_uso: File | null
-  } }>({})
+  const [solicitudDocs, setSolicitudDocs] = useState<{
+    [key: number]: {
+      declaracion_conformidad: File | null
+      guia_fabricacion: File | null
+      manual_uso: File | null
+    }
+  }>({})
   const [uploadingSolicitudDoc, setUploadingSolicitudDoc] = useState<Record<string, boolean>>({})
   const [uploadError, setUploadError] = useState<Record<string, string>>({})
   const [uploadSuccess, setUploadSuccess] = useState<Record<string, boolean>>({})
@@ -121,6 +124,11 @@ export default function ClientesPage() {
   const [enviandoMensaje, setEnviandoMensaje] = useState<{ [solicitudId: number]: boolean }>({})
   const [mensajesNoLeidos, setMensajesNoLeidos] = useState<{ [solicitudId: number]: number }>({})
   const chatBottomRefs = useRef<{ [solicitudId: number]: HTMLDivElement | null }>({})
+  const router = useRouter()
+
+  const [notificaciones, setNotificaciones] = useState<any[]>([])
+  const [mostrarNotificaciones, setMostrarNotificaciones] = useState(false)
+  const [notificacionesVistas, setNotificacionesVistas] = useState<number[]>([])
 
   useEffect(() => {
     const loadClients = async () => {
@@ -142,6 +150,41 @@ export default function ClientesPage() {
     loadClients()
   }, [])
 
+  useEffect(() => {
+    const channel = supabase
+      .channel("solicitudes-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "solicitudes",
+        },
+        (payload) => {
+          const nuevaSolicitud = payload.new as Solicitud
+
+          setClientes((prev) =>
+            prev.map((cliente) =>
+              cliente.id === nuevaSolicitud.cliente_id
+                ? {
+                    ...cliente,
+                    solicitudes: [
+                      nuevaSolicitud,
+                      ...(cliente.solicitudes || []),
+                    ],
+                  }
+                : cliente
+            )
+          )
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [])
+
   const toggleCliente = async (clienteId: number) => {
     if (expandedCliente === clienteId) {
       setExpandedCliente(null)
@@ -153,21 +196,24 @@ export default function ClientesPage() {
     const cliente = clientes.find((c) => c.id === clienteId)
     if (!cliente) return
 
-    if (cliente.solicitudes.length === 0 && !loadingSolicitudes[clienteId]) {
+    if (!loadingSolicitudes[clienteId]) {
       setLoadingSolicitudes((prev) => ({ ...prev, [clienteId]: true }))
 
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from("solicitudes")
         .select("*")
         .eq("cliente_id", clienteId)
         .order("created_at", { ascending: false })
 
-      const solicitudes = !error && data ? (data as Solicitud[]) : []
+      const solicitudes = data || []
       setClientes((prev) =>
-        prev.map((c) => (c.id === clienteId ? { ...c, solicitudes } : c))
+        prev.map((c) =>
+          c.id === clienteId
+            ? { ...c, solicitudes }
+            : c
+        )
       )
 
-      // Cargar conteo de mensajes no leídos para cada solicitud
       if (solicitudes.length > 0) {
         for (const sol of solicitudes) {
           cargarNoLeidos(sol.id)
@@ -472,6 +518,136 @@ export default function ClientesPage() {
     return d.toLocaleDateString("es-CO", { day: "2-digit", month: "short" }) + " " + hora
   }
 
+  useEffect(() => {
+    const canal = supabase
+      .channel("notificaciones-admin")
+
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "mensajes",
+        },
+        async (payload) => {
+          const mensaje: any = payload.new
+
+          if (mensaje.remitente?.toLowerCase() !== "cliente") return
+
+          const { data: conv, error } = await supabase
+            .from("conversaciones")
+            .select(`
+              id,
+              solicitud_id,
+              cliente_id,
+              admin_id
+            `)
+            .eq("id", mensaje.conversacion_id)
+            .single()
+
+          if (error || !conv) return
+
+          const { data: cliente } = await supabase
+            .from("clientes")
+            .select("nombre")
+            .eq("id", conv.cliente_id)
+            .single()
+
+          const { data: solicitud } = await supabase
+            .from("solicitudes")
+            .select("servicio")
+            .eq("id", conv.solicitud_id)
+            .single()
+
+          await supabase.from("notificaciones").insert({
+            admin_id: conv.admin_id,
+            cliente_id: conv.cliente_id,
+            solicitud_id: conv.solicitud_id,
+            conversacion_id: conv.id,
+            mensaje_id: mensaje.id,
+            tipo: "mensaje",
+            titulo: `Nuevo mensaje de ${cliente?.nombre || "cliente"}`,
+            contenido: mensaje.contenido,
+            cliente_nombre: cliente?.nombre || null,
+            solicitud_servicio: solicitud?.servicio || null,
+            vista: false,
+          })
+        }
+      )
+
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(canal)
+    }
+  }, [])
+
+  useEffect(() => {
+    const canal = supabase
+      .channel("notificaciones")
+
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notificaciones",
+        },
+        (payload) => {
+          if (payload.eventType === "INSERT") {
+            setNotificaciones((prev) => {
+              const existe = prev.find((n) => n.id === payload.new.id)
+              if (existe) return prev
+              return [payload.new, ...prev]
+            })
+          } else if (payload.eventType === "UPDATE") {
+            setNotificaciones((prev) =>
+              prev.map((n) => (n.id === payload.new.id ? payload.new : n))
+            )
+          }
+        }
+      )
+
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(canal)
+    }
+  }, [])
+
+  useEffect(() => {
+    const cargarNotificaciones = async () => {
+      const { data, error } = await supabase
+        .from("notificaciones")
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(200)
+
+      if (data) {
+        setNotificaciones(data)
+      }
+    }
+
+    cargarNotificaciones()
+  }, [])
+
+  const abrirNotificacion = async (n: any) => {
+    await supabase
+      .from("notificaciones")
+      .update({ vista: true })
+      .eq("id", n.id)
+
+    setNotificaciones((prev) =>
+      prev.map((x) => (x.id === n.id ? { ...x, vista: true } : x))
+    )
+    setNotificacionesVistas((prev) => [...prev, n.id])
+    setMostrarNotificaciones(false)
+
+    if (n.cliente_id && n.solicitud_id) {
+      router.push(`/dashboard/clientes/${n.cliente_id}?solicitud=${n.solicitud_id}`)
+    }
+  }
+
   const filteredClientes = clientes.filter((cliente) =>
     cliente.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
     cliente.correo.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -513,6 +689,58 @@ export default function ClientesPage() {
             <Plus size={18} />
             Nuevo Cliente
           </button>
+          <div className="relative">
+            <button
+              onClick={() => setMostrarNotificaciones(!mostrarNotificaciones)}
+              className="relative text-xl"
+            >
+              🔔
+              {notificaciones.filter((n) => !n.vista).length > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full text-xs px-2">
+                  {notificaciones.filter((n) => !n.vista).length}
+                </span>
+              )}
+            </button>
+            {mostrarNotificaciones && (
+              <div className="absolute right-0 mt-2 w-80 bg-white shadow-xl rounded-lg p-3 z-50 border border-border max-h-96 overflow-y-auto">
+                {notificaciones.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No hay notificaciones</p>
+                ) : (
+                  notificaciones.map((n) => (
+                    <div
+                      key={n.id}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        abrirNotificacion(n)
+                      }}
+                      className={`cursor-pointer p-4 border-b border-border/40 last:border-0 transition ${
+                        n.vista ? "bg-white" : "bg-green-100"
+                      } hover:bg-gray-100`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <h4 className="font-bold text-sm">💬 {n.titulo}</h4>
+                        {!n.vista && (
+                          <span className="text-xs bg-green-600 text-white px-2 py-1 rounded">
+                            Nueva
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm mt-2">
+                        👤 Cliente: {n.cliente_nombre || n.cliente || "Cliente"}
+                      </p>
+                      <p className="text-sm">
+                        📋 Solicitud: {n.solicitud_servicio || n.solicitud || `Solicitud #${n.solicitud_id}`}
+                      </p>
+                      <p className="text-gray-600 text-sm mt-2">"{n.contenido}"</p>
+                      <small className="text-gray-400 text-[10px]">
+                        {new Date(n.created_at).toLocaleString()}
+                      </small>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -567,11 +795,11 @@ export default function ClientesPage() {
                       </div>
                       <div>
                         <Link
-                        href={`/dashboard/clientes/${cliente.id}`}
-                        className="font-semibold text-foreground hover:text-primary"
-                      >
-                        {cliente.nombre}
-                      </Link>
+                          href={`/dashboard/clientes/${cliente.id}`}
+                          className="font-semibold text-foreground hover:text-primary"
+                        >
+                          {cliente.nombre}
+                        </Link>
                         <div className="flex items-center gap-3 mt-1">
                           <span className="flex items-center gap-1 text-xs text-muted-foreground">
                             <Mail size={12} />
