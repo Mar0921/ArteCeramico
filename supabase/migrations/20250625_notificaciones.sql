@@ -25,12 +25,12 @@ CREATE INDEX IF NOT EXISTS idx_notificaciones_created_at ON public.notificacione
 -- RLS
 ALTER TABLE public.notificaciones ENABLE ROW LEVEL SECURITY;
 
--- Admins pueden ver todas las notificaciones
+-- Admins pueden ver sus propias notificaciones
 CREATE POLICY "notificaciones_admins_select" ON public.notificaciones
   FOR SELECT TO authenticated
   USING (
-    EXISTS (
-      SELECT 1 FROM public.admins WHERE admins.user_id = auth.uid() AND admins.activo = true
+    admin_id IN (
+      SELECT id FROM public.admins WHERE admins.user_id = auth.uid() AND admins.activo = true
     )
   );
 
@@ -43,12 +43,12 @@ CREATE POLICY "notificaciones_admins_insert" ON public.notificaciones
     )
   );
 
--- Admins pueden actualizar notificaciones (marcar vista)
+-- Admins pueden actualizar sus propias notificaciones (marcar vista)
 CREATE POLICY "notificaciones_admins_update" ON public.notificaciones
   FOR UPDATE TO authenticated
   USING (
-    EXISTS (
-      SELECT 1 FROM public.admins WHERE admins.user_id = auth.uid() AND admins.activo = true
+    admin_id IN (
+      SELECT id FROM public.admins WHERE admins.user_id = auth.uid() AND admins.activo = true
     )
   );
 
@@ -92,6 +92,8 @@ CREATE OR REPLACE FUNCTION public.crear_notificacion_mensaje()
 RETURNS TRIGGER AS $$
 DECLARE
   conversacion_registro record;
+  v_cliente_nombre text;
+  v_servicio text;
 BEGIN
   -- Obtener datos de la conversación
   SELECT solicitud_id, cliente_id, admin_id INTO conversacion_registro
@@ -120,9 +122,15 @@ BEGIN
     );
   END IF;
 
-  -- Si el remitente es cliente, notificar a los admins
+  -- Si el remitente es cliente, notificar a todos los admins
   IF NEW.remitente = 'cliente' THEN
-    INSERT INTO public.notificaciones (
+    SELECT c.nombre, s.servicio INTO v_cliente_nombre, v_servicio
+    FROM public.solicitudes s
+    JOIN public.clientes c ON c.id = s.cliente_id
+    WHERE s.id = conversacion_registro.solicitud_id;
+
+    INSERT INTO public.notificaciones
+    (
       admin_id,
       cliente_id,
       solicitud_id,
@@ -132,8 +140,9 @@ BEGIN
       titulo,
       contenido,
       vista
-    ) VALUES (
-      conversacion_registro.admin_id,
+    )
+    select
+      a.id,
       conversacion_registro.cliente_id,
       conversacion_registro.solicitud_id,
       NEW.conversacion_id,
@@ -142,12 +151,13 @@ BEGIN
       'Respuesta de cliente',
       'Un cliente ha respondido en una conversación',
       false
-    );
+    from admins a
+    where a.activo = true;
   END IF;
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 DROP TRIGGER IF EXISTS trigger_crear_notificacion_mensaje ON public.mensajes;
 CREATE TRIGGER trigger_crear_notificacion_mensaje
@@ -158,15 +168,20 @@ CREATE TRIGGER trigger_crear_notificacion_mensaje
 CREATE OR REPLACE FUNCTION public.crear_notificacion_solicitud_cliente()
 RETURNS TRIGGER AS $$
 DECLARE
-  solicitud_cliente bigint;
+  v_cliente_id bigint;
+  v_cliente_nombre text;
+  v_servicio text;
 BEGIN
-  -- Obtener cliente_id de la solicitud
-  SELECT cliente_id INTO solicitud_cliente
-  FROM public.solicitudes WHERE id = NEW.solicitud_id;
+  -- Obtener datos de la solicitud y cliente
+  SELECT s.cliente_id, c.nombre, s.servicio INTO v_cliente_id, v_cliente_nombre, v_servicio
+  FROM public.solicitudes s
+  JOIN public.clientes c ON c.id = s.cliente_id
+  WHERE s.id = NEW.solicitud_id;
 
-  -- Si el autor es cliente, notificar a todos los admins (admin_id = NULL)
+  -- Si el autor es cliente, notificar a todos los admins
   IF NEW.autor = 'cliente' THEN
-    INSERT INTO public.notificaciones (
+    INSERT INTO public.notificaciones
+    (
       admin_id,
       cliente_id,
       solicitud_id,
@@ -176,22 +191,24 @@ BEGIN
       titulo,
       contenido,
       vista
-    ) VALUES (
-      NULL,
-      solicitud_cliente,
+    )
+    select
+      a.id,
+      v_cliente_id,
       NEW.solicitud_id,
       NULL,
       NEW.id,
       'mensaje',
-      'Nuevo mensaje de cliente',
-      'Un cliente ha respondido en una solicitud',
+      'Nuevo mensaje',
+      'El cliente "' || v_cliente_nombre || '" envió un mensaje sobre "' || v_servicio || '".',
       false
-    );
+    from admins a
+    where a.activo = true;
   END IF;
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 DROP TRIGGER IF EXISTS trigger_crear_notificacion_solicitud_cliente ON public.mensajes_solicitud;
 CREATE TRIGGER trigger_crear_notificacion_solicitud_cliente

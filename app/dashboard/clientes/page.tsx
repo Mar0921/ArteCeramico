@@ -183,12 +183,12 @@ export default function ClientesPage() {
             prev.map((cliente) =>
               cliente.id === nuevaSolicitud.cliente_id
                 ? {
-                    ...cliente,
-                    solicitudes: [
-                      nuevaSolicitud,
-                      ...(cliente.solicitudes || []),
-                    ],
-                  }
+                  ...cliente,
+                  solicitudes: [
+                    nuevaSolicitud,
+                    ...(cliente.solicitudes || []),
+                  ],
+                }
                 : cliente
             )
           )
@@ -620,10 +620,8 @@ export default function ClientesPage() {
       const { data } = await supabase
         .from("notificaciones")
         .select("*")
-        .is("admin_id", null)
-        .eq("tipo", "mensaje")
-        .order("created_at", { ascending: false })
-        .limit(200)
+        .eq("admin_id", adminId).eq("tipo", "nuevo_mensaje")
+        .order("created_at", { ascending: false });
 
       if (data) {
         setNotificaciones(data)
@@ -715,9 +713,8 @@ export default function ClientesPage() {
                         e.stopPropagation()
                         abrirNotificacion(n)
                       }}
-                      className={`cursor-pointer p-4 border-b border-border/40 last:border-0 transition ${
-                        n.vista ? "bg-white" : "bg-green-100"
-                      } hover:bg-gray-100`}
+                      className={`cursor-pointer p-4 border-b border-border/40 last:border-0 transition ${n.vista ? "bg-white" : "bg-green-100"
+                        } hover:bg-gray-100`}
                     >
                       <div className="flex justify-between items-center">
                         <h4 className="font-bold text-sm">💬 {n.titulo}</h4>

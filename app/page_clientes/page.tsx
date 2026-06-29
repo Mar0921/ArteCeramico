@@ -199,7 +199,7 @@ export default function ClientesPage() {
     })
   }, [mensajesSolicitud])
 
-useEffect(() => {
+  useEffect(() => {
     const loadClient = async () => {
       try {
         setLoading(true)
@@ -260,11 +260,15 @@ useEffect(() => {
           filter: `cliente_id=eq.${clientData.id}`,
         },
         (payload) => {
-          const nuevaNotificacion = payload.new
+          const nuevaNotificacion: any = payload.new
+
+          if (nuevaNotificacion.tipo !== "nuevo_mensaje") return
+
           setNotificacionesLista(prev => [nuevaNotificacion, ...prev])
           setNotificacionesNoLeidas(prev => ({
             ...prev,
-            [nuevaNotificacion.solicitud_id]: (prev[nuevaNotificacion.solicitud_id] || 0) + 1
+            [nuevaNotificacion.solicitud_id]:
+              (prev[nuevaNotificacion.solicitud_id] || 0) + 1
           }))
         }
       )
@@ -434,6 +438,8 @@ useEffect(() => {
 
   const cargarTodasLasNotificaciones = async (clienteId: number) => {
     try {
+      if (!clientData) return
+
       const { data } = await supabase
         .from("notificaciones")
         .select(`
@@ -445,6 +451,7 @@ useEffect(() => {
           created_at
         `)
         .eq("cliente_id", clienteId)
+        .eq("tipo", "nuevo_mensaje")
         .order("created_at", { ascending: false })
         .limit(50)
 
@@ -500,9 +507,11 @@ useEffect(() => {
 
     try {
       await supabase
+
         .from("notificaciones")
         .update({ vista: true })
         .eq("cliente_id", clientData.id)
+        .eq("tipo", "nuevo_mensaje")
         .eq("vista", false)
 
       setNotificacionesLista(prev => prev.map(n => ({ ...n, vista: true })))
@@ -1871,19 +1880,19 @@ useEffect(() => {
                         </div>
                       </div>
 
-<div className="flex items-center gap-2">
-                         <button
-                           onClick={() => abrirChatSolicitud(solicitud)}
-                           className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-white relative"
-                         >
-                           <MessageCircle size={16} />
-                           Chat Arte Cerámico
-                           {notificacionesNoLeidas[solicitud.id] > 0 && (
-                             <span className="absolute -top-1 -right-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white px-1">
-                               {notificacionesNoLeidas[solicitud.id]}
-                             </span>
-                           )}
-                         </button>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => abrirChatSolicitud(solicitud)}
+                          className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-white relative"
+                        >
+                          <MessageCircle size={16} />
+                          Chat Arte Cerámico
+                          {notificacionesNoLeidas[solicitud.id] > 0 && (
+                            <span className="absolute -top-1 -right-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white px-1">
+                              {notificacionesNoLeidas[solicitud.id]}
+                            </span>
+                          )}
+                        </button>
                         <button
                           onClick={() => handleVerSolicitud(solicitud)}
                           className="flex items-center gap-1 rounded-xl border border-border bg-card/50 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:border-primary/60 hover:bg-primary/10 hover:text-primary"
