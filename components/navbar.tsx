@@ -1,8 +1,8 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Menu, X, LogOut, Users, User } from "lucide-react"
+import { Menu, X, LogOut, Users, User, Bell } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -16,11 +16,28 @@ const navItems = [
   { label: "Contacto", href: "#contacto" },
 ]
 
-export function Navbar({ showClientButtons = false }: { showClientButtons?: boolean }) {
+export function Navbar({
+  showClientButtons = false,
+  notificaciones = [],
+  notificacionesCount = 0,
+  notificacionesOpen = false,
+  setNotificacionesOpen,
+  onAbrirNotificacion,
+  onMarcarTodasLeidas,
+}: {
+  showClientButtons?: boolean
+  notificaciones?: any[]
+  notificacionesCount?: number
+  notificacionesOpen?: boolean
+  setNotificacionesOpen?: (open: boolean) => void
+  onAbrirNotificacion?: (notificacion: any) => void
+  onMarcarTodasLeidas?: () => void
+}) {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const router = useRouter()
+  const notifRef = useRef<HTMLDivElement>(null)
 
   // Detectar scroll
   useEffect(() => {
@@ -31,7 +48,7 @@ export function Navbar({ showClientButtons = false }: { showClientButtons?: bool
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
-// Verificar si el usuario está logueado
+  // Verificar si el usuario está logueado
   useEffect(() => {
     const checkLogin = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -48,6 +65,19 @@ export function Navbar({ showClientButtons = false }: { showClientButtons?: bool
   useEffect(() => {
     document.body.style.overflow = isMobileMenuOpen ? "hidden" : "auto"
   }, [isMobileMenuOpen])
+
+  // Cerrar panel de notificaciones al hacer click fuera
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
+        setNotificacionesOpen?.(false)
+      }
+    }
+    if (notificacionesOpen) {
+      document.addEventListener("mousedown", handleClickOutside)
+    }
+    return () => document.removeEventListener("mousedown", handleClickOutside)
+  }, [notificacionesOpen])
 
   // Navegación con scroll o redirección
   const handleNavClick = (href: string) => {
@@ -76,6 +106,8 @@ export function Navbar({ showClientButtons = false }: { showClientButtons?: bool
     await supabase.auth.signOut()
     router.push("/")
   }
+
+  const sinLeer = notificaciones.filter((n) => !n.vista).length
 
   return (
     <>
@@ -119,33 +151,50 @@ export function Navbar({ showClientButtons = false }: { showClientButtons?: bool
               ))}
             </div>
 
-             {/* AUTH BUTTONS - Desktop */}
-             <div className="hidden items-center gap-3 lg:flex">
-               {showClientButtons ? (
-                 <>
-                   <Link
-                     href="/dashboard"
-                     className="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary transition-all duration-300 hover:bg-primary/10"
-                   >
-                     <User size={16} />
-                     Cuenta
-                   </Link>
-                   <Link
-                     href="/dashboard/clientes"
-                     className="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary transition-all duration-300 hover:bg-primary/10"
-                   >
-                     <Users size={16} />
-                     Clientes
-                   </Link>
-                   <button
-                     onClick={handleLogout}
-                     className="inline-flex items-center gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-600 transition-all duration-300 hover:bg-red-500/20"
-                   >
-                     <LogOut size={16} />
-                     Cerrar Sesión
-                   </button>
-                 </>
-               ) : isLoggedIn ? (
+            {/* NOTIFICATIONS - Solo para clientes */}
+            {!showClientButtons && isLoggedIn && setNotificacionesOpen && (
+              <div className="relative hidden lg:block">
+                <button
+                  onClick={() => setNotificacionesOpen(!notificacionesOpen)}
+                  className="relative rounded-lg p-2 text-foreground transition-colors hover:bg-primary/10"
+                >
+                  <Bell size={20} />
+                  {sinLeer > 0 && (
+                    <span className="absolute -top-1 -right-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white px-1">
+                      {sinLeer}
+                    </span>
+                  )}
+                </button>
+              </div>
+            )}
+
+            {/* AUTH BUTTONS - Desktop */}
+            <div className="hidden items-center gap-3 lg:flex">
+              {showClientButtons ? (
+                <>
+                  <Link
+                    href="/dashboard"
+                    className="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary transition-all duration-300 hover:bg-primary/10"
+                  >
+                    <User size={16} />
+                    Cuenta
+                  </Link>
+                  <Link
+                    href="/dashboard/clientes"
+                    className="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary transition-all duration-300 hover:bg-primary/10"
+                  >
+                    <Users size={16} />
+                    Clientes
+                  </Link>
+                  <button
+                    onClick={handleLogout}
+                    className="inline-flex items-center gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-600 transition-all duration-300 hover:bg-red-500/20"
+                  >
+                    <LogOut size={16} />
+                    Cerrar Sesión
+                  </button>
+                </>
+              ) : isLoggedIn ? (
                 <Link
                   href="/page_clientes"
                   className="rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary transition-all duration-300 hover:bg-primary/10"
@@ -181,6 +230,52 @@ export function Navbar({ showClientButtons = false }: { showClientButtons?: bool
           </div>
         </div>
       </motion.nav>
+
+      {/* NOTIFICATIONS PANEL */}
+      <AnimatePresence>
+        {notificacionesOpen && (
+          <motion.div
+            ref={notifRef}
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className="fixed right-4 top-16 z-[60] mt-2 w-80 rounded-xl border border-border bg-card shadow-xl"
+          >
+            <div className="p-4">
+              <h3 className="mb-3 text-sm font-semibold text-foreground">Notificaciones</h3>
+              {notificaciones.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No hay notificaciones</p>
+              ) : (
+                <div className="max-h-96 space-y-2 overflow-y-auto">
+                  {notificaciones.map((n) => (
+                    <button
+                      key={n.id}
+                      onClick={() => onAbrirNotificacion?.(n)}
+                      className={`w-full rounded-lg p-3 text-left transition-colors hover:bg-muted ${
+                        !n.vista ? "bg-primary/5" : ""
+                      }`}
+                    >
+                      <p className="text-sm font-medium text-foreground">{n.titulo}</p>
+                      <p className="mt-1 text-xs text-muted-foreground line-clamp-2">{n.contenido}</p>
+                      <p className="mt-1 text-[10px] text-muted-foreground">
+                        {new Date(n.created_at).toLocaleString()}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
+              {onMarcarTodasLeidas && (
+                <button
+                  onClick={onMarcarTodasLeidas}
+                  className="mt-3 w-full rounded-lg border border-border px-3 py-2 text-xs font-medium text-foreground hover:bg-muted"
+                >
+                  Marcar todas como leídas
+                </button>
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* MOBILE MENU */}
       <AnimatePresence>

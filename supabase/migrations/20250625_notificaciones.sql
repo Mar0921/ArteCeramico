@@ -52,6 +52,27 @@ CREATE POLICY "notificaciones_admins_update" ON public.notificaciones
     )
   );
 
+-- Clientes pueden ver sus propias notificaciones
+CREATE POLICY "notificaciones_clientes_select" ON public.notificaciones
+  FOR SELECT TO authenticated
+  USING (
+    cliente_id IN (
+      SELECT id FROM public.clientes WHERE clientes.user_id = auth.uid()
+    )
+  );
+
+-- Clientes pueden actualizar (marcar como vista) sus propias notificaciones
+CREATE POLICY "notificaciones_clientes_update" ON public.notificaciones
+  FOR UPDATE TO authenticated
+  USING (
+    cliente_id IN (
+      SELECT id FROM public.clientes WHERE clientes.user_id = auth.uid()
+    )
+  );
+
+-- Permitir que el trigger inserte notificaciones (usando service_role implícito)
+-- Nota: Los triggers de Postgres tienen privilegios de service_role por defecto
+
 -- Trigger para updated_at
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
 RETURNS TRIGGER AS $$
@@ -65,6 +86,117 @@ DROP TRIGGER IF EXISTS handle_notificaciones_updated_at ON public.notificaciones
 CREATE TRIGGER handle_notificaciones_updated_at
   BEFORE UPDATE ON public.notificaciones
   FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
+
+-- Trigger para crear notificación cuando admin envía mensaje
+CREATE OR REPLACE FUNCTION public.crear_notificacion_mensaje()
+RETURNS TRIGGER AS $$
+DECLARE
+  conversacion_registro record;
+BEGIN
+  -- Obtener datos de la conversación
+  SELECT solicitud_id, cliente_id, admin_id INTO conversacion_registro
+  FROM public.conversaciones WHERE id = NEW.conversacion_id;
+
+  -- Si el remitente es admin, notificar al cliente
+  IF NEW.remitente = 'admin' AND conversacion_registro.cliente_id IS NOT NULL THEN
+    INSERT INTO public.notificaciones (
+      cliente_id,
+      solicitud_id,
+      conversacion_id,
+      mensaje_id,
+      tipo,
+      titulo,
+      contenido,
+      vista
+    ) VALUES (
+      conversacion_registro.cliente_id,
+      conversacion_registro.solicitud_id,
+      NEW.conversacion_id,
+      NEW.id,
+      'nuevo_mensaje',
+      'Nuevo mensaje',
+      'Tienes un nuevo mensaje de Arte Cerámico',
+      false
+    );
+  END IF;
+
+  -- Si el remitente es cliente, notificar a los admins
+  IF NEW.remitente = 'cliente' THEN
+    INSERT INTO public.notificaciones (
+      admin_id,
+      cliente_id,
+      solicitud_id,
+      conversacion_id,
+      mensaje_id,
+      tipo,
+      titulo,
+      contenido,
+      vista
+    ) VALUES (
+      conversacion_registro.admin_id,
+      conversacion_registro.cliente_id,
+      conversacion_registro.solicitud_id,
+      NEW.conversacion_id,
+      NEW.id,
+      'nuevo_mensaje',
+      'Respuesta de cliente',
+      'Un cliente ha respondido en una conversación',
+      false
+    );
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_crear_notificacion_mensaje ON public.mensajes;
+CREATE TRIGGER trigger_crear_notificacion_mensaje
+  AFTER INSERT ON public.mensajes
+  FOR EACH ROW EXECUTE FUNCTION public.crear_notificacion_mensaje();
+
+-- Trigger para crear notificación cuando cliente envía mensaje en mensajes_solicitud
+CREATE OR REPLACE FUNCTION public.crear_notificacion_solicitud_cliente()
+RETURNS TRIGGER AS $$
+DECLARE
+  solicitud_cliente bigint;
+BEGIN
+  -- Obtener cliente_id de la solicitud
+  SELECT cliente_id INTO solicitud_cliente
+  FROM public.solicitudes WHERE id = NEW.solicitud_id;
+
+  -- Si el autor es cliente, notificar a todos los admins (admin_id = NULL)
+  IF NEW.autor = 'cliente' THEN
+    INSERT INTO public.notificaciones (
+      admin_id,
+      cliente_id,
+      solicitud_id,
+      conversacion_id,
+      mensaje_id,
+      tipo,
+      titulo,
+      contenido,
+      vista
+    ) VALUES (
+      NULL,
+      solicitud_cliente,
+      NEW.solicitud_id,
+      NULL,
+      NEW.id,
+      'mensaje',
+      'Nuevo mensaje de cliente',
+      'Un cliente ha respondido en una solicitud',
+      false
+    );
+  END IF;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+DROP TRIGGER IF EXISTS trigger_crear_notificacion_solicitud_cliente ON public.mensajes_solicitud;
+CREATE TRIGGER trigger_crear_notificacion_solicitud_cliente
+  AFTER INSERT ON public.mensajes_solicitud
+  FOR EACH ROW EXECUTE FUNCTION public.crear_notificacion_solicitud_cliente();
 
 -- Realtime
 alter publication supabase_realtime add table notificaciones;

@@ -31,6 +31,7 @@ import {
   AlertCircle,
   Wallet,
   Check,
+  Bell,
 } from "lucide-react"
 
 import { Navbar } from "@/components/navbar"
@@ -125,6 +126,8 @@ export default function ClientesPage() {
   const [error, setError] = useState<string | null>(null)
 
   const [chatOpen, setChatOpen] = useState(false)
+  const [notificacionesOpen, setNotificacionesOpen] = useState(false)
+  const [notificacionesLista, setNotificacionesLista] = useState<any[]>([])
   const [chatSolicitudOpen, setChatSolicitudOpen] = useState(false)
   const [conversacionActual, setConversacionActual] = useState<any>(null)
   const [mensajesSolicitud, setMensajesSolicitud] = useState<any[]>([])
@@ -176,6 +179,7 @@ export default function ClientesPage() {
   const [editData, setEditData] = useState<Partial<Cliente>>({})
   const [saving, setSaving] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
+  const [notificacionesNoLeidas, setNotificacionesNoLeidas] = useState<Record<number, number>>({})
 
   const { toast } = useToast()
 
@@ -195,7 +199,7 @@ export default function ClientesPage() {
     })
   }, [mensajesSolicitud])
 
-  useEffect(() => {
+useEffect(() => {
     const loadClient = async () => {
       try {
         setLoading(true)
@@ -219,13 +223,14 @@ export default function ClientesPage() {
           .single()
 
 
-
         if (error) throw error
 
         setClientData(data)
 
         if (data?.id) {
           await cargarSolicitudes(data.id)
+          await cargarNotificacionesNoVistas(data.id)
+          await cargarTodasLasNotificaciones(data.id)
         }
       } catch (err) {
         setError(
@@ -240,6 +245,35 @@ export default function ClientesPage() {
 
     loadClient()
   }, [router])
+
+  useEffect(() => {
+    if (!clientData?.id) return
+
+    const channel = supabase
+      .channel(`notificaciones-${clientData.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "notificaciones",
+          filter: `cliente_id=eq.${clientData.id}`,
+        },
+        (payload) => {
+          const nuevaNotificacion = payload.new
+          setNotificacionesLista(prev => [nuevaNotificacion, ...prev])
+          setNotificacionesNoLeidas(prev => ({
+            ...prev,
+            [nuevaNotificacion.solicitud_id]: (prev[nuevaNotificacion.solicitud_id] || 0) + 1
+          }))
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [clientData?.id])
 
   const cargarSolicitudes = async (clienteId: number) => {
     setLoadingSolicitudes(true)
@@ -375,6 +409,106 @@ export default function ClientesPage() {
       setTotalPagar(items.reduce((acc, item) => acc + item.precio, 0))
     } catch (err) {
       console.error("Error cargando estado de cuenta:", err)
+    }
+  }
+
+  const cargarNotificacionesNoVistas = async (clienteId: number) => {
+    try {
+      const { data } = await supabase
+        .from("notificaciones")
+        .select("solicitud_id, id")
+        .eq("cliente_id", clienteId)
+        .eq("vista", false)
+        .eq("tipo", "nuevo_mensaje")
+        .order("created_at", { ascending: false })
+
+      const counts: Record<number, number> = {}
+      data?.forEach((n: any) => {
+        counts[n.solicitud_id] = (counts[n.solicitud_id] || 0) + 1
+      })
+      setNotificacionesNoLeidas(counts)
+    } catch (err) {
+      console.error("Error cargando notificaciones:", err)
+    }
+  }
+
+  const cargarTodasLasNotificaciones = async (clienteId: number) => {
+    try {
+      const { data } = await supabase
+        .from("notificaciones")
+        .select(`
+          id,
+          solicitud_id,
+          contenido,
+          titulo,
+          vista,
+          created_at
+        `)
+        .eq("cliente_id", clienteId)
+        .order("created_at", { ascending: false })
+        .limit(50)
+
+      setNotificacionesLista(data || [])
+    } catch (err) {
+      console.error("Error cargando lista de notificaciones:", err)
+    }
+  }
+
+  const handleAbrirNotificacion = async (notificacion: any) => {
+    if (!clientData?.id) return
+
+    try {
+      // Verificar que la conversación pertenece al cliente
+      const { data: conversacion } = await supabase
+        .from("conversaciones")
+        .select("id, solicitud_id, cliente_id")
+        .eq("id", notificacion.conversacion_id)
+        .eq("cliente_id", clientData.id)
+        .single()
+
+      if (!conversacion) {
+        return
+      }
+
+      await supabase
+        .from("notificaciones")
+        .update({ vista: true })
+        .eq("id", notificacion.id)
+
+      setNotificacionesLista(prev =>
+        prev.map(n => n.id === notificacion.id ? { ...n, vista: true } : n)
+      )
+      setNotificacionesNoLeidas(prev => {
+        const next = { ...prev }
+        delete next[notificacion.solicitud_id]
+        return next
+      })
+
+      setNotificacionesOpen(false)
+
+      const solicitud = solicitudes.find(s => s.id === conversacion.solicitud_id)
+      if (solicitud) {
+        await abrirChatSolicitud(solicitud)
+      }
+    } catch (err) {
+      console.error("Error abriendo notificación:", err)
+    }
+  }
+
+  const handleMarcarTodasLeidas = async () => {
+    if (!clientData?.id) return
+
+    try {
+      await supabase
+        .from("notificaciones")
+        .update({ vista: true })
+        .eq("cliente_id", clientData.id)
+        .eq("vista", false)
+
+      setNotificacionesLista(prev => prev.map(n => ({ ...n, vista: true })))
+      setNotificacionesNoLeidas({})
+    } catch (err) {
+      console.error("Error marcando todas como leídas:", err)
     }
   }
 
@@ -690,6 +824,7 @@ export default function ClientesPage() {
       if (conversacion?.id) {
         await cargarMensajesSolicitud(conversacion.id)
         await marcarMensajesSolicitudLeidos(conversacion.id)
+        await marcarNotificacionesLeidas(conversacion.id, conversacion.solicitud_id)
 
         setTimeout(() => {
           mensajesSolicitudEndRef.current?.scrollIntoView({
@@ -737,6 +872,28 @@ export default function ClientesPage() {
         .eq("leido", false)
     } catch (err) {
       console.error("Error marcando mensajes como leídos:", err)
+    }
+  }
+
+  const marcarNotificacionesLeidas = async (conversacionId: number, solicitudId?: number) => {
+    if (!clientData?.id) return
+    try {
+      await supabase
+        .from("notificaciones")
+        .update({ vista: true })
+        .eq("conversacion_id", conversacionId)
+        .eq("cliente_id", clientData.id)
+        .eq("tipo", "nuevo_mensaje")
+        .eq("vista", false)
+      if (solicitudId) {
+        setNotificacionesNoLeidas(prev => {
+          const next = { ...prev }
+          delete next[solicitudId]
+          return next
+        })
+      }
+    } catch (err) {
+      console.error("Error marcando notificaciones como leídas:", err)
     }
   }
 
@@ -971,6 +1128,8 @@ export default function ClientesPage() {
     solicitud.observaciones.toLowerCase().includes(busquedaSolicitud.toLowerCase())
   )
 
+  const sinLeer = notificacionesLista.filter(n => !n.vista).length
+
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-primary/5">
@@ -1004,7 +1163,14 @@ export default function ClientesPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
-      <Navbar />
+      <Navbar
+        notificaciones={notificacionesLista}
+        notificacionesCount={sinLeer}
+        notificacionesOpen={notificacionesOpen}
+        setNotificacionesOpen={setNotificacionesOpen}
+        onAbrirNotificacion={handleAbrirNotificacion}
+        onMarcarTodasLeidas={handleMarcarTodasLeidas}
+      />
 
       {/* CONTENT */}
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 py-8 pt-20">
@@ -1705,14 +1871,19 @@ export default function ClientesPage() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => abrirChatSolicitud(solicitud)}
-                          className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-white"
-                        >
-                          <MessageCircle size={16} />
-                          Chat Arte Cerámico
-                        </button>
+<div className="flex items-center gap-2">
+                         <button
+                           onClick={() => abrirChatSolicitud(solicitud)}
+                           className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-white relative"
+                         >
+                           <MessageCircle size={16} />
+                           Chat Arte Cerámico
+                           {notificacionesNoLeidas[solicitud.id] > 0 && (
+                             <span className="absolute -top-1 -right-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white px-1">
+                               {notificacionesNoLeidas[solicitud.id]}
+                             </span>
+                           )}
+                         </button>
                         <button
                           onClick={() => handleVerSolicitud(solicitud)}
                           className="flex items-center gap-1 rounded-xl border border-border bg-card/50 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:border-primary/60 hover:bg-primary/10 hover:text-primary"

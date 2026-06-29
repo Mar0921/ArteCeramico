@@ -126,9 +126,25 @@ export default function ClientesPage() {
   const chatBottomRefs = useRef<{ [solicitudId: number]: HTMLDivElement | null }>({})
   const router = useRouter()
 
+  const [adminId, setAdminId] = useState<number | null>(null)
   const [notificaciones, setNotificaciones] = useState<any[]>([])
   const [mostrarNotificaciones, setMostrarNotificaciones] = useState(false)
   const [notificacionesVistas, setNotificacionesVistas] = useState<number[]>([])
+
+  useEffect(() => {
+    const getAdmin = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data } = await supabase
+          .from("admins")
+          .select("id")
+          .eq("user_id", user.id)
+          .single()
+        setAdminId(data?.id || null)
+      }
+    }
+    getAdmin()
+  }, [])
 
   useEffect(() => {
     const loadClients = async () => {
@@ -527,51 +543,32 @@ export default function ClientesPage() {
         {
           event: "INSERT",
           schema: "public",
-          table: "mensajes",
+          table: "mensajes_solicitud",
         },
         async (payload) => {
           const mensaje: any = payload.new
 
-          if (mensaje.remitente?.toLowerCase() !== "cliente") return
+          if (mensaje.autor !== "cliente") return
 
-          const { data: conv, error } = await supabase
-            .from("conversaciones")
+          const { data: solicitud, error } = await supabase
+            .from("solicitudes")
             .select(`
               id,
-              solicitud_id,
               cliente_id,
-              admin_id
+              servicio
             `)
-            .eq("id", mensaje.conversacion_id)
+            .eq("id", mensaje.solicitud_id)
             .single()
 
-          if (error || !conv) return
+          if (error || !solicitud) return
 
           const { data: cliente } = await supabase
             .from("clientes")
             .select("nombre")
-            .eq("id", conv.cliente_id)
+            .eq("id", solicitud.cliente_id)
             .single()
 
-          const { data: solicitud } = await supabase
-            .from("solicitudes")
-            .select("servicio")
-            .eq("id", conv.solicitud_id)
-            .single()
-
-          await supabase.from("notificaciones").insert({
-            admin_id: conv.admin_id,
-            cliente_id: conv.cliente_id,
-            solicitud_id: conv.solicitud_id,
-            conversacion_id: conv.id,
-            mensaje_id: mensaje.id,
-            tipo: "mensaje",
-            titulo: `Nuevo mensaje de ${cliente?.nombre || "cliente"}`,
-            contenido: mensaje.contenido,
-            cliente_nombre: cliente?.nombre || null,
-            solicitud_servicio: solicitud?.servicio || null,
-            vista: false,
-          })
+          // La notificación se crea automáticamente vía trigger
         }
       )
 
@@ -616,10 +613,15 @@ export default function ClientesPage() {
   }, [])
 
   useEffect(() => {
+    if (!adminId) return
+
     const cargarNotificaciones = async () => {
-      const { data, error } = await supabase
+      // Admin ve notificaciones donde admin_id es NULL (para todos los admins)
+      const { data } = await supabase
         .from("notificaciones")
         .select("*")
+        .is("admin_id", null)
+        .eq("tipo", "mensaje")
         .order("created_at", { ascending: false })
         .limit(200)
 
@@ -629,7 +631,7 @@ export default function ClientesPage() {
     }
 
     cargarNotificaciones()
-  }, [])
+  }, [adminId])
 
   const abrirNotificacion = async (n: any) => {
     await supabase

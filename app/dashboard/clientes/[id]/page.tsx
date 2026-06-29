@@ -656,23 +656,28 @@ export default function ClientePerfilPage() {
 
 
 
-      if (!conv) return
+if (!conv) return
 
-
-
-      const { error } = await supabase
-        .from("mensajes")
-        .insert({
-
+      const insertPayload = {
           conversacion_id: conv.id,
           contenido: mensaje,
           remitente: "admin",
           leido: false
+        }
 
-        })
+        console.log("Insertando mensaje:", insertPayload)
 
+        const { data, error } = await supabase
+          .from("mensajes")
+          .insert(insertPayload)
+          .select()
 
-      if (error) throw error
+        console.log("Respuesta Supabase:", { data, error })
+
+        if (error) {
+          console.error("Error inserting mensaje:", error)
+          throw error
+        }
 
 
 
