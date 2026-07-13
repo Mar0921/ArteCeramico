@@ -15,14 +15,15 @@ const companyInfo = {
   warranty: "Garantía de 1 año en adaptación, funcionalidad y color, sobre primer modelo o primera impresión de trabajo.",
   paymentMethods: "Efectivo, transferencias bancarias, pagos PSE, tarjetas crédito y débito",
   acceptsInstallments: false,
-  deliveryZones: "Solo realizamos domicilios dentro de la ciudad de Cali"
+  deliveryZones: "Solo realizamos domicilios dentro de la ciudad de Cali",
+  hours: "Lunes a Viernes: 8:00 AM - 6:00 PM\nSábados: 8:00 AM - 1:00 PM\nDomingos: Cerrado",
+  modelNotice: "No se cobra modelo después de 3 restauraciones. Si son 1 o 2 tiene un costo de $40.000 por modelo.",
+  priceDisclaimer: "Los precios pueden variar según la complejidad del caso, materiales seleccionados y especificaciones técnicas del odontólogo. Para valores exactos y personalizados, consulta con un asesor."
 }
 
 interface ServiceItem {
   name: string
   price: string
-  type?: string
-  variant?: string
 }
 
 interface Category {
@@ -42,7 +43,7 @@ const categories: Category[] = [
   {
     id: "acrilicos",
     title: "ACRÍLICOS",
-    keywords: ["acrílico", "acrilico", "plato base", "rodete", "pmma", "hibrida pmma"],
+    keywords: ["acrílico", "acrilico", "plato base", "rodete", "pmma", "hibrida pmma", "provisional"],
     items: [
       { name: "Provisional PMMA", price: "$100.000" },
       { name: "Provisional sobre implante", price: "$120.000" },
@@ -53,7 +54,7 @@ const categories: Category[] = [
   {
     id: "libre-metal",
     title: "LIBRE DE METAL",
-    keywords: ["libre metal", "disilicato", "zirconio", "carilla", "incrustacion zirconio", "apoyo disilicato", "apoyo balcón"],
+    keywords: ["libre metal", "disilicato", "zirconio", "carilla", "incrustacion zirconio", "apoyo disilicato", "apoyo balcon"],
     items: [
       { name: "Corona disilicato maquillada", price: "$330.000" },
       { name: "Carilla disilicato", price: "$310.000" },
@@ -78,7 +79,7 @@ const categories: Category[] = [
   {
     id: "metal",
     title: "METAL",
-    keywords: ["metal", "hibrida metal-acrilico", "hibrida metal-porcelana"],
+    keywords: ["metal", "hibrida metal-acrilico", "hibrida metal-porcelana", "corona metal porcelana"],
     items: [
       { name: "Corona metal porcelana", price: "$315.000" },
       { name: "Híbrida metal-acrílico (Duratone)", price: "$3.200.000" },
@@ -162,6 +163,95 @@ function findSpecificService(query: string): { item: ServiceItem; category: Cate
     }
   }
   return null
+}
+
+const quantityWords: Record<string, number> = {
+  "una": 1,
+  "un": 1,
+  "uno": 1,
+  "dos": 2,
+  "tres": 3,
+  "cuatro": 4,
+  "cinco": 5,
+  "seis": 6,
+  "siete": 7,
+  "ocho": 8,
+  "nueve": 9,
+  "diez": 10,
+}
+
+function parsePrice(text: string): number {
+  const cleaned = text.replace(/\./g, "").replace(/[^0-9]/g, "")
+  const n = Number(cleaned)
+  return Number.isFinite(n) ? n : 0
+}
+
+function parseServiceLines(message: string): { quantity: number; serviceName: string; item: ServiceItem; category: Category }[] {
+  const normalizedMessage = normalizeText(message)
+  const matched: { quantity: number; serviceName: string; item: ServiceItem; category: Category }[] = []
+  const usedRanges: { start: number; end: number }[] = []
+
+  const allServices: { item: ServiceItem; category: Category; normalizedName: string }[] = []
+  for (const category of categories) {
+    for (const item of category.items) {
+      allServices.push({
+        item,
+        category,
+        normalizedName: normalizeText(item.name),
+      })
+    }
+  }
+
+  const sorted = allServices.sort((a, b) => b.normalizedName.length - a.normalizedName.length)
+
+  for (const service of sorted) {
+    let index = normalizedMessage.indexOf(service.normalizedName)
+    while (index !== -1) {
+      const start = Math.max(0, index - 60)
+      const end = Math.min(normalizedMessage.length, index + service.normalizedName.length + 60)
+      const overlaps = usedRanges.some(r => !(end <= r.start || start >= r.end))
+      if (!overlaps) {
+        usedRanges.push({ start: index, end: index + service.normalizedName.length })
+        let quantity = 1
+        const before = normalizedMessage.substring(start, index)
+        const numbersBefore = before.match(/(\d+|una|un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez)/g)
+        const lastNumber = numbersBefore ? numbersBefore[numbersBefore.length - 1] : null
+        if (lastNumber) {
+          const num = Number(lastNumber)
+          if (Number.isFinite(num)) {
+            quantity = num
+          } else {
+            quantity = quantityWords[lastNumber] || 1
+          }
+        }
+        matched.push({
+          quantity,
+          serviceName: service.item.name,
+          item: service.item,
+          category: service.category,
+        })
+      }
+      index = normalizedMessage.indexOf(service.normalizedName, index + 1)
+    }
+  }
+
+  return matched
+}
+
+function buildQuoteResponse(lines: { quantity: number; serviceName: string; item: ServiceItem; category: Category }[]): string {
+  if (!lines.length) return ""
+
+  let response = "COTIZACIÓN\n\n"
+  let total = 0
+  for (const line of lines) {
+    const unit = parsePrice(line.item.price)
+    const subtotal = unit * line.quantity
+    total += subtotal
+    response += `${line.quantity}x ${line.serviceName} (${line.item.price}) = $${subtotal.toLocaleString("es-CO")}\n`
+  }
+  response += `\nTOTAL ESTIMADO: $${total.toLocaleString("es-CO")}\n\n`
+  response += `Aclaración: ${companyInfo.priceDisclaimer}\n`
+  return response
 }
 
 function findServicesByMaterial(query: string): { items: ServiceItem[]; category: Category | null } {
@@ -256,6 +346,8 @@ function getAllPrices(): string {
     response += "\n"
   }
   
+  response += `Aviso: ${companyInfo.modelNotice}\n\n`
+  response += `Aclaración: ${companyInfo.priceDisclaimer}\n\n`
   response += "Necesitas información más detallada de alguna categoría o servicio específico?"
   return response
 }
@@ -266,12 +358,15 @@ function handleAffirmativeNegative(query: string, context: ConversationContext):
   const affirmatives = ["si", "sí", "claro", "ok", "dale", "bueno", "vale", "sip", "siii"]
   const negatives = ["no", "nop", "nel", "nada", "ninguno", "no gracias"]
   
-if (affirmatives.includes(normalizedQuery)) {
-     if (context.waitingFor === "directions") {
-       return "Te recomiendo usar Google Maps para las indicaciones exactas:\n" + companyInfo.googleMaps + "\n\nNecesitas otra cosa?"
-     }
-     return "Perfecto, en qué más puedo ayudarte?"
-   }
+  if (affirmatives.includes(normalizedQuery)) {
+    if (context.waitingFor === "directions") {
+      return `Te recomiendo usar Google Maps para las indicaciones exactas:\n${companyInfo.googleMaps}\n\nNecesitas otra cosa?`
+    }
+    if (context.waitingFor === "contact") {
+      return `Contacto\n\nWhatsApp: ${companyInfo.phone}\nCorreo: ${companyInfo.email}\n\nHorario de atención:\n${companyInfo.hours}\n\nNecesitas algo más?`
+    }
+    return "Perfecto, en qué más puedo ayudarte?"
+  }
   
   if (negatives.includes(normalizedQuery)) {
     return "De acuerdo! Si necesitas algo más, aquí estoy. Gracias por contactarnos!"
@@ -305,13 +400,13 @@ export async function POST(req: Request): Promise<NextResponse> {
       conversationContext = { lastIntent: "location", waitingFor: "directions", lastQuery: message }
     }
 
-    else if (["contacto", "telefono", "whatsapp", "llamar", "comunicarme", "celular", "teléfono", "número", "numero"].some(word => message.includes(word))) {
-      response = `Contacto\n\nWhatsApp: ${companyInfo.phone}\nCorreo: ${companyInfo.email}\n\nHorario de atención:\nLunes a Viernes: 8am - 6pm\nSábados: 8am - 1pm\n\nEn qué más puedo ayudarte?`
+    else if (["contacto", "telefono", "whatsapp", "llamar", "comunicarme", "celular", "teléfono", "número", "numero", "contactar"].some(word => message.includes(word))) {
+      response = `Contacto\n\nWhatsApp: ${companyInfo.phone}\nCorreo: ${companyInfo.email}\n\nHorario de atención:\n${companyInfo.hours}\n\nNecesitas algo más?`
       conversationContext = { lastIntent: "contact", waitingFor: null, lastQuery: message }
     }
 
-    else if (["horario", "horarios", "atención", "atencion"].some(word => message.includes(word))) {
-      response = `Horario de atención\n\nLunes a Viernes: 8:00 AM - 6:00 PM\nSábados: 8:00 AM - 1:00 PM\nDomingos: Cerrado\n\nTe esperamos!`
+    else if (["horario", "horarios", "atención", "atencion", "abren", "cierran"].some(word => message.includes(word))) {
+      response = `Horario de atención\n\n${companyInfo.hours}\n\nTe esperamos!`
       conversationContext = { lastIntent: "schedule", waitingFor: null, lastQuery: message }
     }
 
@@ -361,11 +456,11 @@ export async function POST(req: Request): Promise<NextResponse> {
     }
     
     else if (["asesor", "asesoría", "hablar con alguien", "comunicarme con un asesor", "persona", "humano", "ayuda personalizada", "necesito un asesor", "requiero asesoría"].some(word => message.includes(word))) {
-      response = `Contacto con asesor\n\nPuedes comunicarte directamente con nosotros:\n\nWhatsApp: ${companyInfo.phone}\nCorreo: ${companyInfo.email}\n\nUn asesor te atenderá en horario laboral:\nLunes a Viernes: 8am - 6pm\nSábados: 8am - 1pm\n\nNecesitas algo más mientras esperas?`
+      response = `Contacto con asesor\n\nPuedes comunicarte directamente con nosotros:\n\nWhatsApp: ${companyInfo.phone}\nCorreo: ${companyInfo.email}\n\nUn asesor te atenderá en horario laboral:\n${companyInfo.hours}\n\nNecesitas algo más mientras esperas?`
       conversationContext = { lastIntent: "advisor", waitingFor: null, lastQuery: message }
     }
 
-else if (message.includes("precios") || message.includes("precio") || message.includes("valores") || message.includes("costo") || message.includes("tarifas") || message.includes("cuánto cuesta") || message.includes("cuanto cuesta") || message.includes("cuánto vale") || message.includes("cuanto vale")) {
+    else if (message.includes("precios") || message.includes("precio") || message.includes("valores") || message.includes("costo") || message.includes("tarifas") || message.includes("cuánto cuesta") || message.includes("cuanto cuesta") || message.includes("cuánto vale") || message.includes("cuanto vale")) {
       response = `Te ayudo con los precios. Qué categoría te interesa?\n\n` +
         categories.map(c => `${c.title}`).join("\n") +
         `\n\nO puedes preguntar por un servicio específico (ej: "corona zirconio") o escribir "todos" para ver la lista completa.`
@@ -398,7 +493,7 @@ else if (message.includes("precios") || message.includes("precio") || message.in
     }
 
     else if (message.includes("yeso") || message.includes("modelo")) {
-      response = "No encontré información sobre yesos. Ten en cuenta que trabajamos con múltiples materiales y servicios. ¿Buscas algo específico?"
+      response = "No tenemos yesos en nuestro portafolio. Podemos ayudarte con: Prótesis fija, Coronas, Carillas, Implantología, Encerados, entre otros servicios. Te interesa alguno?"
     }
 
     else if (message.includes("zirconio") || message.includes("disilicato") || message.includes("zircon")) {
@@ -406,21 +501,36 @@ else if (message.includes("precios") || message.includes("precio") || message.in
       response = getFilteredServicesResponse(filtered.items, filtered.category)
     }
 
+    const calculationIntents = ["cuánto saldría", "cuanto saldria", "presupuesto", "presupuestar", "cotización", "cotizar", "valdría", "valdria", "costo de", "coste de", "total de", "sumar", "suma"]
+    if (!response) {
+      const serviceLines = parseServiceLines(originalMessage)
+      const hasCalculationIntent = calculationIntents.some(word => message.includes(word))
+      const hasMultipleServices = serviceLines.length > 1
+      const hasExplicitQuantity = /\d+|una|un|uno|dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez/.test(message)
+
+      if ((hasCalculationIntent || hasMultipleServices || (hasExplicitQuantity && serviceLines.length > 0)) && serviceLines.length > 0) {
+        const quote = buildQuoteResponse(serviceLines)
+        response = quote || "No pude interpretar los servicios para armar la cotización. ¿Puedes mencionar los servicios exactos?"
+        conversationContext = { lastIntent: "quote", waitingFor: null, lastQuery: originalMessage }
+      }
+    }
+
     else {
       const specificService = findSpecificService(message)
       
       if (specificService) {
-        response = `${specificService.item.name} tiene un valor de ${specificService.item.price}\n\nCategoría: ${specificService.category.title}\nNecesitas el precio de otro servicio o más información sobre esta categoría?`
+        response = `${specificService.item.name} tiene un valor de ${specificService.item.price}\n\nCategoría: ${specificService.category.title}\n\nAclaración: ${companyInfo.priceDisclaimer}\nNecesitas el precio de otro servicio o más información sobre esta categoría?`
       } 
       else {
         response = `Lo siento, no entendí tu consulta. Puedo ayudarte con:\n\n` +
           `Categorías: Acrílicos, Libre de Metal, Implantología, Metal, Encerados, Resinas Impresas\n` +
           `Consultar precios de servicios específicos\n` +
+          `Cotizaciones personalizadas\n` +
           `Información de la empresa (quiénes somos, tecnología, misión, visión)\n` +
           `Tiempos de entrega, materiales, garantía y formas de pago\n` +
           `Domicilios y envíos (solo Cali)\n` +
           `Asesoría si necesitas hablar con un humano\n\n` +
-          `Por ejemplo:\n- "tiempo de entrega"\n- "materiales"\n- "garantía"\n- "formas de pago"\n- "domicilios"\n- "cuotas"\n- "quienes son"\n- "corona zirconio"`
+          `Por ejemplo:\n- "tiempo de entrega"\n- "materiales"\n- "garantía"\n- "formas de pago"\n- "domicilios"\n- "cuotas"\n- "quienes son"\n- "corona zirconio"\n- "cotizar 2 coronas y una carilla"`
       }
     }
 

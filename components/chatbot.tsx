@@ -23,7 +23,7 @@ const initialMessages: Message[] =
   [
     {
       id: 1,
-      text: "¡Hola! Soy el asistente virtual de Arte Cerámico. ¿En qué puedo ayudarte hoy?",
+      text: "Hola! Soy el asistente virtual de Arte Cerámico. Preguntame por nuestros servicios y precios actualizados.",
       isBot: true,
     },
   ]

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { supabase } from "@/lib/supabase"
+import { supabase, getValidUser } from "@/lib/supabase"
 import { Footer } from "@/components/footer"
 import { useToast } from "@/hooks/use-toast"
 
@@ -36,6 +36,7 @@ import {
 
 import { Navbar } from "@/components/navbar"
 import { Checkbox } from "@/components/ui/checkbox"
+import { WhatsAppButton } from "@/components/whatsapp-button"
 
 interface Servicio {
   id: number
@@ -204,12 +205,7 @@ export default function ClientesPage() {
       try {
         setLoading(true)
 
-        const {
-          data: { user },
-          error: authError,
-        } = await supabase.auth.getUser()
-
-        if (authError) throw authError
+        const user = await getValidUser()
 
         if (!user) {
           router.push("/login")
@@ -791,8 +787,8 @@ export default function ClientesPage() {
       console.log("CLIENT DATA:", clientData)
       console.log("SOLICITUD:", solicitud)
 
-      const auth = await supabase.auth.getUser()
-      console.log("AUTH UID:", auth.data.user?.id)
+      const authUser = await getValidUser()
+      console.log("AUTH UID:", authUser?.id)
 
       let { data: conversacion, error: conversacionError } = await supabase
         .from("conversaciones")
@@ -917,17 +913,17 @@ export default function ClientesPage() {
 
     try {
       // DEBUG
-      const authResult = await supabase.auth.getUser()
+      const authUser = await getValidUser()
 
       console.log("================================")
-      console.log("AUTH USER:", authResult.data.user?.id)
+      console.log("AUTH USER:", authUser?.id)
       console.log("CONVERSACION ACTUAL:", conversacionActual)
       console.log("CONVERSACION ID:", conversacionId)
-      console.log("AUTH USER:", authResult.data.user?.id)
+      console.log("AUTH USER:", authUser?.id)
       console.log("CONVERSACION ACTUAL:", JSON.stringify(conversacionActual, null, 2))
       console.log("CONVERSACION ID:", conversacionId)
 
-      console.log("AUTH USER:", authResult.data.user?.id)
+      console.log("AUTH USER:", authUser?.id)
 
       console.log("INSERTANDO:", {
         conversacion_id: conversacionId,
@@ -936,9 +932,8 @@ export default function ClientesPage() {
         leido: false,
       })
 
-      const { data: authData } = await supabase.auth.getUser()
-      console.log("USER:", authData.user)
-      console.log("UID:", authData.user?.id)
+      console.log("USER:", authUser)
+      console.log("UID:", authUser?.id)
 
       const response = await supabase
         .from("mensajes")
@@ -2405,6 +2400,8 @@ export default function ClientesPage() {
             </div>
           )}
         </section>
+
+        <WhatsAppButton />
       </main>
     </div>
   )

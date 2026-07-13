@@ -6,7 +6,7 @@ import { Menu, X, LogOut, Users, User, Bell } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { supabase } from "@/lib/supabase"
+import { supabase, getValidUser } from "@/lib/supabase"
 
 const navItems = [
   { label: "Inicio", href: "#inicio" },
@@ -51,7 +51,7 @@ export function Navbar({
   // Verificar si el usuario está logueado
   useEffect(() => {
     const checkLogin = async () => {
-      const { data: { user } } = await supabase.auth.getUser()
+      const user = await getValidUser()
       setIsLoggedIn(!!user)
     }
     checkLogin()
