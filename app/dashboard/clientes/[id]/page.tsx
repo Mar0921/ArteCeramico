@@ -76,6 +76,18 @@ interface Solicitud {
   caja: string | null
   codigo_trazabilidad: string | null
   dientes_trabajados: string[] | null
+  dientes_detallados: { numero: number; servicio: string; estado: string }[] | null
+  servicios_detalle: {
+    id: number
+    nombre: string
+    descripcion: string
+    precio: number | null
+    cantidad: number
+    tipo_trabajo?: string | null
+    material?: string | null
+    dientes?: string | null
+    piezas_enviadas?: string | null
+  }[]
   dibujo_odontologo: string | null
   declaracion_conformidad: string | null
   guia_fabricacion: string | null
@@ -216,6 +228,38 @@ export default function ClientePerfilPage() {
 
       if (error) throw error
 
+      const servicioNombre = (selectedSolicitud as any).servicio || ""
+      const servicioTipo = servicioNombre.includes("|")
+        ? servicioNombre.split("|")[0].trim()
+        : servicioNombre
+
+      await supabase
+        .from("dientes")
+        .delete()
+        .eq("solicitud_id", selectedSolicitud.id)
+
+      if (dientes.length > 0) {
+        const dientesRows = dientes.map((d) => {
+          const num = parseInt(d, 10)
+          return {
+            solicitud_id: selectedSolicitud.id,
+            numero: isNaN(num) ? 0 : num,
+            servicio: servicioTipo || null,
+            estado: "normal",
+          }
+        }).filter((d) => d.numero > 0)
+
+        if (dientesRows.length > 0) {
+          const { error: dientesError } = await supabase
+            .from("dientes")
+            .insert(dientesRows)
+
+          if (dientesError) {
+            console.error("Error actualizando dientes:", dientesError)
+          }
+        }
+      }
+
       const { data: refreshed } = await supabase
         .from("solicitudes")
         .select("*")
@@ -340,7 +384,22 @@ export default function ClientePerfilPage() {
           .order("created_at", { ascending: false })
 
         if (!error && data) {
-          setSolicitudes(data as Solicitud[])
+          const solicitudesConServicios = await Promise.all(
+            (data as Solicitud[]).map(async (s) => {
+              const { data: servicios } = await supabase
+                .from("servicios")
+                .select("id, nombre, descripcion, precio, cantidad, tipo_trabajo, material, dientes, piezas_enviadas, es_principal")
+                .eq("solicitud_id", s.id)
+                .eq("es_principal", false)
+                .order("created_at", { ascending: true })
+
+              return {
+                ...s,
+                servicios_detalle: servicios || [],
+              }
+            })
+          )
+          setSolicitudes(solicitudesConServicios as Solicitud[])
         }
       } catch (err) {
         console.error("Error cargando solicitudes del cliente:", err)
@@ -756,21 +815,24 @@ if (!conv) return
           nombre,
           precio,
           created_at,
+          es_principal,
           solicitudes!inner(cliente_id)
         `)
         .eq("solicitudes.cliente_id", clienteId)
+        .eq("es_principal", false)
         .order("created_at", { ascending: true })
 
       const items = (servicios || []).map((s: any) => {
         const solicitud = solicitudes.find(sol => sol.id === s.solicitud_id)
         return {
+          id: s.id,
           solicitudId: s.solicitud_id,
           servicio: s.nombre,
           precio: s.precio,
           estado: solicitud?.estado || "pendiente",
           fecha: s.created_at,
           estado_pago: solicitud?.estado_pago || "pendiente_pago",
-          comprobante_pago: (s as any).comprobante_pago || null,
+          comprobante_pago: s.comprobante_pago || null,
         }
       })
 
@@ -1259,10 +1321,38 @@ if (!conv) return
                                 <div className="mb-3">
                                   <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Dientes Trabajados</p>
                                   <div className="flex flex-wrap gap-1">
-                                    {solicitud.dientes_trabajados.map((diente: string, i: number) => (
-                                      <span key={i} className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700">
-                                        #{diente}
-                                      </span>
+                                    {(solicitud as any).dientes_detallados?.length > 0
+                                      ? (solicitud as any).dientes_detallados.map((d: any, i: number) => (
+                                          <span key={i} className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700">
+                                            #{d.numero}{d.servicio ? ` - ${d.servicio}` : ""} - {d.estado}
+                                          </span>
+                                        ))
+                                      : solicitud.dientes_trabajados.map((diente: string, i: number) => (
+                                          <span key={i} className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700">
+                                            #{diente}
+                                          </span>
+                                        ))
+                                  }
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Servicios / Trabajos */}
+                              {(solicitud as any).servicios_detalle?.length > 0 && (
+                                <div className="mb-3">
+                                  <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Trabajos / Servicios</p>
+                                  <div className="space-y-1">
+                                    {(solicitud as any).servicios_detalle.map((serv: any, i: number) => (
+                                      <div key={serv.id || i} className="flex items-center justify-between bg-white p-2 rounded border border-gray-200">
+                                        <div className="flex-1">
+                                          <p className="text-xs font-medium text-gray-800">{i + 1}. {serv.nombre}</p>
+                                          {serv.descripcion && <p className="text-[10px] text-gray-600">{serv.descripcion}</p>}
+                                        </div>
+                                        <div className="text-right ml-2">
+                                          <p className="text-xs font-bold text-primary">${serv.precio ? Number(serv.precio).toLocaleString("es-CO") : "0"}</p>
+                                          {serv.cantidad > 1 && <p className="text-[10px] text-gray-500">Cant: {serv.cantidad}</p>}
+                                        </div>
+                                      </div>
                                     ))}
                                   </div>
                                 </div>

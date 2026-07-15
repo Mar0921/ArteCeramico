@@ -5,6 +5,19 @@ import { SERVICE_PRICES, parsePrice } from "@/lib/service-prices"
 
 export const runtime = "nodejs"
 
+async function insertarServicios(supabase: any, rows: any[]) {
+  const { error } = await supabase.from("servicios").insert(rows)
+  if (
+    error &&
+    /es_principal/i.test(error.message || "") &&
+    /(does not exist|could not find|column)/i.test(error.message || "")
+  ) {
+    const sinPrincipal = rows.map(({ es_principal, ...rest }) => rest)
+    return supabase.from("servicios").insert(sinPrincipal)
+  }
+  return { error }
+}
+
 async function buildPdfBuffer(data: {
   clienteNombre: string
   clienteDocumento: string
@@ -172,11 +185,13 @@ export async function POST(request: Request) {
     const codigoTrazabilidad = String(formData.get("codigoTrazabilidad") || "").trim()
     const dientesTrabajadosJson = String(formData.get("dientesTrabajados") || "[]").trim()
     const dibujoOdontologo = String(formData.get("dibujoOdontologo") || "").trim()
+    const productosJson = String(formData.get("productos") || "[]").trim()
 
     let tiposTrabajo: string[] = []
     let materiales: string[] = []
     let piezasEnviadas: string[] = []
     let dientesTrabajados: string[] = []
+    let dientesDetallados: { diente: number; servicio: string; estado: string }[] = []
 
     try {
       tiposTrabajo = JSON.parse(tiposTrabajoJson)
@@ -194,10 +209,35 @@ export async function POST(request: Request) {
       piezasEnviadas = []
     }
     try {
-      dientesTrabajados = JSON.parse(dientesTrabajadosJson)
+      const parsedDientes = JSON.parse(dientesTrabajadosJson)
+      if (Array.isArray(parsedDientes)) {
+        if (parsedDientes.length > 0 && typeof parsedDientes[0] === "object") {
+          dientesDetallados = parsedDientes.map((item: any) => ({
+            diente: Number(item.diente),
+            servicio: String(item.servicio || ""),
+            estado: String(item.estado || "normal"),
+          }))
+          dientesTrabajados = dientesDetallados.map((d) => `${d.diente}-${d.servicio}-${d.estado}`)
+        } else {
+          dientesTrabajados = parsedDientes.map((d: any) => String(d))
+        }
+      }
     } catch {
       dientesTrabajados = []
     }
+
+    let productos: { unidades?: number; precioUnitario?: number }[] = []
+    try {
+      const parsedProductos = JSON.parse(productosJson)
+      if (Array.isArray(parsedProductos)) productos = parsedProductos
+    } catch {
+      productos = []
+    }
+
+    const totalProductos = productos.reduce(
+      (sum, p) => sum + (Number(p.unidades) || 0) * (Number(p.precioUnitario) || 0),
+      0
+    )
 
     let urlsDocumentos: string[] = []
     let nombresArchivos: string[] = []
@@ -346,7 +386,7 @@ export async function POST(request: Request) {
 
     const unitPrice = SERVICE_PRICES[servicioNombre] ?? parsePrice(servicioDescripcion)
     const cantidad = Math.max(dientesTrabajados.length, 1)
-    const total = unitPrice * cantidad
+    const total = totalProductos > 0 ? totalProductos : unitPrice * cantidad
 
     const pdfBytes = await buildPdfBuffer({
       clienteNombre: (cliente.nombre || "").trim(),
@@ -467,29 +507,69 @@ export async function POST(request: Request) {
       )
     }
 
-    const servicioData: any = {
-      solicitud_id: solicitudInsertada.id,
-      nombre: servicioNombre,
-      descripcion: servicioDescripcion || observaciones,
-      tipo_trabajo: tiposTrabajo.length > 0 ? tiposTrabajo.join(", ") : null,
-      material: materiales.length > 0 ? materiales.join(", ") : null,
-      dientes: dientesTrabajados.length > 0 ? dientesTrabajados.join(", ") : null,
-      piezas_enviadas: piezasEnviadas.length > 0 ? piezasEnviadas : null,
-      precio: total,
-      cantidad: cantidad,
+    if (productos.length > 0) {
+      // Los productos seleccionados son los servicios reales. No se guarda la
+      // categoría (servicioTipo) como un servicio aparte.
+      const productosRows = productos.map((p: any) => ({
+        solicitud_id: solicitudInsertada.id,
+        nombre: p.producto || p.nombre || "Producto",
+        descripcion: servicioNombre || null,
+        tipo_trabajo: tiposTrabajo.length > 0 ? tiposTrabajo.join(", ") : null,
+        material: materiales.length > 0 ? materiales.join(", ") : null,
+        dientes: p.dientes || null,
+        piezas_enviadas: piezasEnviadas.length > 0 ? piezasEnviadas : null,
+        precio: (Number(p.unidades) || 0) * (Number(p.precioUnitario) || Number(p.precio) || 0),
+        cantidad: Number(p.unidades) || 1,
+        es_principal: false,
+      }))
+
+      const { error: productosInsertError } = await insertarServicios(supabase, productosRows)
+
+      if (productosInsertError) {
+        console.error("Error insertando productos:", productosInsertError)
+      }
+    } else {
+      // Sin productos: el tipo de trabajo principal es el servicio.
+      const servicioData: any = {
+        solicitud_id: solicitudInsertada.id,
+        nombre: servicioNombre,
+        descripcion: servicioDescripcion || observaciones,
+        tipo_trabajo: tiposTrabajo.length > 0 ? tiposTrabajo.join(", ") : null,
+        material: materiales.length > 0 ? materiales.join(", ") : null,
+        dientes: dientesTrabajados.length > 0 ? dientesTrabajados.join(", ") : null,
+        piezas_enviadas: piezasEnviadas.length > 0 ? piezasEnviadas : null,
+        precio: total,
+        cantidad: cantidad,
+        es_principal: true,
+      }
+
+      const categoria = servicioDescripcion.match(/Categoría: (.+)/i)
+      if (categoria && categoria[1]) {
+        servicioData.descripcion = `${categoria[1].trim()} - ${observaciones || servicioNombre}`
+      }
+
+      const { error: serviciosInsertError } = await insertarServicios(supabase, [servicioData])
+
+      if (serviciosInsertError) {
+        console.error("Error insertando servicio:", serviciosInsertError)
+      }
     }
 
-    const categoria = servicioDescripcion.match(/Categoría: (.+)/i)
-    if (categoria && categoria[1]) {
-      servicioData.descripcion = `${categoria[1].trim()} - ${observaciones || servicioNombre}`
-    }
+    if (dientesDetallados.length > 0) {
+      const dientesRows = dientesDetallados.map((d) => ({
+        solicitud_id: solicitudInsertada.id,
+        numero: d.diente,
+        servicio: d.servicio || null,
+        estado: d.estado || "normal",
+      }))
 
-    const { error: serviciosInsertError } = await supabase
-      .from("servicios")
-      .insert(servicioData)
+      const { error: dientesInsertError } = await supabase
+        .from("dientes")
+        .insert(dientesRows)
 
-    if (serviciosInsertError) {
-      console.error("Error insertando servicio:", serviciosInsertError)
+      if (dientesInsertError) {
+        console.error("Error insertando dientes:", dientesInsertError)
+      }
     }
 
     return NextResponse.json(
@@ -573,10 +653,37 @@ export async function GET(request: Request) {
         dientes,
         tipo_trabajo,
         material,
-        piezas_enviadas
+        piezas_enviadas,
+        id,
+        nombre,
+        descripcion,
+        cantidad
       `)
+       .in("solicitud_id", solicitudIds)
+       .order("solicitud_id", { ascending: true })
+
+    const { data: dientesData, error: dientesError } = await supabase
+      .from("dientes")
+      .select("solicitud_id, numero, servicio, estado")
       .in("solicitud_id", solicitudIds)
-      .order("solicitud_id", { ascending: true })
+      .order("numero", { ascending: true })
+
+    const dientesMap = new Map<
+      number,
+      { numero: number; servicio: string; estado: string }[]
+    >()
+
+    if (!dientesError && dientesData) {
+      dientesData.forEach((d: any) => {
+        const actual = dientesMap.get(d.solicitud_id) || []
+        actual.push({
+          numero: Number(d.numero),
+          servicio: String(d.servicio || ""),
+          estado: String(d.estado || "normal"),
+        })
+        dientesMap.set(d.solicitud_id, actual)
+      })
+    }
 
     const serviciosMap = new Map<
       number,
@@ -586,6 +693,7 @@ export async function GET(request: Request) {
         tipoTrabajo: string[]
         materiales: string[]
         piezas: number
+        servicios_detalle: any[]
       }
     >()
 
@@ -597,6 +705,7 @@ export async function GET(request: Request) {
           tipoTrabajo: [],
           materiales: [],
           piezas: 0,
+          servicios_detalle: [],
         }
 
         const piezas = Array.isArray(serv.piezas_enviadas)
@@ -604,26 +713,54 @@ export async function GET(request: Request) {
           : Number(serv.piezas_enviadas || 0)
 
         serviciosMap.set(serv.solicitud_id, {
-          precio: actual.precio + Number(serv.precio || 0),
-          dientes: [
-            ...actual.dientes,
-            ...(serv.dientes ? [serv.dientes] : []),
-          ],
-          tipoTrabajo: [
-            ...actual.tipoTrabajo,
-            ...(serv.tipo_trabajo ? [serv.tipo_trabajo] : []),
-          ],
-          materiales: [
-            ...actual.materiales,
-            ...(serv.material ? [serv.material] : []),
-          ],
-          piezas: actual.piezas + (Number.isFinite(piezas) ? piezas : 0),
+          precio: serv.es_principal ? Number(serv.precio || 0) : actual.precio,
+          dientes: serv.es_principal
+            ? [...(serv.dientes ? [serv.dientes] : [])]
+            : actual.dientes,
+          tipoTrabajo: serv.es_principal
+            ? [...(serv.tipo_trabajo ? [serv.tipo_trabajo] : [])]
+            : actual.tipoTrabajo,
+          materiales: serv.es_principal
+            ? [...(serv.material ? [serv.material] : [])]
+            : actual.materiales,
+          piezas: serv.es_principal ? piezas : actual.piezas,
+          servicios_detalle: serv.es_principal
+            ? []
+            : [
+                ...actual.servicios_detalle,
+                {
+                  id: serv.id,
+                  nombre: serv.nombre,
+                  descripcion: serv.descripcion,
+                  precio: Number(serv.precio || 0),
+                  cantidad: serv.cantidad || 1,
+                  tipo_trabajo: serv.tipo_trabajo || null,
+                  material: serv.material || null,
+                  dientes: serv.dientes || null,
+                  piezas_enviadas: serv.piezas_enviadas || null,
+                },
+              ],
         })
       })
     }
 
     const formatted = solicitudes.map((item: any) => {
       const info = serviciosMap.get(item.id)
+      let dientesInfo = dientesMap.get(item.id) || []
+
+      if (dientesInfo.length === 0 && Array.isArray(item.dientes_trabajados)) {
+        dientesInfo = item.dientes_trabajados.map((d: string) => {
+          const partes = String(d).split("-")
+          const numero = parseInt(partes[0], 10)
+          if (partes.length === 3) {
+            return { numero, servicio: partes[1], estado: partes[2] }
+          }
+          if (partes.length === 2) {
+            return { numero, servicio: "", estado: partes[1] }
+          }
+          return { numero, servicio: "", estado: "normal" }
+        }).filter((d: any) => !isNaN(d.numero))
+      }
 
       return {
         id: item.id,
@@ -634,6 +771,8 @@ export async function GET(request: Request) {
         cliente_nombre: clientesMap.get(item.cliente_id) || "Sin cliente",
         dientes_trabajados: item.dientes_trabajados || [],
         dientesTrabajados: info?.dientes || [],
+        dientes_detallados: dientesInfo,
+        servicios_detalle: info?.servicios_detalle || [],
         tiposTrabajo: info?.tipoTrabajo || [],
         materiales: info?.materiales || [],
         piezasEnviadas: info?.piezas || 0,

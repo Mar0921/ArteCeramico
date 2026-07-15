@@ -14,8 +14,60 @@ import { Calendar } from "@/components/ui/calendar"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { SolicitudEntry, SolicitudFormData, ToothStatus, UploadedFile } from "./solicitud-types"
-import { SERVICE_PRICES, SERVICE_CATALOG } from "@/lib/service-prices"
 import { supabase } from "@/lib/supabase"
+
+const TIPOS_TRABAJO_PRINCIPAL = [
+  "LIBRE DE METAL",
+  "ENCERADOS",
+  "METAL",
+  "RESINAS IMPRESAS",
+  "ACRÍLICOS",
+  "IMPLANTOLOGÍA",
+]
+
+const CATALOGO_PRODUCTOS: Record<string, { nombre: string; precio: number }[]> = {
+  "LIBRE DE METAL": [
+    { nombre: "Corona disilicato maquillada", precio: 330000 },
+    { nombre: "Carilla disilicato", precio: 310000 },
+    { nombre: "Incrustación disilicato", precio: 300000 },
+    { nombre: "Apoyo disilicato", precio: 115000 },
+    { nombre: "Corona zirconio maquillada", precio: 340000 },
+    { nombre: "Incrustación zirconio", precio: 315000 },
+    { nombre: "Apoyo balcón zirconio", precio: 85000 },
+  ],
+  "ENCERADOS": [
+    { nombre: "Encerado DX", precio: 40000 },
+    { nombre: "Encerado guía", precio: 35000 },
+  ],
+  "METAL": [
+    { nombre: "Corona metal porcelana", precio: 315000 },
+    { nombre: "Híbrida metal-acrílico (Duratone)", precio: 3200000 },
+    { nombre: "Híbrida metal-porcelana unidad", precio: 600000 },
+  ],
+  "RESINAS IMPRESAS": [
+    { nombre: "Modelos 3D completos", precio: 100000 },
+    { nombre: "Modelos 3D media arcada", precio: 60000 },
+    { nombre: "Carillas impresas c/u", precio: 180000 },
+    { nombre: "Coronas impresas c/u", precio: 200000 },
+    { nombre: "Incrustaciones impresas c/u", precio: 180000 },
+  ],
+  "ACRÍLICOS": [
+    { nombre: "Provisional PMMA", precio: 100000 },
+    { nombre: "Provisional sobreimplante", precio: 120000 },
+    { nombre: "Híbrida PMMA unidad", precio: 210000 },
+    { nombre: "Plato base con rodete", precio: 45000 },
+  ],
+  "IMPLANTOLOGÍA": [
+    { nombre: "Microfresado", precio: 130000 },
+    { nombre: "Corona MP atornillada", precio: 320000 },
+    { nombre: "Corona atornillada disilicato", precio: 380000 },
+    { nombre: "Corona atornillada zirconio", precio: 380000 },
+  ],
+}
+
+function formatoPrecio(valor: number): string {
+  return `$${valor.toLocaleString("es-CO")}`
+}
 
 interface SolicitudSectionProps {
   solicitud: SolicitudEntry
@@ -37,6 +89,7 @@ export function SolicitudSection({
   const { formData, servicioTipo, selectedTeeth, toothStatuses, uploadedFiles } = solicitud
   const [showCalendarElaboracion, setShowCalendarElaboracion] = useState(false)
   const [showCalendarEntrega, setShowCalendarEntrega] = useState(false)
+  const [productoPendiente, setProductoPendiente] = useState("")
 
   const handleToothSelect = (toothNumber: number) => {
     onUpdate({
@@ -68,10 +121,84 @@ export function SolicitudSection({
       .sort((a, b) => a - b)
       .map((tooth) => {
         const status = toothStatuses[tooth]
-        return status ? `${tooth}: ${status}` : tooth.toString()
+        const producto = formData.productos.find((p) =>
+          String(p.dientes || "")
+            .split(/[\s,\-]+/)
+            .includes(String(tooth))
+        )
+        const servicio = producto ? producto.producto : servicioTipo
+        const sufijo = status ? `-${servicio}-${status}` : servicio ? `-${servicio}` : ""
+        return `${tooth}${sufijo}`
       })
       .join(", ")
-  }, [selectedTeeth, toothStatuses])
+  }, [selectedTeeth, toothStatuses, formData.productos, servicioTipo])
+
+  const handleServicioTipoChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    const nuevo = event.target.value
+    onUpdate({ servicioTipo: nuevo })
+    setProductoPendiente("")
+  }
+
+  const marcarDientesDesdeProductos = (lineas: { dientes?: string }[]) => {
+    const extra = new Set<number>()
+    lineas.forEach((l) => {
+      String(l.dientes || "")
+        .split(/[\s,\-]+/)
+        .forEach((t) => {
+          const n = parseInt(t, 10)
+          if (!isNaN(n) && n >= 1 && n <= 48) extra.add(n)
+        })
+    })
+    const merged = Array.from(extra).sort((a, b) => a - b)
+    const nextStatuses = { ...toothStatuses }
+    Object.keys(nextStatuses).forEach((key) => {
+      const num = Number(key)
+      if (!merged.includes(num)) delete nextStatuses[num]
+    })
+    onUpdate({ selectedTeeth: merged, toothStatuses: nextStatuses })
+  }
+
+  const agregarProducto = () => {
+    if (!productoPendiente) return
+    const p = CATALOGO_PRODUCTOS[servicioTipo]?.find((x) => x.nombre === productoPendiente)
+    if (!p) return
+    if (formData.productos.some((x) => x.producto === p.nombre)) {
+      setProductoPendiente("")
+      return
+    }
+    onFormDataChange({
+      productos: [
+        ...formData.productos,
+        {
+          producto: p.nombre,
+          unidades: 1,
+          dientes: "",
+          precio: p.precio,
+          precioUnitario: p.precio,
+        },
+      ],
+    })
+    setProductoPendiente("")
+  }
+
+  const eliminarProducto = (index: number) => {
+    onFormDataChange({
+      productos: formData.productos.filter((_, i) => i !== index),
+    })
+  }
+
+  const actualizarProducto = (
+    index: number,
+    campo: "unidades" | "dientes" | "precioUnitario",
+    valor: number | string
+  ) => {
+    const actual = [...formData.productos]
+    actual[index] = { ...actual[index], [campo]: valor }
+    onFormDataChange({ productos: actual })
+    if (campo === "dientes") {
+      marcarDientesDesdeProductos(actual)
+    }
+  }
 
   const handleCheckboxChange = (
     field: "tiposTrabajo" | "materiales" | "piezasEnviadas",
@@ -326,18 +453,18 @@ export function SolicitudSection({
         </div>
       </div>
 
-      {/* Servicio principal */}
+      {/* Tipo de trabajo principal */}
       <div className="p-3 border-b space-y-2 text-xs">
-        <Label className="text-xs font-semibold text-gray-700">TIPO DE SERVICIO PRINCIPAL</Label>
+        <Label className="text-xs font-semibold text-gray-700">AGREGAR PRODUCTO *</Label>
         <select
           value={servicioTipo}
-          onChange={(event) => onUpdate({ servicioTipo: event.target.value })}
+          onChange={handleServicioTipoChange}
           className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-xs"
         >
-          <option value="">Selecciona el servicio...</option>
-          {SERVICE_CATALOG.map((item) => (
-            <option key={item.name} value={item.name}>
-              {item.name} — {item.price}
+          <option value="">Selecciona el tipo de trabajo...</option>
+          {TIPOS_TRABAJO_PRINCIPAL.map((tipo) => (
+            <option key={tipo} value={tipo}>
+              {tipo}
             </option>
           ))}
           <option value="Otro">Otro</option>
@@ -362,106 +489,127 @@ export function SolicitudSection({
         )}
       </div>
 
-      {/* Tipo de Trabajo y Material */}
-      <div className="border-b">
-        <div className="grid grid-cols-3">
-          <div className="col-span-2 border-r">
-            <div className="bg-[#8bc34a] text-white text-center py-1 text-xs font-semibold">
-              TIPO DE TRABAJO
-            </div>
-            <div className="p-2">
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px]">
-                {[
-                  ["apoyo", "APOYO"],
-                  ["hibrida", "HÍBRIDA"],
-                  ["subestructura", "SUB ESTRUCTURA"],
-                  ["incrustacion", "INCRUSTACIÓN"],
-                  ["encerado", "ENCERADO DX"],
-                  ["carilla", "CARILLA"],
-                  ["corona", "CORONA"],
-                  ["coronaimplante", "CORONA SOBRE IMPLANTE"],
-                  ["protesis", "PRÓTESIS FIJA"],
-                ].map(([id, label]) => (
-                  <div key={id} className="flex items-center gap-1">
-                    <Checkbox
-                      id={`${idPrefix}-${id}`}
-                      checked={formData.tiposTrabajo.includes(label)}
-                      onCheckedChange={() => handleCheckboxChange("tiposTrabajo", label)}
-                      className="h-3 w-3"
-                    />
-                    <Label htmlFor={`${idPrefix}-${id}`} className="text-[11px] cursor-pointer">
-                      {label === "PRÓTESIS FIJA" ? "PUENTE" : label}
-                    </Label>
-                  </div>
-                ))}
-              </div>
-              <div className="flex items-center gap-2 mt-2 text-[11px]">
-                <span>CHIMENEA</span>
-                <span>SÍ</span>
-                <Input
-                  type="text"
-                  className="w-8 h-5 border border-gray-400 text-center text-[10px]"
-                  value={formData.chimenea === true ? "X" : ""}
-                  onClick={() => onFormDataChange({ chimenea: formData.chimenea === true ? null : true })}
-                  readOnly
-                />
-                <span>NO</span>
-                <Input
-                  type="text"
-                  className="w-8 h-5 border border-gray-400 text-center text-[10px]"
-                  value={formData.chimenea === false ? "X" : ""}
-                  onClick={() => onFormDataChange({ chimenea: formData.chimenea === false ? null : false })}
-                  readOnly
-                />
-              </div>
-            </div>
+      {/* Productos del trabajo principal */}
+      {servicioTipo && CATALOGO_PRODUCTOS[servicioTipo] && (
+        <div className="border-b">
+          <div className="bg-[#8bc34a] text-white text-center py-1 text-xs font-semibold">
+            PRODUCTOS
           </div>
-
-          <div>
-            <div className="bg-[#8bc34a] text-white text-center py-1 text-xs font-semibold">
-              MATERIAL
+          <div className="p-2 space-y-2">
+            <div className="text-[10px] text-gray-500">
+              Agrega productos de <span className="font-semibold">{servicioTipo}</span>:
             </div>
-            <div className="p-2 space-y-1">
-              {[
-                ["disilicato", "DISILICATO"],
-                ["zirconio", "ZIRCONIO"],
-                ["metal-ceramica", "METAL-CERÁMICA"],
-                ["pmma", "PMMA"],
-                ["resina", "RESINA"],
-              ].map(([id, label]) => (
-                <div key={id} className="flex items-center gap-1">
-                  <Checkbox
-                    id={`${idPrefix}-${id}`}
-                    checked={formData.materiales.includes(label)}
-                    onCheckedChange={() => handleCheckboxChange("materiales", label)}
-                    className="h-3 w-3"
-                  />
-                  <Label htmlFor={`${idPrefix}-${id}`} className="text-[11px] cursor-pointer">{label}</Label>
-                </div>
-              ))}
+            <div className="flex items-center gap-2">
+              <select
+                value={productoPendiente}
+                onChange={(e) => setProductoPendiente(e.target.value)}
+                className="flex-1 rounded-md border border-gray-300 bg-white px-3 py-2 text-xs"
+              >
+                <option value="">Selecciona un producto...</option>
+                {CATALOGO_PRODUCTOS[servicioTipo].map((p) => (
+                  <option
+                    key={p.nombre}
+                    value={p.nombre}
+                    disabled={formData.productos.some((x) => x.producto === p.nombre)}
+                  >
+                    {p.nombre} — {formatoPrecio(p.precio)}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={agregarProducto}
+                disabled={!productoPendiente}
+                className="rounded-md bg-[#7cb342] px-3 py-2 text-xs font-medium text-white transition-all hover:bg-[#689f38] disabled:opacity-50"
+              >
+                Agregar
+              </button>
+            </div>
 
-              <div className="flex items-center gap-4 mt-2 pt-2 border-t">
-                <div className="flex items-center gap-1 text-[11px]">
-                  <span>PRUEBA</span>
-                  <Checkbox
-                    checked={formData.prueba}
-                    onCheckedChange={(checked) => onFormDataChange({ prueba: checked === true })}
-                    className="h-3 w-3"
-                  />
-                </div>
-                <div className="flex items-center gap-1 text-[11px]">
-                  <span>TERMINADO</span>
-                  <Checkbox
-                    checked={formData.terminado}
-                    onCheckedChange={(checked) => onFormDataChange({ terminado: checked === true })}
-                    className="h-3 w-3"
-                  />
+            {formData.productos.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-[11px] border-collapse">
+                  <thead>
+                    <tr className="bg-gray-100 text-left">
+                      <th className="border px-2 py-1">PRODUCTO</th>
+                      <th className="border px-2 py-1 text-center">UNIDADES</th>
+                      <th className="border px-2 py-1 text-center">DIENTES</th>
+                      <th className="border px-2 py-1 text-right">PRECIO</th>
+                      <th className="border px-2 py-1 text-right">PRECIO UNITARIO</th>
+                      <th className="border px-2 py-1 text-right">TOTAL</th>
+                      <th className="border px-2 py-1 text-center"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {formData.productos.map((linea, i) => {
+                      const total = (linea.unidades || 0) * (linea.precioUnitario || 0)
+                      return (
+                        <tr key={linea.producto}>
+                          <td className="border px-2 py-1">{linea.producto}</td>
+                          <td className="border px-2 py-1 text-center">
+                            <input
+                              type="number"
+                              min={0}
+                              value={linea.unidades}
+                              onChange={(e) =>
+                                actualizarProducto(
+                                  i,
+                                  "unidades",
+                                  Math.max(0, parseInt(e.target.value || "0", 10))
+                                )
+                              }
+                              className="w-16 h-6 text-center border border-gray-300 rounded text-[11px]"
+                            />
+                          </td>
+                          <td className="border px-2 py-1 text-center">
+                            <input
+                              type="text"
+                              value={linea.dientes}
+                              onChange={(e) => actualizarProducto(i, "dientes", e.target.value)}
+                              placeholder="ej. 11,12"
+                              className="w-24 h-6 text-center border border-gray-300 rounded text-[11px]"
+                            />
+                          </td>
+                          <td className="border px-2 py-1 text-right font-mono">{formatoPrecio(linea.precio)}</td>
+                          <td className="border px-2 py-1 text-right font-mono">{formatoPrecio(linea.precioUnitario)}</td>
+                          <td className="border px-2 py-1 text-right font-mono font-semibold">{formatoPrecio(total)}</td>
+                          <td className="border px-2 py-1 text-center">
+                            <button
+                              type="button"
+                              onClick={() => eliminarProducto(i)}
+                              className="text-red-500 hover:text-red-700 text-[11px]"
+                              aria-label={`Eliminar ${linea.producto}`}
+                            >
+                              ✕
+                            </button>
+                          </td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+                <div className="flex justify-end mt-2">
+                  <div className="rounded-lg bg-gray-50 border px-3 py-1 text-xs">
+                    <span className="font-bold">TOTAL: </span>
+                    <span className="font-mono font-bold text-[#c62828]">
+                      {formatoPrecio(
+                        formData.productos.reduce(
+                          (sum, p) => sum + (p.unidades || 0) * (p.precioUnitario || 0),
+                          0
+                        )
+                      )}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="text-[10px] text-gray-500">
+                Selecciona y agrega los productos que requiere el cliente.
+              </div>
+            )}
           </div>
         </div>
-      </div>
+      )}
 
       {/* Dientes a Trabajar */}
       <div className="border-b">
@@ -495,26 +643,21 @@ export function SolicitudSection({
           <span className="text-gray-700">{selectedTeethDisplay}</span>
         </div>
         <div className="px-2 pb-3 text-xs">
-          {servicioTipo && SERVICE_PRICES[servicioTipo] ? (
-            <div className="mt-1 rounded-lg bg-gray-50 p-2 border space-y-1">
-              <div className="flex justify-between">
-                <span>Precio unitario:</span>
-                <span className="font-mono font-semibold">${SERVICE_PRICES[servicioTipo].toLocaleString("es-CO")}</span>
-              </div>
-              <div className="flex justify-between">
-                <span>Cantidad de dientes:</span>
-                <span className="font-mono font-semibold">{selectedTeeth.length}</span>
-              </div>
-              <div className="border-t pt-1 mt-1 flex justify-between">
-                <span className="font-bold">Total:</span>
-                <span className="font-mono font-bold text-[#c62828]">
-                  ${(SERVICE_PRICES[servicioTipo] * Math.max(selectedTeeth.length, 1)).toLocaleString("es-CO")}
-                </span>
-              </div>
+          {formData.productos.some((p) => (p.unidades || 0) > 0) ? (
+            <div className="mt-1 rounded-lg bg-gray-50 p-2 border flex justify-between">
+              <span className="font-bold">TOTAL ESTIMADO:</span>
+              <span className="font-mono font-bold text-[#c62828]">
+                {formatoPrecio(
+                  formData.productos.reduce(
+                    (sum, p) => sum + (p.unidades || 0) * (p.precioUnitario || 0),
+                    0
+                  )
+                )}
+              </span>
             </div>
           ) : (
             <div className="mt-1 text-[10px] text-gray-500">
-              Selecciona un tipo de servicio para ver el precio.
+              Indica las unidades de los productos para ver el total.
             </div>
           )}
         </div>

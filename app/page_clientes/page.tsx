@@ -84,6 +84,18 @@ interface Solicitud {
   codigo_trazabilidad: string | null
   dientes_trabajados: string[] | null
   dientesTrabajados: string[]
+  dientes_detallados: { numero: number; servicio: string; estado: string }[]
+  servicios_detalle: {
+    id: number
+    nombre: string
+    descripcion: string
+    precio: number | null
+    cantidad: number
+    tipo_trabajo?: string | null
+    material?: string | null
+    dientes?: string | null
+    piezas_enviadas?: string | null
+  }[]
   tiposTrabajo: string[]
   piezasEnviadas: number
   dibujo_odontologo: string | null
@@ -296,6 +308,7 @@ export default function ClientesPage() {
           tipoTrabajo: string[]
           materiales: string[]
           piezas: number
+          servicios_detalle: any[]
         }
       >()
 
@@ -314,17 +327,22 @@ export default function ClientesPage() {
             dientes,
             tipo_trabajo,
             material,
-            piezas_enviadas
+            piezas_enviadas,
+            id,
+            nombre,
+            descripcion,
+            cantidad
           `)
           .in("solicitud_id", solicitudIds)
 
         servicios?.forEach((serv: any) => {
           const actual = serviciosMap.get(serv.solicitud_id) || {
             precio: 0,
-            dientes: [],
-            tipoTrabajo: [],
-            materiales: [],
+            dientes: [] as string[],
+            tipoTrabajo: [] as string[],
+            materiales: [] as string[],
             piezas: 0,
+            servicios_detalle: [] as any[],
           }
 
           serviciosMap.set(serv.solicitud_id, {
@@ -342,6 +360,20 @@ export default function ClientesPage() {
               ...(serv.material ? [serv.material] : []),
             ],
             piezas: actual.piezas + normalizarPiezas(serv.piezas_enviadas),
+            servicios_detalle: [
+              ...actual.servicios_detalle,
+              {
+                id: serv.id,
+                nombre: serv.nombre,
+                descripcion: serv.descripcion,
+                precio: Number(serv.precio || 0),
+                cantidad: serv.cantidad || 1,
+                tipo_trabajo: serv.tipo_trabajo || null,
+                material: serv.material || null,
+                dientes: serv.dientes || null,
+                piezas_enviadas: serv.piezas_enviadas || null,
+              },
+            ],
           })
         })
       }
@@ -356,6 +388,7 @@ export default function ClientesPage() {
           tiposTrabajo: info?.tipoTrabajo || [],
           materiales: info?.materiales || [],
           piezasEnviadas: info?.piezas || 0,
+          servicios_detalle: info?.servicios_detalle || [],
         }
       })
 
@@ -370,9 +403,15 @@ export default function ClientesPage() {
 
   const cargarEstadoCuenta = async (clienteId: number, solicitudesData: Solicitud[]) => {
     try {
-      const { data, error } = await supabase
-        .from("servicios")
-        .select(`
+      const solicitudIds = solicitudesData.map(s => s.id)
+      const solicitudesMap = new Map(solicitudesData.map(s => [s.id, s]))
+
+      let data: any[] | null = []
+
+      if (solicitudIds.length > 0) {
+        const { data: serviciosData, error } = await supabase
+          .from("servicios")
+          .select(`
                 id,
                 solicitud_id,
                 nombre,
@@ -381,12 +420,12 @@ export default function ClientesPage() {
                 cantidad,
                 created_at
               `)
-        .in("solicitud_id", solicitudesData.map(s => s.id))
-        .order("created_at", { ascending: true })
+          .in("solicitud_id", solicitudIds)
+          .order("created_at", { ascending: true })
 
-      if (error) throw error
-
-      const solicitudesMap = new Map(solicitudesData.map(s => [s.id, s]))
+        if (error) throw error
+        data = serviciosData
+      }
 
       const items = (data ?? [])
         .filter((item: any) => item.precio && Number(item.precio) > 0)
@@ -406,8 +445,15 @@ export default function ClientesPage() {
 
       setItemsEstadoCuenta(items)
       setTotalPagar(items.reduce((acc, item) => acc + item.precio, 0))
-    } catch (err) {
-      console.error("Error cargando estado de cuenta:", err)
+    } catch (err: any) {
+      console.error("Error cargando estado de cuenta:", {
+        message: err?.message,
+        code: err?.code,
+        details: err?.details,
+        hint: err?.hint,
+        status: err?.status,
+        full: err,
+      })
     }
   }
 
@@ -1698,7 +1744,9 @@ export default function ClientesPage() {
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                       <div className="flex-1">
                         <p className="text-sm font-semibold text-foreground">
-                          {solicitud.servicio}
+                          {(solicitud as any).servicios_detalle?.length > 0
+                            ? (solicitud as any).servicios_detalle.map((s: any) => s.nombre).join(", ")
+                            : solicitud.servicio}
                         </p>
 
                         {solicitud.observaciones && (
@@ -1762,8 +1810,22 @@ export default function ClientesPage() {
                             )}
                             {(solicitud as any).dientes_trabajados?.length > 0 && (
                               <div className="contents">
-                                {(solicitud as any).dientes_trabajados.map((diente: string, i: number) => (
-                                  <span key={i} className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700 w-fit">#{diente}</span>
+                                {(solicitud as any).dientes_detallados?.length > 0
+                                  ? (solicitud as any).dientes_detallados.map((d: any, i: number) => (
+                                      <span key={i} className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700 w-fit">#{d.numero}{d.servicio ? ` - ${d.servicio}` : ""} - {d.estado}</span>
+                                    ))
+                                  : (solicitud as any).dientes_trabajados.map((diente: string, i: number) => (
+                                      <span key={i} className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700 w-fit">#{diente}</span>
+                                    ))
+                                }
+                              </div>
+                            )}
+                            {(solicitud as any).servicios_detalle?.length > 0 && (
+                              <div className="contents">
+                                {(solicitud as any).servicios_detalle.map((serv: any, i: number) => (
+                                  <span key={serv.id || i} className="inline-flex rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-medium text-indigo-700 w-fit">
+                                    {serv.nombre} {serv.precio ? `($${Number(serv.precio).toLocaleString("es-CO")})` : ""} {serv.cantidad > 1 ? `x${serv.cantidad}` : ""}
+                                  </span>
                                 ))}
                               </div>
                             )}
@@ -1796,14 +1858,17 @@ export default function ClientesPage() {
                             </p>
                           </div>
 
-                          <div className="rounded-xl bg-muted/30 p-3">
-                            <p className="text-xs text-muted-foreground">
-                              Dientes
-                            </p>
-                            <p className="font-medium">
-                              {solicitud.dientesTrabajados?.join(", ") || "-"}
-                            </p>
-                          </div>
+                           <div className="rounded-xl bg-muted/30 p-3">
+                             <p className="text-xs text-muted-foreground">
+                               Dientes
+                             </p>
+                             <p className="font-medium">
+                               {(solicitud as any).dientes_detallados?.length > 0
+                                 ? (solicitud as any).dientes_detallados.map((d: any) => `${d.numero}${d.servicio ? ` - ${d.servicio}` : ""} - ${d.estado}`).join(", ")
+                                 : solicitud.dientesTrabajados?.join(", ") || "-"
+                               }
+                             </p>
+                           </div>
 
                           <div className="rounded-xl bg-muted/30 p-3">
                             <p className="text-xs text-muted-foreground">
@@ -2010,7 +2075,11 @@ export default function ClientesPage() {
               <div className="p-4 space-y-4">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Servicio</p>
-                  <p className="text-sm text-foreground">{selectedSolicitud.servicio}</p>
+                  <p className="text-sm text-foreground">
+                    {(selectedSolicitud as any).servicios_detalle?.length > 0
+                      ? (selectedSolicitud as any).servicios_detalle.map((s: any) => s.nombre).join(", ")
+                      : selectedSolicitud.servicio}
+                  </p>
                 </div>
 
                 {selectedSolicitud.observaciones && (

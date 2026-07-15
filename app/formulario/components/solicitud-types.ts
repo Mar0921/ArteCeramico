@@ -2,6 +2,14 @@ export type FechaPartes = { dia: string; mes: string; anio: string }
 
 export type ToothStatus = "normal" | "ausencia" | "implante" | "pilar"
 
+export interface ProductoLine {
+  producto: string
+  unidades: number
+  dientes: string
+  precio: number
+  precioUnitario: number
+}
+
 export interface SolicitudFormData {
   fechaElaboracion: FechaPartes
   fechaEntrega: FechaPartes
@@ -23,6 +31,7 @@ export interface SolicitudFormData {
   indicaciones: string
   piezasEnviadas: string[]
   codigoTrazabilidad: string
+  productos: ProductoLine[]
 }
 
 export interface UploadedFile {
@@ -89,6 +98,7 @@ export function createDefaultSolicitud(options?: {
       indicaciones: "",
       piezasEnviadas: [],
       codigoTrazabilidad: generateCodigoTrazabilidad(),
+      productos: [],
     },
   }
 }

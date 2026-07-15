@@ -56,6 +56,7 @@ function buildFormDataPayload(
   payload.append("historiaClinica", formData.historiaClinica || "")
   payload.append("tiposTrabajo", JSON.stringify(formData.tiposTrabajo))
   payload.append("materiales", JSON.stringify(formData.materiales))
+  payload.append("productos", JSON.stringify(formData.productos))
   payload.append("piezasEnviadas", JSON.stringify(formData.piezasEnviadas))
   payload.append("chimenea", formData.chimenea ? "true" : "false")
   payload.append("prueba", formData.prueba ? "true" : "false")
@@ -64,7 +65,18 @@ function buildFormDataPayload(
   payload.append(
     "dientesTrabajados",
     JSON.stringify(
-      selectedTeeth.map((t) => `${t}-${toothStatuses[t] || "normal"}`)
+      selectedTeeth.map((t) => {
+        const producto = formData.productos.find((p) =>
+          String(p.dientes || "")
+            .split(/[\s,\-]+/)
+            .includes(String(t))
+        )
+        return {
+          diente: t,
+          servicio: producto ? producto.producto : servicioTipo,
+          estado: toothStatuses[t] || "normal",
+        }
+      })
     )
   )
 
@@ -98,7 +110,10 @@ export function PrescriptionForm({
         if (stored) {
           const parsed = JSON.parse(stored)
           if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed
+            return parsed.map((s) => ({
+              ...s,
+              formData: { ...s.formData, productos: s.formData?.productos ?? [] },
+            }))
           }
         }
       } catch {

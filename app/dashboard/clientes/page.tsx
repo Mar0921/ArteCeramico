@@ -72,6 +72,18 @@ interface Solicitud {
   caja: string | null
   codigo_trazabilidad: string | null
   dientes_trabajados: string[] | null
+  dientes_detallados: { numero: number; servicio: string; estado: string }[] | null
+  servicios_detalle: {
+    id: number
+    nombre: string
+    descripcion: string
+    precio: number | null
+    cantidad: number
+    tipo_trabajo?: string | null
+    material?: string | null
+    dientes?: string | null
+    piezas_enviadas?: string | null
+  }[]
   dibujo_odontologo: string | null
   declaracion_conformidad: string | null
   guia_fabricacion: string | null
@@ -867,7 +879,9 @@ export default function ClientesPage() {
                               >
                                 <div className="flex-1">
                                   <p className="text-sm font-medium text-foreground">
-                                    {solicitud.servicio}
+                                    {(solicitud as any).servicios_detalle?.length > 0
+                                      ? (solicitud as any).servicios_detalle.map((s: any) => s.nombre).join(", ")
+                                      : solicitud.servicio}
                                   </p>
                 <div className="flex items-center gap-2 mt-1">
                   <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary capitalize">
@@ -877,6 +891,16 @@ export default function ClientesPage() {
                     {new Date(solicitud.created_at).toLocaleDateString("es-CO")}
                   </span>
                 </div>
+                {(solicitud as any).servicios_detalle?.length > 0 && (
+                  <div className="mt-2 space-y-1">
+                    {(solicitud as any).servicios_detalle.map((serv: any) => (
+                      <div key={serv.id} className="flex items-center justify-between text-[10px]">
+                        <span className="text-gray-700">{serv.nombre}</span>
+                        <span className="font-medium text-primary">${serv.precio ? Number(serv.precio).toLocaleString("es-CO") : "0"}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {solicitud.odontologo_firma && (
                   <div className="mt-2">
                     {String(solicitud.odontologo_firma).startsWith("data:image") ? (
