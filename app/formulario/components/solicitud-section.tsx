@@ -14,7 +14,7 @@ import { Calendar } from "@/components/ui/calendar"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { SolicitudEntry, SolicitudFormData, ToothStatus, UploadedFile } from "./solicitud-types"
-import { SERVICE_PRICES } from "@/lib/service-prices"
+import { SERVICE_PRICES, SERVICE_CATALOG } from "@/lib/service-prices"
 import { supabase } from "@/lib/supabase"
 
 interface SolicitudSectionProps {
@@ -335,16 +335,11 @@ export function SolicitudSection({
           className="w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-xs"
         >
           <option value="">Selecciona el servicio...</option>
-          <option value="Corona de Zirconio">Corona de Zirconio</option>
-          <option value="Corona de Disilicato de Litio">Corona de Disilicato de Litio</option>
-          <option value="Corona Metal Porcelana">Corona Metal Porcelana</option>
-          <option value="Carilla de Disilicato">Carilla de Disilicato</option>
-          <option value="Carilla de Resina">Carilla de Resina</option>
-          <option value="Incrustación">Incrustación</option>
-          <option value="Híbrida PMMA">Híbrida PMMA</option>
-          <option value="Prótesis Fija">Prótesis Fija</option>
-          <option value="Corona sobre Implante">Corona sobre Implante</option>
-          <option value="Modelo de Yeso">Modelo de Yeso</option>
+          {SERVICE_CATALOG.map((item) => (
+            <option key={item.name} value={item.name}>
+              {item.name} — {item.price}
+            </option>
+          ))}
           <option value="Otro">Otro</option>
         </select>
 

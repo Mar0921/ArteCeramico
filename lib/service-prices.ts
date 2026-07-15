@@ -6,18 +6,13 @@ export function parsePrice(priceStr: string): number {
   return Number.isFinite(num) ? num : 0
 }
 
-export const SERVICE_PRICES: Record<string, number> = {
-  "Corona de Zirconio": 340000,
-  "Corona de Disilicato de Litio": 330000,
-  "Corona Metal Porcelana": 315000,
-  "Carilla de Disilicato": 310000,
-  "Carilla de Resina": 200000,
-  "Incrustación": 300000,
-  "Híbrida PMMA": 210000,
-  "Prótesis Fija": 600000,
-  "Corona sobre Implante": 320000,
-  "Modelo de Yeso": 100000,
-}
+export const SERVICE_PRICES: Record<string, number> = Object.fromEntries(
+  SERVICE_CATALOG.map((item) => {
+    const cleaned = item.price.replace(/[$\s\.]/g, "").replace(/,/g, "")
+    const num = parseInt(cleaned, 10)
+    return [item.name, Number.isFinite(num) ? num : 0]
+  })
+)
 
 export const SERVICE_CATALOG: { name: string; price: string }[] = [
   { name: "Provisional PMMA", price: "$100.000" },
