@@ -46,7 +46,7 @@ const categories: Category[] = [
     keywords: ["acrílico", "acrilico", "plato base", "rodete", "pmma", "hibrida pmma", "provisional"],
     items: [
       { name: "Provisional PMMA", price: "$100.000" },
-      { name: "Provisional sobre implante", price: "$120.000" },
+       { name: "Provisional sobreimplante", price: "$120.000" },
       { name: "Híbrida PMMA unidad", price: "$210.000" },
       { name: "Plato base con rodete", price: "$45.000" },
     ]
@@ -62,7 +62,7 @@ const categories: Category[] = [
       { name: "Apoyo disilicato", price: "$115.000" },
       { name: "Corona zirconio maquillada", price: "$340.000" },
       { name: "Incrustación zirconio", price: "$315.000" },
-      { name: "Apoyo, balcón zirconio", price: "$85.000" },
+      { name: "Apoyo balcón zirconio", price: "$85.000" },
     ]
   },
   {

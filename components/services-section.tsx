@@ -8,7 +8,7 @@ import { supabase } from "@/lib/supabase"
 
 const serviceMapping: Record<string, { servicio: string; tipoTrabajo: string[]; material: string[] }> = {
   "Provisional PMMA": { servicio: "Híbrida PMMA", tipoTrabajo: ["HÍBRIDA"], material: ["PMMA"] },
-  "Provisional sobre implante": { servicio: "Corona sobre Implante", tipoTrabajo: ["CORONA SOBRE IMPLANTE"], material: ["PMMA"] },
+  "Provisional sobreimplante": { servicio: "Corona sobre Implante", tipoTrabajo: ["CORONA SOBRE IMPLANTE"], material: ["PMMA"] },
   "Híbrida PMMA unidad": { servicio: "Híbrida PMMA", tipoTrabajo: ["HÍBRIDA"], material: ["PMMA"] },
   "Plato base con rodete": { servicio: "Prótesis Fija", tipoTrabajo: ["PRÓTESIS FIJA"], material: ["PMMA"] },
   "Encerado DX": { servicio: "Otro", tipoTrabajo: ["ENCERADO DX"], material: [] },
@@ -22,7 +22,7 @@ const serviceMapping: Record<string, { servicio: string; tipoTrabajo: string[]; 
   "Apoyo disilicato": { servicio: "Otro", tipoTrabajo: ["SUB ESTRUCTURA"], material: ["DISILICATO"] },
   "Corona zirconio maquillada": { servicio: "Corona de Zirconio", tipoTrabajo: ["CORONA"], material: ["ZIRCONIO"] },
   "Incrustación zirconio": { servicio: "Incrustación", tipoTrabajo: ["INCRUSTACIÓN"], material: ["ZIRCONIO"] },
-  "Apoyo, balcón zirconio": { servicio: "Otro", tipoTrabajo: ["SUB ESTRUCTURA"], material: ["ZIRCONIO"] },
+  "Apoyo balcón zirconio": { servicio: "Otro", tipoTrabajo: ["SUB ESTRUCTURA"], material: ["ZIRCONIO"] },
   "Corona metal porcelana": { servicio: "Corona Metal Porcelana", tipoTrabajo: ["CORONA"], material: ["METAL-CERÁMICA"] },
   "Híbrida metal-acrílico (Duratone)": { servicio: "Prótesis Fija", tipoTrabajo: ["HÍBRIDA"], material: ["METAL-CERÁMICA"] },
   "Híbrida metal-porcelana unidad": { servicio: "Prótesis Fija", tipoTrabajo: ["HÍBRIDA"], material: ["METAL-CERÁMICA"] },
@@ -50,7 +50,7 @@ let categories: Category[] = [
     title: "ACRÍLICOS",
     items: [
       { name: "Provisional PMMA", price: "$100.000" },
-      { name: "Provisional sobre implante", price: "$120.000" },
+      { name: "Provisional sobreimplante", price: "$120.000" },
       { name: "Híbrida PMMA unidad", price: "$210.000" },
       { name: "Plato base con rodete", price: "$45.000" },
     ]
@@ -83,7 +83,7 @@ let categories: Category[] = [
       { name: "Apoyo disilicato", price: "$115.000" },
       { name: "Corona zirconio maquillada", price: "$340.000" },
       { name: "Incrustación zirconio", price: "$315.000" },
-      { name: "Apoyo, balcón zirconio", price: "$85.000" },
+      { name: "Apoyo balcón zirconio", price: "$85.000" },
     ]
   },
   {

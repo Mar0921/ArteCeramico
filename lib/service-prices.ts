@@ -21,7 +21,7 @@ export const SERVICE_PRICES: Record<string, number> = {
 
 export const SERVICE_CATALOG: { name: string; price: string }[] = [
   { name: "Provisional PMMA", price: "$100.000" },
-  { name: "Provisional sobre implante", price: "$120.000" },
+  { name: "Provisional sobreimplante", price: "$120.000" },
   { name: "Híbrida PMMA unidad", price: "$210.000" },
   { name: "Plato base con rodete", price: "$45.000" },
   { name: "Corona disilicato maquillada", price: "$330.000" },
@@ -36,13 +36,13 @@ export const SERVICE_CATALOG: { name: string; price: string }[] = [
   { name: "Corona atornillada disilicato", price: "$380.000" },
   { name: "Corona atornillada zirconio", price: "$380.000" },
   { name: "Corona metal porcelana", price: "$315.000" },
-  { name: "Híbrida metal-acrílico", price: "$3.200.000" },
-  { name: "Híbrida metal-porcelana", price: "$600.000" },
+  { name: "Híbrida metal-acrílico (Duratone)", price: "$3.200.000" },
+  { name: "Híbrida metal-porcelana unidad", price: "$600.000" },
   { name: "Encerado DX", price: "$40.000" },
   { name: "Encerado guía", price: "$35.000" },
   { name: "Modelos 3D completos", price: "$100.000" },
   { name: "Modelos 3D media arcada", price: "$60.000" },
-  { name: "Carillas impresas", price: "$180.000" },
-  { name: "Coronas impresas", price: "$200.000" },
-  { name: "Incrustaciones impresas", price: "$180.000" },
+  { name: "Carillas impresas c/u", price: "$180.000" },
+  { name: "Coronas impresas c/u", price: "$200.000" },
+  { name: "Incrustaciones impresas c/u", price: "$180.000" },
 ]
