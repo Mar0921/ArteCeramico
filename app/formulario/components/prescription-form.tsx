@@ -74,9 +74,8 @@ function buildFormDataPayload(
     payload.append("dibujoOdontologo", drawingDataUrl)
   }
 
-  uploadedFiles.forEach((file) => {
-    payload.append("archivos", file, file.name)
-  })
+  payload.append("archivos_urls", JSON.stringify(uploadedFiles.map((f) => f.url)))
+  payload.append("archivos_nombres", JSON.stringify(uploadedFiles.map((f) => f.name)))
 
   return payload
 }
@@ -92,12 +91,26 @@ export function PrescriptionForm({
   const toothDrawRefs = useRef<Map<string, DrawableToothRef | null>>(new Map())
   const initializedRef = useRef(false)
 
-  const [solicitudes, setSolicitudes] = useState<SolicitudEntry[]>(() => [
-    createDefaultSolicitud({
+  const [solicitudes, setSolicitudes] = useState<SolicitudEntry[]>(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const stored = localStorage.getItem("arteCeramico_solicitudes")
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+
+    return [createDefaultSolicitud({
       odontologo: initialData?.odontologo,
       ccOdontologo: initialData?.ccOdontologo,
-    }),
-  ])
+    })]
+  })
   const [activeIndex, setActiveIndex] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [solicitudEnviada, setSolicitudEnviada] = useState(false)
@@ -119,6 +132,16 @@ export function PrescriptionForm({
     },
     []
   )
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem("arteCeramico_solicitudes", JSON.stringify(solicitudes))
+      } catch {
+        // ignore storage errors
+      }
+    }
+  }, [solicitudes])
 
   useEffect(() => {
     const fetchClientData = async () => {
@@ -210,8 +233,8 @@ export function PrescriptionForm({
       if (!s.servicioTipo) {
         return `La solicitud #${i + 1} requiere seleccionar el tipo de servicio.`
       }
-      if (s.uploadedFiles.length === 0) {
-        return `La solicitud #${i + 1} requiere al menos un archivo adjunto.`
+      if (!s.formData.fechaEntrega.dia || !s.formData.fechaEntrega.mes || !s.formData.fechaEntrega.anio) {
+        return `La solicitud #${i + 1} requiere la fecha de entrega.`
       }
     }
     return null
@@ -289,6 +312,10 @@ export function PrescriptionForm({
 
       setEnviadasCount(succeeded.length)
       setSolicitudEnviada(true)
+
+      if (failed.length === 0) {
+        localStorage.removeItem("arteCeramico_solicitudes")
+      }
     } catch (error: unknown) {
       console.error("Error en handleSubmit:", error)
       const message = error instanceof Error ? error.message : "Error al enviar las solicitudes. Intenta nuevamente."

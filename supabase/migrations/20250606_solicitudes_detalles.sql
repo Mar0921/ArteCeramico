@@ -7,7 +7,7 @@ alter table public.solicitudes add column if not exists cc_odontologo text;
 alter table public.solicitudes add column if not exists paciente text;
 alter table public.solicitudes add column if not exists cc_paciente text;
 alter table public.solicitudes add column if not exists direccion text;
-alter table public.solicitudes add column if not exists firma text;
+alter table public.solicitudes add column if not exists odontologo_firma text;
 alter table public.solicitudes add column if not exists tipos_trabajo text[] default '{}';
 alter table public.solicitudes add column if not exists materiales text[] default '{}';
 alter table public.solicitudes add column if not exists chimenea text default 'No';

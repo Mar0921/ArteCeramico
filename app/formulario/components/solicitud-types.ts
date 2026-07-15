@@ -25,13 +25,19 @@ export interface SolicitudFormData {
   codigoTrazabilidad: string
 }
 
+export interface UploadedFile {
+  name: string
+  url: string
+  size: number
+}
+
 export interface SolicitudEntry {
   id: string
   formData: SolicitudFormData
   servicioTipo: string
   selectedTeeth: number[]
   toothStatuses: Record<number, ToothStatus>
-  uploadedFiles: File[]
+  uploadedFiles: UploadedFile[]
   total: number
 }
 

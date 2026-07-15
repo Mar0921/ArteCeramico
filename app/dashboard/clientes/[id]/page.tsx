@@ -64,7 +64,7 @@ interface Solicitud {
   paciente: string | null
   cc_paciente: string | null
   direccion: string | null
-  firma: string | null
+  odontologo_firma: string | null
   tipos_trabajo: string[] | null
   materiales: string[] | null
   chimenea: string | null
@@ -1174,10 +1174,18 @@ if (!conv) return
                                     <span className="text-sm text-gray-800">{solicitud.direccion || "-"}</span>
                                   </div>
                                 )}
-                                {solicitud.firma && (
+                                {solicitud.odontologo_firma && (
                                   <div className="flex items-center gap-1">
                                     <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">FIRMA:</span>
-                                    <span className="text-sm text-gray-800">{solicitud.firma || "-"}</span>
+                                    {String(solicitud.odontologo_firma).startsWith("data:image") ? (
+                                      <img
+                                        src={solicitud.odontologo_firma}
+                                        alt="Firma"
+                                        className="h-12 w-auto rounded border border-gray-300 bg-white"
+                                      />
+                                    ) : (
+                                      <span className="text-sm text-gray-800">{solicitud.odontologo_firma || "-"}</span>
+                                    )}
                                   </div>
                                 )}
                               </div>

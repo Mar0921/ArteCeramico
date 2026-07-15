@@ -60,7 +60,7 @@ interface Solicitud {
   paciente: string | null
   cc_paciente: string | null
   direccion: string | null
-  firma: string | null
+  odontologo_firma: string | null
   tipos_trabajo: string[] | null
   materiales: string[] | null
   chimenea: string | null
@@ -869,15 +869,28 @@ export default function ClientesPage() {
                                   <p className="text-sm font-medium text-foreground">
                                     {solicitud.servicio}
                                   </p>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary capitalize">
-                                      {solicitud.estado?.replace("_", " ") || "Pendiente"}
-                                    </span>
-                                    <span className="text-[10px] text-muted-foreground">
-                                      {new Date(solicitud.created_at).toLocaleDateString("es-CO")}
-                                    </span>
-                                  </div>
-                                </div>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary capitalize">
+                    {solicitud.estado?.replace("_", " ") || "Pendiente"}
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {new Date(solicitud.created_at).toLocaleDateString("es-CO")}
+                  </span>
+                </div>
+                {solicitud.odontologo_firma && (
+                  <div className="mt-2">
+                    {String(solicitud.odontologo_firma).startsWith("data:image") ? (
+                      <img
+                        src={solicitud.odontologo_firma}
+                        alt="Firma del doctor"
+                        className="h-12 w-auto rounded border border-border bg-white"
+                      />
+                    ) : (
+                      <span className="text-xs text-muted-foreground">Firma: {solicitud.odontologo_firma}</span>
+                    )}
+                  </div>
+                )}
+              </div>
                                 <div className="flex items-center gap-2">
                                   {solicitud.precio && (
                                     <span className="text-sm font-bold text-primary">

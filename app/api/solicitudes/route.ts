@@ -138,6 +138,8 @@ export async function POST(request: Request) {
     const indicaciones = String(formData.get("indicaciones") || "").trim()
     const userId = String(formData.get("userId") || "").trim()
     const archivos = formData.getAll("archivos").filter((value): value is File => value instanceof File)
+    const archivosUrlsJson = String(formData.get("archivos_urls") || "[]").trim()
+    const archivosNombresJson = String(formData.get("archivos_nombres") || "[]").trim()
 
     const fechaElaboracion = String(formData.get("fechaElaboracion") || "").trim()
     const fechaEntrega = String(formData.get("fechaEntrega") || "").trim()
@@ -196,24 +198,41 @@ export async function POST(request: Request) {
     } catch {
       dientesTrabajados = []
     }
+
+    let urlsDocumentos: string[] = []
+    let nombresArchivos: string[] = []
+
+    try {
+      const parsedUrls = JSON.parse(archivosUrlsJson)
+      const parsedNombres = JSON.parse(archivosNombresJson)
+      if (Array.isArray(parsedUrls)) {
+        urlsDocumentos = parsedUrls.filter((u): u is string => typeof u === "string")
+      }
+      if (Array.isArray(parsedNombres)) {
+        nombresArchivos = parsedNombres.filter((n): n is string => typeof n === "string")
+      }
+    } catch {
+      // ignore JSON parse errors
+    }
+
     console.log("================================")
     console.log("SERVICIO:", servicio)
     console.log("USER ID:", userId)
     console.log("ARCHIVOS:", archivos)
     console.log("ARCHIVOS LENGTH:", archivos?.length)
+    console.log("ARCHIVOS URLS:", urlsDocumentos)
     console.log("SERVICIO VACIO:", !servicio)
     console.log("USER ID VACIO:", !userId)
-    console.log("SIN ARCHIVOS:", archivos.length === 0)
+    console.log("SIN ARCHIVOS:", archivos.length === 0 && urlsDocumentos.length === 0)
     console.log("================================")
 
-    if (!servicio || !userId || archivos.length === 0) {
+    if (!servicio || !userId) {
       return NextResponse.json(
         {
-          message: "Datos de solicitud invalidos. Verifica servicio, usuario y adjuntos.",
+          message: "Datos de solicitud invalidos. Verifica servicio y usuario.",
           debug: {
             servicio,
             userId,
-            archivosLength: archivos?.length ?? 0,
           },
         },
         { status: 400 }
@@ -246,48 +265,51 @@ export async function POST(request: Request) {
       )
     }
 
-    const urlsDocumentos: string[] = []
-    const nombresArchivos: string[] = []
+    if (urlsDocumentos.length === 0 && archivos.length > 0) {
+      for (const archivo of archivos) {
+        if (archivo.size > 10 * 1024 * 1024) {
+          return NextResponse.json(
+            { message: `El archivo ${archivo.name} supera el limite de 10 MB.` },
+            { status: 400 }
+          )
+        }
 
-    for (const archivo of archivos) {
-      if (archivo.size > 10 * 1024 * 1024) {
-        return NextResponse.json(
-          { message: `El archivo ${archivo.name} supera el limite de 10 MB.` },
-          { status: 400 }
-        )
+        const extension = archivo.name.split(".").pop()?.toLowerCase() || "bin"
+        const nombreUnico = `${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`
+        const rutaStorage = `solicitudes/${cliente.id}/${nombreUnico}`
+
+        const arrayBuffer = await archivo.arrayBuffer()
+        const fileBuffer = Buffer.from(arrayBuffer)
+
+        const { error: uploadError } = await supabase.storage
+          .from("documentos")
+          .upload(rutaStorage, fileBuffer, {
+            upsert: false,
+            contentType: archivo.type || "application/octet-stream",
+          })
+
+        if (uploadError) {
+          console.error("Error upload:", uploadError)
+          return NextResponse.json(
+            {
+              message: `Error al guardar el archivo ${archivo.name}.`,
+              details: uploadError.message,
+            },
+            { status: 500 }
+          )
+        }
+
+        const { data: urlData } = supabase.storage
+          .from("documentos")
+          .getPublicUrl(rutaStorage)
+
+        urlsDocumentos.push(urlData.publicUrl)
+        nombresArchivos.push(archivo.name)
       }
-
-      const extension = archivo.name.split(".").pop()?.toLowerCase() || "bin"
-      const nombreUnico = `${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`
-      const rutaStorage = `solicitudes/${cliente.id}/${nombreUnico}`
-
-      const arrayBuffer = await archivo.arrayBuffer()
-      const fileBuffer = Buffer.from(arrayBuffer)
-
-      const { error: uploadError } = await supabase.storage
-        .from("documentos")
-        .upload(rutaStorage, fileBuffer, {
-          upsert: false,
-          contentType: archivo.type || "application/octet-stream",
-        })
-
-      if (uploadError) {
-        console.error("Error upload:", uploadError)
-        return NextResponse.json(
-          {
-            message: `Error al guardar el archivo ${archivo.name}.`,
-            details: uploadError.message,
-          },
-          { status: 500 }
-        )
+    } else if (urlsDocumentos.length > 0 && nombresArchivos.length === 0) {
+      for (let i = 0; i < urlsDocumentos.length; i++) {
+        nombresArchivos.push(`Archivo ${i + 1}`)
       }
-
-      const { data: urlData } = supabase.storage
-        .from("documentos")
-        .getPublicUrl(rutaStorage)
-
-      urlsDocumentos.push(urlData.publicUrl)
-      nombresArchivos.push(archivo.name)
     }
 
     if (dibujoOdontologo) {
@@ -366,15 +388,6 @@ export async function POST(request: Request) {
 
     let solicitudInsertada: any = null
 
-    const insertData: Record<string, unknown> = {
-      cliente_id: cliente.id,
-      servicio,
-      observaciones,
-      urls_documentos: todosLosDocumentos,
-      estado: "pendiente",
-      codigo_trazabilidad: codigoTrazabilidad || null,
-    }
-
     const extraFields: Record<string, unknown> = {
       fecha_elaboracion: fechaElaboracionFormateada,
       fecha_entrega: fechaEntregaFormateada,
@@ -400,9 +413,24 @@ export async function POST(request: Request) {
       dibujo_odontologo: dibujoOdontologo || null,
     }
 
+    const siNo = (value: boolean) => (value ? "Si" : "No")
+
+    const insertData: Record<string, unknown> = {
+      cliente_id: cliente.id,
+      servicio,
+      observaciones,
+      urls_documentos: todosLosDocumentos,
+      estado: "pendiente",
+      codigo_trazabilidad: codigoTrazabilidad || null,
+      ...extraFields,
+      chimenea: siNo(chimenea),
+      prueba: siNo(prueba),
+      terminado: siNo(terminado),
+    }
+
     const { data: inserted, error: firstError } = await supabase
       .from("solicitudes")
-      .insert({ ...insertData, ...extraFields })
+      .insert(insertData)
       .select("id")
       .single()
 
@@ -412,7 +440,7 @@ export async function POST(request: Request) {
       if (msg.includes("column") || msg.includes("schema") || msg.includes("does not exist")) {
         const { data: fallback, error: fallbackError } = await supabase
           .from("solicitudes")
-          .insert({ ...insertData, ...extraFields })
+          .insert(insertData)
           .select("id")
           .single()
 

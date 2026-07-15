@@ -19,7 +19,6 @@ import {
   Edit,
   Save,
   Home,
-  Plus,
   Trash2,
   Paperclip,
   Upload,
@@ -1509,19 +1508,7 @@ export default function ClientesPage() {
                   Gestiona tus pedidos y adjunta documentos
                 </p>
               </div>
-            </div>
-
-            <button
-              onClick={() => setMostrarFormulario(prev => !prev)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-all hover:scale-[1.02] sm:w-auto"
-            >
-              {mostrarFormulario ? (
-                <X size={18} />
-              ) : (
-                <Plus size={18} />
-              )}
-              {mostrarFormulario ? "Ocultar formulario" : "Nueva solicitud"}
-            </button>
+          </div>
           </div>
 
           <div className="mb-4">
@@ -1875,9 +1862,24 @@ export default function ClientesPage() {
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => abrirChatSolicitud(solicitud)}
+                        {(solicitud as any).odontologo_firma && (
+                          <div className="mt-3">
+                            <p className="text-xs text-muted-foreground mb-1">Firma del doctor</p>
+                            {String((solicitud as any).odontologo_firma).startsWith("data:image") ? (
+                              <img
+                                src={(solicitud as any).odontologo_firma}
+                                alt="Firma del doctor"
+                                className="h-20 w-auto rounded-lg border border-border bg-white"
+                              />
+                            ) : (
+                              <p className="text-sm text-foreground">{(solicitud as any).odontologo_firma}</p>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => abrirChatSolicitud(solicitud)}
                           className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-white relative"
                         >
                           <MessageCircle size={16} />
@@ -2048,10 +2050,18 @@ export default function ClientesPage() {
                     <p className="text-sm text-foreground">{(selectedSolicitud as any).direccion}</p>
                   </div>
                 )}
-                {(selectedSolicitud as any).firma && (
+                {(selectedSolicitud as any).odontologo_firma && (
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Firma</p>
-                    <p className="text-sm text-foreground">{(selectedSolicitud as any).firma}</p>
+                    {String((selectedSolicitud as any).odontologo_firma).startsWith("data:image") ? (
+                      <img
+                        src={(selectedSolicitud as any).odontologo_firma}
+                        alt="Firma"
+                        className="h-20 w-auto rounded border border-border bg-white"
+                      />
+                    ) : (
+                      <p className="text-sm text-foreground">{(selectedSolicitud as any).odontologo_firma}</p>
+                    )}
                   </div>
                 )}
                 {(selectedSolicitud as any).historia_clinica && (

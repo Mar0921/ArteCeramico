@@ -8,12 +8,14 @@ import { Textarea } from "@/components/ui/textarea"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { DentalChart } from "./dental-chart"
 import { DrawableTooth, DrawableToothRef } from "./drawable-tooth"
+import { SignaturePad } from "./signature-pad"
 import { Calendar as CalendarIcon, Upload, File, X, DollarSign } from "lucide-react"
 import { Calendar } from "@/components/ui/calendar"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import { SolicitudEntry, SolicitudFormData, ToothStatus } from "./solicitud-types"
+import { SolicitudEntry, SolicitudFormData, ToothStatus, UploadedFile } from "./solicitud-types"
 import { SERVICE_PRICES } from "@/lib/service-prices"
+import { supabase } from "@/lib/supabase"
 
 interface SolicitudSectionProps {
   solicitud: SolicitudEntry
@@ -83,18 +85,66 @@ export function SolicitudSection({
     })
   }
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || [])
     const validFiles = files.filter((file) => {
       const validTypes = ["image/jpeg", "image/png", "image/gif", "application/pdf"]
       const maxSize = 10 * 1024 * 1024
       return validTypes.includes(file.type) && file.size <= maxSize
     })
-    onUpdate({ uploadedFiles: [...uploadedFiles, ...validFiles] })
+
+    const uploaded: UploadedFile[] = []
+    for (const file of validFiles) {
+      try {
+        const extension = file.name.split(".").pop()?.toLowerCase() || "bin"
+        const nombreUnico = `${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`
+        const rutaStorage = `solicitudes/${nombreUnico}`
+
+        const { error: uploadError } = await supabase.storage
+          .from("documentos")
+          .upload(rutaStorage, file, {
+            upsert: false,
+            contentType: file.type || "application/octet-stream",
+          })
+
+        if (uploadError) {
+          console.error("Error upload:", uploadError)
+          alert(`Error al subir ${file.name}: ${uploadError.message}`)
+          continue
+        }
+
+        const { data: urlData } = supabase.storage
+          .from("documentos")
+          .getPublicUrl(rutaStorage)
+
+        uploaded.push({
+          name: file.name,
+          url: urlData.publicUrl,
+          size: file.size,
+        })
+      } catch (err) {
+        console.error("Error uploading file:", err)
+        alert(`Error inesperado subiendo ${file.name}`)
+      }
+    }
+
+    if (uploaded.length > 0) {
+      onUpdate({ uploadedFiles: [...uploadedFiles, ...uploaded] })
+    }
     e.target.value = ""
   }
 
-  const removeFile = (fileIndex: number) => {
+  const removeFile = async (fileIndex: number) => {
+    const file = uploadedFiles[fileIndex]
+    if (file?.url) {
+      try {
+        const url = new URL(file.url)
+        const bucketPath = url.pathname.split("/").slice(3).join("/")
+        await supabase.storage.from("documentos").remove([bucketPath])
+      } catch {
+        // ignore cleanup errors
+      }
+    }
     onUpdate({ uploadedFiles: uploadedFiles.filter((_, i) => i !== fileIndex) })
   }
 
@@ -147,14 +197,14 @@ export function SolicitudSection({
 
           <div className="flex flex-col">
             <Label className="text-[10px] text-gray-600 text-center mb-1">
-              FECHA DE<br />ENTREGA
+              FECHA DE<br />ENTREGA <span className="text-red-500">*</span>
             </Label>
             <div className="flex items-center gap-2">
               <Popover open={showCalendarEntrega} onOpenChange={setShowCalendarEntrega}>
                 <PopoverTrigger asChild>
                   <button
                     type="button"
-                    className="flex items-center gap-1 rounded bg-[#a5d6a7] px-2 py-1 text-xs hover:bg-[#8bc34a]"
+                    className={`flex items-center gap-1 rounded px-2 py-1 text-xs hover:bg-[#8bc34a] ${!formData.fechaEntrega.dia ? "bg-red-100 border border-red-400" : "bg-[#a5d6a7]"}`}
                     disabled={!formData.fechaElaboracion.dia}
                   >
                     <CalendarIcon size={14} />
@@ -267,12 +317,11 @@ export function SolicitudSection({
           />
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex flex-col gap-1">
           <Label className="text-xs whitespace-nowrap">FIRMA DE ODONTÓLOGO (A):</Label>
-          <Input
-            className="flex-1 h-6 border-b border-gray-400 rounded-none border-t-0 border-l-0 border-r-0 text-xs"
+          <SignaturePad
             value={formData.firma}
-            onChange={(e) => onFormDataChange({ firma: e.target.value })}
+            onChange={(dataUrl) => onFormDataChange({ firma: dataUrl })}
           />
         </div>
       </div>
