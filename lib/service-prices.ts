@@ -6,14 +6,6 @@ export function parsePrice(priceStr: string): number {
   return Number.isFinite(num) ? num : 0
 }
 
-export const SERVICE_PRICES: Record<string, number> = Object.fromEntries(
-  SERVICE_CATALOG.map((item) => {
-    const cleaned = item.price.replace(/[$\s\.]/g, "").replace(/,/g, "")
-    const num = parseInt(cleaned, 10)
-    return [item.name, Number.isFinite(num) ? num : 0]
-  })
-)
-
 export const SERVICE_CATALOG: { name: string; price: string }[] = [
   { name: "Provisional PMMA", price: "$100.000" },
   { name: "Provisional sobreimplante", price: "$120.000" },
@@ -41,3 +33,11 @@ export const SERVICE_CATALOG: { name: string; price: string }[] = [
   { name: "Coronas impresas c/u", price: "$200.000" },
   { name: "Incrustaciones impresas c/u", price: "$180.000" },
 ]
+
+export const SERVICE_PRICES: Record<string, number> = Object.fromEntries(
+  SERVICE_CATALOG.map((item) => {
+    const cleaned = item.price.replace(/[$\s\.]/g, "").replace(/,/g, "")
+    const num = parseInt(cleaned, 10)
+    return [item.name, Number.isFinite(num) ? num : 0]
+  })
+)
