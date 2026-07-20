@@ -285,7 +285,7 @@ export function SolicitudSection({
 
       {/* Fechas y Prescripción */}
       <div className="p-3 border-b">
-        <div className="flex flex-wrap gap-4 items-end justify-between">
+        <div className="flex flex-wrap gap-4 items-center justify-between">
           <div className="flex flex-col">
             <Label className="text-[10px] text-gray-600 text-center mb-1">
               FECHA DE<br />ELABORACIÓN

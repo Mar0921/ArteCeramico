@@ -30,10 +30,130 @@ async function buildPdfBuffer(data: {
   createdAt: string
   dientesTrabajados?: string[]
   precio?: number | null
+  fechaElaboracion?: string
+  fechaEntrega?: string
+  historiaClinica?: string
+  odontologo?: string
+  ccOdontologo?: string
+  paciente?: string
+  tarjetaProfesional?: string
+  ccPaciente?: string
+  direccion?: string
+  firma?: string
+  tiposTrabajo?: string[]
+  materiales?: string[]
+  chimenea?: boolean
+  prueba?: boolean
+  terminado?: boolean
+  color?: string
+  guia?: string
+  indicaciones?: string
+  piezasEnviadas?: string[]
+  codigoTrazabilidad?: string
+  productos?: { producto: string; unidades: number; dientes: string; precio: number; precioUnitario: number }[]
+  dibujoOdontologo?: string
 }) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" })
   const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const margin = 20
+  const contentWidth = pageWidth - margin * 2
   let y = 15
+
+  const checkPageBreak = (neededHeight: number) => {
+    if (y + neededHeight > pageHeight - margin) {
+      doc.addPage()
+      y = margin
+    }
+  }
+
+  const addLine = () => {
+    doc.setDrawColor(0)
+    doc.setLineWidth(0.3)
+    doc.line(margin, y, pageWidth - margin, y)
+    y += 4
+  }
+
+  const addSectionTitle = (title: string) => {
+    checkPageBreak(10)
+    doc.setFontSize(11)
+    doc.setFont("helvetica", "bold")
+    doc.text(title, margin, y)
+    y += 5
+  }
+
+  const addField = (label: string, value: string) => {
+    checkPageBreak(10)
+    doc.setFontSize(9)
+    doc.setFont("helvetica", "bold")
+    const labelStr = `${label}:`
+    const labelWidth = doc.getTextWidth(labelStr)
+    const offsetX = labelWidth + 3
+    doc.text(labelStr, margin, y)
+    doc.setFont("helvetica", "normal")
+    const availableWidth = contentWidth - offsetX
+    const splitValue = doc.splitTextToSize(value || "N/A", availableWidth)
+    doc.text(splitValue, margin + offsetX, y)
+    y += Math.max(splitValue.length, 1) * 4.5 + 2
+  }
+
+  const addFieldsGrid = (fields: [string, string][], columns = 2) => {
+    checkPageBreak(20)
+    doc.setFontSize(9)
+    const colWidth = contentWidth / columns
+    let currentX = margin
+    let currentY = y
+    let maxY = y
+
+    for (const [label, value] of fields) {
+      doc.setFont("helvetica", "bold")
+      const labelStr = `${label}:`
+      const labelWidth = doc.getTextWidth(labelStr)
+      const offsetX = labelWidth + 3
+      doc.text(labelStr, currentX, currentY)
+      doc.setFont("helvetica", "normal")
+      const availableWidth = colWidth - offsetX - margin
+      const splitValue = doc.splitTextToSize(value || "N/A", availableWidth)
+      doc.text(splitValue, currentX + offsetX, currentY)
+      const needed = Math.max(splitValue.length, 1) * 4.5 + 3
+      maxY = Math.max(maxY, currentY + needed)
+
+      if (currentY + needed > pageHeight - margin - 10) {
+        doc.addPage()
+        currentY = margin
+        maxY = margin
+        currentX = margin
+      } else {
+        currentY += needed
+      }
+
+      if (currentY > y + 35 && currentX === margin) {
+        currentX = margin + colWidth
+        currentY = maxY + 3
+        maxY = Math.max(maxY, currentY)
+      }
+    }
+
+    y = Math.max(y + 5, maxY + 3)
+  }
+
+  const addImageFromBase64 = (base64: string | undefined, maxWidth: number, maxHeight: number) => {
+    if (!base64) return false
+    try {
+      const match = base64.match(/^data:([^;]+);base64,(.+)$/)
+      if (!match) return false
+      const mimeType = match[1]
+      const base64Data = match[2]
+      const format = mimeType === "image/png" ? "PNG" : "JPEG"
+
+      checkPageBreak(maxHeight + 5)
+      doc.addImage(base64Data, format, margin, y, maxWidth, maxHeight)
+      y += maxHeight + 5
+      return true
+    } catch {
+      return false
+    }
+  }
 
   doc.setFontSize(16)
   doc.setFont("helvetica", "bold")
@@ -47,95 +167,149 @@ async function buildPdfBuffer(data: {
   doc.text("Telefono: 3177280804 | Correo: lab-arteceramico@hotmail.com", pageWidth / 2, y, { align: "center" })
   y += 8
 
-  doc.setDrawColor(0)
-  doc.setLineWidth(0.3)
-  doc.line(15, y, pageWidth - 15, y)
-  y += 6
+  addLine()
 
   doc.setFontSize(12)
   doc.setFont("helvetica", "bold")
   doc.text("SOLICITUD DE SERVICIO", pageWidth / 2, y, { align: "center" })
   y += 8
 
-  doc.setFontSize(10)
-  doc.setFont("helvetica", "normal")
-  const fieldsLeft = [
+  addSectionTitle("DATOS DEL CLIENTE")
+  addFieldsGrid([
     ["Fecha de solicitud", new Date(data.createdAt).toLocaleString()],
-    ["Nombre del cliente", data.clienteNombre],
+    ["Nombre", data.clienteNombre],
     ["Documento", data.clienteDocumento],
     ["Clinica", data.clienteClinica],
     ["Correo", data.clienteCorreo],
     ["Telefono", data.clienteTelefono],
-  ]
+  ])
 
-  for (const [label, value] of fieldsLeft) {
-    doc.setFont("helvetica", "bold")
-    doc.text(`${label}:`, 15, y)
-    doc.setFont("helvetica", "normal")
-    doc.text(value, 65, y)
-    y += 5.5
+  addSectionTitle("DATOS DE LA SOLICITUD")
+  addFieldsGrid([
+    ["Historia Clinica", data.historiaClinica || "N/A"],
+    ["Fecha Elaboracion", data.fechaElaboracion || "N/A"],
+    ["Fecha Entrega", data.fechaEntrega || "N/A"],
+    ["Codigo Trazabilidad", data.codigoTrazabilidad || "N/A"],
+  ])
+
+  addField("Servicio", data.servicio)
+  addField("Indicaciones", data.indicaciones || data.observaciones || "Sin indicaciones.")
+
+  if (data.chimenea !== undefined || data.prueba !== undefined || data.terminado !== undefined) {
+    addFieldsGrid([
+      ["Chimenea", data.chimenea ? "Si" : "No"],
+      ["Prueba", data.prueba ? "Si" : "No"],
+      ["Terminado", data.terminado ? "Si" : "No"],
+    ])
   }
 
-  y += 2
-  doc.line(15, y, pageWidth - 15, y)
-  y += 6
+  addSectionTitle("DATOS DEL ODONTOLOGO")
+  addFieldsGrid([
+    ["Nombre", data.odontologo || "N/A"],
+    ["CC", data.ccOdontologo || "N/A"],
+    ["Tarjeta Profesional", data.tarjetaProfesional || "N/A"],
+    ["Direccion", data.direccion || "N/A"],
+  ])
 
-  doc.setFont("helvetica", "bold")
-  doc.text("Servicio solicitado", 15, y)
-  y += 2
-  doc.setFont("helvetica", "normal")
-  const splitServicio = doc.splitTextToSize(data.servicio, pageWidth - 30)
-  doc.text(splitServicio, 15, y)
-  y += splitServicio.length * 4.5 + 4
-
-  doc.line(15, y, pageWidth - 15, y)
-  y += 6
-
-  doc.setFont("helvetica", "bold")
-  doc.text("Observaciones o detalles adicionales", 15, y)
-  y += 2
-  doc.setFont("helvetica", "normal")
-  const splitObs = doc.splitTextToSize(data.observaciones || "Sin observaciones.", pageWidth - 30)
-  doc.text(splitObs, 15, y)
-  y += splitObs.length * 4.5 + 4
-
-  if (data.archivosNombres.length > 0) {
-    doc.line(15, y, pageWidth - 15, y)
-    y += 6
+  if (data.firma) {
+    checkPageBreak(30)
+    doc.setFontSize(9)
     doc.setFont("helvetica", "bold")
-    doc.text("Archivos adjuntos", 15, y)
-    y += 5
-    doc.setFont("helvetica", "normal")
-    for (const nombre of data.archivosNombres) {
-      doc.text(`- ${nombre}`, 20, y)
-      y += 4.5
+    doc.text("Firma:", margin, y)
+    y += 3
+    addImageFromBase64(data.firma, 60, 25)
+  }
+
+  addSectionTitle("DATOS DEL PACIENTE")
+  addFieldsGrid([
+    ["Nombre", data.paciente || "N/A"],
+    ["CC", data.ccPaciente || "N/A"],
+  ])
+
+  if (data.tiposTrabajo && data.tiposTrabajo.length > 0) {
+    addSectionTitle("TIPOS DE TRABAJO")
+    addField("Tipos", data.tiposTrabajo.join(", "))
+  }
+
+  if (data.materiales && data.materiales.length > 0) {
+    addSectionTitle("MATERIALES")
+    addField("Materiales", data.materiales.join(", "))
+  }
+
+  if (data.color || data.guia) {
+    addSectionTitle("COLOR")
+    addFieldsGrid([
+      ["Color", data.color || "N/A"],
+      ["Guia", data.guia || "N/A"],
+    ])
+  }
+
+  if (data.productos && data.productos.length > 0) {
+    addSectionTitle("PRODUCTOS")
+    checkPageBreak(20)
+    const tableHeaders = ["Producto", "Unidades", "Dientes", "Precio Unit.", "Total"]
+    const colWidths = [70, 20, 25, 30, 30]
+    const rowHeight = 6
+    let x = margin
+
+    doc.setFontSize(8)
+    doc.setFont("helvetica", "bold")
+    for (let i = 0; i < tableHeaders.length; i++) {
+      doc.text(tableHeaders[i], x, y)
+      x += colWidths[i]
     }
+    y += 2
+    addLine()
+    y += 2
+
+    doc.setFont("helvetica", "normal")
+    for (const prod of data.productos) {
+      checkPageBreak(rowHeight + 4)
+      x = margin
+      const row = [prod.producto, String(prod.unidades || 0), prod.dientes || "", `$${(prod.precioUnitario || 0).toLocaleString("es-CO")}`, `$${((prod.unidades || 0) * (prod.precioUnitario || 0)).toLocaleString("es-CO")}`]
+      for (let i = 0; i < row.length; i++) {
+        doc.text(row[i], x, y)
+        x += colWidths[i]
+      }
+      y += rowHeight
+    }
+
+    y += 3
+    doc.setFont("helvetica", "bold")
+    const totalProductos = data.productos.reduce((sum, p) => sum + (p.unidades || 0) * (p.precioUnitario || 0), 0)
+    doc.text(`TOTAL PRODUCTOS: $${totalProductos.toLocaleString("es-CO")}`, margin, y)
+    y += 6
   }
 
   if (data.dientesTrabajados && data.dientesTrabajados.length > 0) {
-    doc.line(15, y, pageWidth - 15, y)
-    y += 6
-    doc.setFont("helvetica", "bold")
-    doc.text("Dientes trabajados", 15, y)
-    y += 2
-    doc.setFont("helvetica", "normal")
-    doc.text(data.dientesTrabajados.join(", "), 15, y)
-    y += 5
+    addSectionTitle("DIENTES TRABAJADOS")
+    addField("Dientes", data.dientesTrabajados.join(", "))
+  }
+
+  if (data.piezasEnviadas && data.piezasEnviadas.length > 0) {
+    addSectionTitle("PIEZAS ENVIADAS")
+    addField("Piezas", data.piezasEnviadas.join(", "))
+  }
+
+  if (data.archivosNombres.length > 0) {
+    addSectionTitle("ARCHIVOS ADJUNTOS")
+    for (const nombre of data.archivosNombres) {
+      addField("Archivo", `- ${nombre}`)
+    }
+  }
+
+  if (data.dibujoOdontologo) {
+    addSectionTitle("DIBUJO DEL ODONTOLOGO")
+    addImageFromBase64(data.dibujoOdontologo, 100, 80)
   }
 
   if (data.precio !== null && data.precio !== undefined) {
-    doc.line(15, y, pageWidth - 15, y)
-    y += 6
-    doc.setFont("helvetica", "bold")
-    doc.text("Precio", 15, y)
-    y += 2
-    doc.setFont("helvetica", "normal")
-    doc.text(`$${Number(data.precio).toLocaleString("es-CO")}`, 15, y)
-    y += 5
+    addSectionTitle("PRECIO")
+    addField("Precio", `$${Number(data.precio).toLocaleString("es-CO")}`)
   }
 
   y += 6
-  doc.line(15, y, pageWidth - 15, y)
+  addLine()
   y += 5
   doc.setFontSize(8)
   doc.text("Solicitud generada automaticamente por el sistema de Arte Ceramico.", pageWidth / 2, y, { align: "center" })
@@ -400,6 +574,34 @@ export async function POST(request: Request) {
       createdAt: new Date().toISOString(),
       dientesTrabajados: dientesTrabajados.length > 0 ? dientesTrabajados : undefined,
       precio: total > 0 ? total : null,
+      fechaElaboracion: fechaElaboracion || undefined,
+      fechaEntrega: fechaEntrega || undefined,
+      historiaClinica: historiaClinica || undefined,
+      odontologo: formData.get("odontologo")?.toString() || undefined,
+      ccOdontologo: formData.get("ccOdontologo")?.toString() || undefined,
+      paciente: paciente || undefined,
+      tarjetaProfesional: tarjetaProfesional || undefined,
+      ccPaciente: ccPaciente || undefined,
+      direccion: direccion || undefined,
+      firma: firma || undefined,
+      tiposTrabajo: tiposTrabajo.length > 0 ? tiposTrabajo : undefined,
+      materiales: materiales.length > 0 ? materiales : undefined,
+      chimenea: chimenea || undefined,
+      prueba: prueba || undefined,
+      terminado: terminado || undefined,
+      color: color || undefined,
+      guia: guia || undefined,
+      indicaciones: indicaciones || undefined,
+      piezasEnviadas: piezasEnviadas.length > 0 ? piezasEnviadas : undefined,
+      codigoTrazabilidad: codigoTrazabilidad || undefined,
+      productos: productos.length > 0 ? productos.map((p: any) => ({
+        producto: p.producto || p.nombre || "Producto",
+        unidades: p.unidades || 1,
+        dientes: p.dientes || "",
+        precio: p.precio || 0,
+        precioUnitario: p.precioUnitario || p.precio || 0,
+      })) : undefined,
+      dibujoOdontologo: dibujoOdontologo || undefined,
     })
 
     const nombrePdf = `solicitud-${cliente.id}-${Date.now()}.pdf`
