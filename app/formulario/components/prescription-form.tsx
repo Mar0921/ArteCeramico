@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { SolicitudSection } from "./solicitud-section"
 import { DrawableToothRef } from "./drawable-tooth"
-import { FileDown, Send, Plus, Trash2 } from "lucide-react"
+import { FileDown, Send, Trash2 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
@@ -12,13 +12,13 @@ import { Navbar } from "@/components/navbar"
 import {
   SolicitudEntry,
   createDefaultSolicitud,
+  generateCodigoTrazabilidad,
   formatFecha,
 } from "./solicitud-types"
 
 interface PrescriptionFormProps {
   initialData?: {
     odontologo?: string
-    ccOdontologo?: string
   }
   servicio?: string
   tipoServicio?: string
@@ -39,12 +39,10 @@ function buildFormDataPayload(
   payload.append("correoOdontologo", email)
   payload.append("servicio", servicioTipo)
 
-  payload.append("observaciones", formData.indicaciones || "")
   payload.append("indicaciones", formData.indicaciones || "")
   payload.append("odontologo", formData.odontologo || "")
-  payload.append("ccOdontologo", formData.ccOdontologo || "")
+  payload.append("registroMedico", formData.registroMedico || "")
   payload.append("paciente", formData.paciente || "")
-  payload.append("tarjetaProfesional", formData.tarjetaProfesional || "")
   payload.append("ccPaciente", formData.ccPaciente || "")
   payload.append("direccion", formData.direccion || "")
   payload.append("firma", formData.firma || "")
@@ -103,29 +101,32 @@ export function PrescriptionForm({
   const toothDrawRefs = useRef<Map<string, DrawableToothRef | null>>(new Map())
   const initializedRef = useRef(false)
 
-  const [solicitudes, setSolicitudes] = useState<SolicitudEntry[]>(() => {
-    if (typeof window !== "undefined") {
-      try {
-        const stored = localStorage.getItem("arteCeramico_solicitudes")
-        if (stored) {
-          const parsed = JSON.parse(stored)
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            return parsed.map((s) => ({
-              ...s,
-              formData: { ...s.formData, productos: s.formData?.productos ?? [] },
-            }))
+    const [solicitudes, setSolicitudes] = useState<SolicitudEntry[]>(() => {
+      if (typeof window !== "undefined") {
+        try {
+          const stored = localStorage.getItem("arteCeramico_solicitudes")
+          if (stored) {
+            const parsed = JSON.parse(stored)
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              return parsed.map((s) => ({
+                ...s,
+                formData: {
+                  ...s.formData,
+                  productos: s.formData?.productos ?? [],
+                  codigoTrazabilidad: generateCodigoTrazabilidad(),
+                },
+              }))
+            }
           }
+        } catch {
+          // ignore
         }
-      } catch {
-        // ignore
       }
-    }
 
-    return [createDefaultSolicitud({
-      odontologo: initialData?.odontologo,
-      ccOdontologo: initialData?.ccOdontologo,
-    })]
-  })
+      return [createDefaultSolicitud({
+        odontologo: initialData?.odontologo,
+      })]
+    })
   const [activeIndex, setActiveIndex] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [solicitudEnviada, setSolicitudEnviada] = useState(false)
@@ -184,7 +185,6 @@ export function PrescriptionForm({
             formData: {
               ...s.formData,
               odontologo: data.nombre ?? s.formData.odontologo,
-              ccOdontologo: data.documento ?? s.formData.ccOdontologo,
             },
           }))
         )
@@ -219,16 +219,6 @@ export function PrescriptionForm({
       )
     )
   }, [servicio, tipoServicio, JSON.stringify(tipoTrabajo), JSON.stringify(material)])
-
-  const addSolicitud = () => {
-    const first = solicitudes[0]
-    const nueva = createDefaultSolicitud({
-      odontologo: first.formData.odontologo,
-      ccOdontologo: first.formData.ccOdontologo,
-    })
-    setSolicitudes((prev) => [...prev, nueva])
-    setActiveIndex(solicitudes.length)
-  }
 
   const removeSolicitud = (index: number) => {
     if (solicitudes.length <= 1) return
@@ -399,7 +389,7 @@ export function PrescriptionForm({
       }
 
       const activeSolicitud = solicitudes[activeIndex]
-      pdf.save(`prescripcion-${activeSolicitud?.formData.historiaClinica || "form"}.pdf`)
+      pdf.save(`prescripcion-${activeSolicitud?.formData.codigoTrazabilidad || "form"}.pdf`)
     } catch {
       window.print()
     } finally {
@@ -450,16 +440,6 @@ export function PrescriptionForm({
             )}
           </button>
         ))}
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={addSolicitud}
-          className="flex items-center gap-1 text-xs h-8"
-        >
-          <Plus size={14} />
-          Agregar solicitud
-        </Button>
         {solicitudes.length > 1 && (
           <span className="text-[10px] text-gray-500 ml-auto">
             {solicitudes.length} solicitudes en esta sesion

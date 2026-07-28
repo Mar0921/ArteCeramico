@@ -71,15 +71,18 @@ export default function PreaprobadosPage() {
     setEditPrecio(item.precio ? String(item.precio) : "")
     setEditServicioId(null)
 
-    const { data } = await supabase
-      .from("servicios")
-      .select("id, precio")
-      .eq("solicitud_id", item.id)
-      .limit(1)
+    try {
+      const response = await fetch(`/api/solicitudes/${item.id}`)
+      const result = await response.json()
+      const servicios = result.data?.servicios || []
+      const principal = servicios.find((s: any) => s.es_principal) || servicios[0]
 
-    if (data && data.length > 0) {
-      setEditServicioId(data[0].id)
-      setEditPrecio(data[0].precio ? String(data[0].precio) : "")
+      if (principal) {
+        setEditServicioId(principal.id)
+        setEditPrecio(principal.precio ? String(principal.precio) : "")
+      }
+    } catch (err) {
+      console.error("Error cargando servicios:", err)
     }
 
     setEditOpen(true)

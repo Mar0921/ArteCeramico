@@ -61,6 +61,7 @@ interface Solicitud {
   historia_clinica: string | null
   odontologo: string | null
   cc_odontologo: string | null
+  odontologo_registro_medico: string | null
   paciente: string | null
   cc_paciente: string | null
   direccion: string | null
@@ -134,6 +135,8 @@ export default function ClientePerfilPage() {
   const [editandoServicioData, setEditandoServicioData] = useState<{ nombre: string; precio: string }>({ nombre: "", precio: "" })
   const [guardando, setGuardando] = useState(false)
   const [editandoSolicitudId, setEditandoSolicitudId] = useState<number | null>(null)
+  const [editPrecioSolicitud, setEditPrecioSolicitud] = useState("")
+  const [editandoPrecioSolicitudId, setEditandoPrecioSolicitudId] = useState<number | null>(null)
   const [editTiposTrabajo, setEditTiposTrabajo] = useState<string[]>([])
   const [editMateriales, setEditMateriales] = useState<string[]>([])
   const [editDientes, setEditDientes] = useState<string[]>([])
@@ -214,7 +217,7 @@ export default function ClientePerfilPage() {
         fecha_entrega: selectedSolicitud.fecha_entrega,
         estado: selectedSolicitud.estado,
       }
-        ;["chimenea", "prueba", "terminado", "color", "guia", "caja", "codigo_trazabilidad", "piezas_enviadas", "historia_clinica", "fecha_elaboracion"].forEach((campo) => {
+        ;["chimenea", "prueba", "terminado", "color", "guia", "caja", "codigo_trazabilidad", "piezas_enviadas", "historia_clinica", "fecha_elaboracion", "odontologo_registro_medico"].forEach((campo) => {
           const val = (selectedSolicitud as any)[campo]
           if (val !== undefined && val !== null) {
             payload[campo] = val
@@ -366,50 +369,48 @@ export default function ClientePerfilPage() {
     loadClient()
   }, [id])
 
-  useEffect(() => {
-    const loadSolicitudes = async () => {
-      if (!id) return
-      setLoadingSolicitudes(true)
-      const numericId = parseInt(id)
-      if (isNaN(numericId)) {
-        setLoadingSolicitudes(false)
-        return
-      }
-
-      try {
-        const { data, error } = await supabase
-          .from("solicitudes")
-          .select("*")
-          .eq("cliente_id", numericId)
-          .order("created_at", { ascending: false })
-
-        if (!error && data) {
-          const solicitudesConServicios = await Promise.all(
-            (data as Solicitud[]).map(async (s) => {
-              const { data: servicios } = await supabase
-                .from("servicios")
-                .select("id, nombre, descripcion, precio, cantidad, tipo_trabajo, material, dientes, piezas_enviadas, es_principal")
-                .eq("solicitud_id", s.id)
-                .eq("es_principal", false)
-                .order("created_at", { ascending: true })
-
-              return {
-                ...s,
-                servicios_detalle: servicios || [],
-              }
-            })
-          )
-          setSolicitudes(solicitudesConServicios as Solicitud[])
+   useEffect(() => {
+      const loadSolicitudes = async () => {
+        if (!id) return
+        setLoadingSolicitudes(true)
+        const numericId = parseInt(id)
+        if (isNaN(numericId)) {
+          setLoadingSolicitudes(false)
+          return
         }
-      } catch (err) {
-        console.error("Error cargando solicitudes del cliente:", err)
-      } finally {
-        setLoadingSolicitudes(false)
-      }
-    }
 
-    loadSolicitudes()
-  }, [id])
+        try {
+          const response = await fetch(`/api/solicitudes?cliente_id=${numericId}&limit=100`)
+          const result = await response.json()
+          const data = result.data || []
+
+          const solicitudesIds = data.map((s: any) => s.id)
+          const { data: serviciosData } = await supabase
+            .from("servicios")
+            .select("solicitud_id, precio")
+            .in("solicitud_id", solicitudesIds)
+
+          const preciosPorSolicitud = new Map<number, number>()
+          ;(serviciosData || []).forEach((serv: any) => {
+            preciosPorSolicitud.set(serv.solicitud_id, (preciosPorSolicitud.get(serv.solicitud_id) || 0) + (Number(serv.precio) || 0))
+          })
+
+          const solicitudesConPrecio = (data as any[]).map((s: any) => ({
+            ...s,
+            servicios_detalle: s.servicios || [],
+            precio: preciosPorSolicitud.get(s.id) || 0,
+          }))
+
+          setSolicitudes(solicitudesConPrecio as Solicitud[])
+        } catch (err) {
+          console.error("Error cargando solicitudes del cliente:", err)
+        } finally {
+          setLoadingSolicitudes(false)
+        }
+      }
+
+      loadSolicitudes()
+    }, [id])
 
   useEffect(() => {
     const loadAdmin = async () => {
@@ -434,15 +435,10 @@ export default function ClientePerfilPage() {
     setSelectedSolicitud(solicitud)
     setLoadingDetalle(true)
     try {
-      const { data, error } = await supabase
-        .from("servicios")
-        .select("*")
-        .eq("solicitud_id", solicitud.id)
-        .order("created_at", { ascending: true })
-
-      if (!error && data) {
-        setServiciosDetalle(data as Servicio[])
-      }
+      const response = await fetch(`/api/solicitudes/${solicitud.id}`)
+      const result = await response.json()
+      const servicios = result.data?.servicios || []
+      setServiciosDetalle(servicios as Servicio[])
     } catch (err) {
       console.error("Error cargando detalle de solicitud:", err)
     } finally {
@@ -504,9 +500,25 @@ export default function ClientePerfilPage() {
 
       if (error) throw error
 
+      const servicio = serviciosDetalle.find((s) => s.id === servicioId)
+      const solicitudId = (servicio as any)?.solicitud_id
+
       setServiciosDetalle((prev) =>
         prev.map((s) => (s.id === servicioId ? { ...s, nombre: editandoServicioData.nombre, precio: precioNum } : s))
       )
+
+      if (solicitudId && (servicio as any)?.es_principal) {
+        setSolicitudes((prev) =>
+          prev.map((s) => (s.id === solicitudId ? { ...s, precio: precioNum } : s))
+        )
+        setSelectedSolicitud((prev) =>
+          prev && prev.id === solicitudId ? { ...prev, precio: precioNum } : prev
+        )
+      }
+
+      if (client && mostrarEstadoCuenta[client.id]) {
+        await cargarEstadoCuenta(client.id)
+      }
 
       toast({
         title: "Servicio actualizado",
@@ -521,6 +533,71 @@ export default function ClientePerfilPage() {
     } finally {
       setGuardando(false)
       setEditandoServicioId(null)
+    }
+  }
+
+  const handleGuardarPrecioSolicitud = async (solicitudId: number) => {
+    if (!client) return
+    const precioNum = editPrecioSolicitud ? Number(editPrecioSolicitud) : null
+    setGuardando(true)
+    try {
+      const principal = serviciosDetalle.find((s: any) => s.es_principal)
+
+      if (principal) {
+        const { error } = await supabase
+          .from("servicios")
+          .update({ precio: precioNum })
+          .eq("id", principal.id)
+
+        if (error) throw error
+
+        setServiciosDetalle((prev) =>
+          prev.map((s: any) => (s.id === principal.id ? { ...s, precio: precioNum } : s))
+        )
+      } else if (precioNum !== null) {
+        const solicitud = solicitudes.find((s) => s.id === solicitudId)
+        const nombre = (solicitud as any)?.servicio || `Solicitud #${solicitudId}`
+
+        const { data, error } = await supabase
+          .from("servicios")
+          .insert({
+            solicitud_id: solicitudId,
+            nombre,
+            precio: precioNum,
+            es_principal: true,
+            cantidad: 1,
+          })
+          .select()
+          .single()
+
+        if (error) throw error
+
+        if (data) {
+          setServiciosDetalle((prev) => [...prev, data])
+        }
+      }
+
+      setSolicitudes((prev) =>
+        prev.map((s) => (s.id === solicitudId ? { ...s, precio: precioNum } : s))
+      )
+
+      if (mostrarEstadoCuenta[client.id]) {
+        await cargarEstadoCuenta(client.id)
+      }
+
+      toast({
+        title: "Precio actualizado",
+        description: "El precio de la solicitud se actualizó correctamente.",
+      })
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "No se pudo actualizar el precio.",
+        variant: "destructive",
+      })
+    } finally {
+      setGuardando(false)
+      setEditandoPrecioSolicitudId(null)
     }
   }
 
@@ -807,33 +884,50 @@ if (!conv) return
   const cargarEstadoCuenta = async (clienteId: number) => {
     setCargandoEstadoCuenta((prev) => ({ ...prev, [clienteId]: true }))
     try {
-      const { data: servicios } = await supabase
-        .from("servicios")
-        .select(`
-          id,
-          solicitud_id,
-          nombre,
-          precio,
-          created_at,
-          es_principal,
-          solicitudes!inner(cliente_id)
-        `)
-        .eq("solicitudes.cliente_id", clienteId)
-        .eq("es_principal", false)
-        .order("created_at", { ascending: true })
+      const response = await fetch(`/api/solicitudes?cliente_id=${clienteId}&limit=100`)
+      const result = await response.json()
+      const solicitudes = result.data || []
 
-      const items = (servicios || []).map((s: any) => {
-        const solicitud = solicitudes.find(sol => sol.id === s.solicitud_id)
-        return {
-          id: s.id,
-          solicitudId: s.solicitud_id,
-          servicio: s.nombre,
-          precio: s.precio,
-          estado: solicitud?.estado || "pendiente",
-          fecha: s.created_at,
-          estado_pago: solicitud?.estado_pago || "pendiente_pago",
-          comprobante_pago: s.comprobante_pago || null,
+      const solicitudesIds = solicitudes.map((s: any) => s.id)
+      const { data: serviciosData } = await supabase
+        .from("servicios")
+        .select("solicitud_id, precio, nombre, created_at")
+        .in("solicitud_id", solicitudesIds)
+
+      const serviciosPorSolicitud = new Map<number, any[]>()
+      ;(serviciosData || []).forEach((serv: any) => {
+        const arr = serviciosPorSolicitud.get(serv.solicitud_id) || []
+        arr.push(serv)
+        serviciosPorSolicitud.set(serv.solicitud_id, arr)
+      })
+
+      const items = solicitudes.flatMap((solicitud: any) => {
+        const servicios = serviciosPorSolicitud.get(solicitud.id) || []
+        const urlPdf = solicitud.urls_documentos?.[0] || null
+        if (servicios.length > 0) {
+          return servicios.map((serv: any) => ({
+            id: serv.id,
+            solicitudId: solicitud.id,
+            servicio: serv.nombre || solicitud.servicio,
+            precio: serv.precio || 0,
+            estado: solicitud.estado || "pendiente",
+            fecha: serv.created_at || solicitud.created_at,
+            estado_pago: solicitud.estado_pago || "pendiente_pago",
+            comprobante_pago: solicitud.comprobante_pago || null,
+            urlPdf,
+          }))
         }
+        return [{
+          id: solicitud.id,
+          solicitudId: solicitud.id,
+          servicio: solicitud.servicio || "Servicio",
+          precio: solicitud.precio || 0,
+          estado: solicitud.estado || "pendiente",
+          fecha: solicitud.created_at,
+          estado_pago: solicitud.estado_pago || "pendiente_pago",
+          comprobante_pago: solicitud.comprobante_pago || null,
+          urlPdf,
+        }]
       })
 
       setItemsEstadoCuenta((prev) => ({ ...prev, [clienteId]: items }))
@@ -1208,13 +1302,11 @@ if (!conv) return
                                       <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">ODONTÓLOGO(A):</span>
                                       <span className="text-sm text-gray-800">{solicitud.odontologo || "-"}</span>
                                     </div>
-                                  </div>
-                                )}
-                                {solicitud.cc_odontologo && (
-                                  <div className="flex items-center gap-4">
                                     <div className="flex items-center gap-1 flex-1">
-                                      <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">CC. ODONTÓLOGO:</span>
-                                      <span className="text-sm text-gray-800">{solicitud.cc_odontologo || "-"}</span>
+                                      <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">REGISTRO MÉDICO:</span>
+                                      <span className="text-sm text-gray-800">
+                                        {solicitud.odontologo_registro_medico || "-"}
+                                      </span>
                                     </div>
                                   </div>
                                 )}
@@ -1426,7 +1518,62 @@ if (!conv) return
                                 )}
                               </div>
 
-                              {/* Botón editar */}
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Precio Total</p>
+                                  <p className="text-sm font-bold text-primary">
+                                    ${(() => {
+                                      const servicios = (solicitud as any).servicios_detalle || []
+                                      const precioServicios = servicios.reduce((acc: number, serv: any) => acc + (Number(serv.precio) || 0), 0)
+                                      const precio = precioServicios > 0 ? precioServicios : ((solicitud as any).precio ? Number((solicitud as any).precio) : 0)
+                                      return precio.toLocaleString("es-CO")
+                                    })()}
+                                  </p>
+                                </div>
+                                {editandoPrecioSolicitudId !== solicitud.id ? (
+                                  <button
+                                    onClick={() => {
+                                      setEditandoPrecioSolicitudId(solicitud.id)
+                                      const servicios = (solicitud as any).servicios_detalle || []
+                                      const precioServicios = servicios.reduce((acc: number, serv: any) => acc + (Number(serv.precio) || 0), 0)
+                                      const precioActual = precioServicios > 0 ? String(precioServicios) : ((solicitud as any).precio ? String((solicitud as any).precio) : "")
+                                      setEditPrecioSolicitud(precioActual)
+                                    }}
+                                    className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-3 py-1.5 text-[10px] font-medium text-foreground hover:bg-muted"
+                                  >
+                                    <Edit3 size={12} />
+                                    Editar precio
+                                  </button>
+                                ) : (
+                                  <div className="flex items-center gap-2">
+                                    <input
+                                      type="number"
+                                      value={editPrecioSolicitud}
+                                      onChange={(e) => setEditPrecioSolicitud(e.target.value)}
+                                      className="w-32 text-xs rounded-lg border border-border bg-white px-2 py-1.5"
+                                    />
+                                    <button
+                                      onClick={() => handleGuardarPrecioSolicitud(solicitud.id)}
+                                      disabled={guardando}
+                                      className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary hover:bg-primary/20 disabled:opacity-50"
+                                    >
+                                      {guardando ? (
+                                        <><Loader2 size={12} className="animate-spin" /> Guardando</>
+                                      ) : (
+                                        <><Save size={12} /> Guardar</>
+                                      )}
+                                    </button>
+                                    <button
+                                      onClick={() => setEditandoPrecioSolicitudId(null)}
+                                      className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted"
+                                    >
+                                      <X size={12} />
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Botón editar solicitud */}
                               {editandoSolicitudId !== solicitud.id ? (
                                 <button
                                   onClick={() => {
@@ -1908,13 +2055,14 @@ if (!conv) return
                         <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Fecha</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Estado</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Estado Pago</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Comprobante</th>
-                        <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">Precio</th>
+                         <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Comprobante</th>
+                         <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">PDF</th>
+                         <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">Precio</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/40">
                       {(itemsEstadoCuenta[client!.id] || []).map((item: any, index: number) => (
-                        <tr key={item.solicitudId}>
+                        <tr key={item.id}>
                           <td className="py-2 pr-3 text-xs text-muted-foreground">{index + 1}</td>
                           <td className="py-2 pr-3 text-xs font-medium text-foreground">{item.servicio}</td>
                           <td className="py-2 pr-3">
@@ -2005,10 +2153,25 @@ if (!conv) return
                                 )}
                               </div>
                             )}
-                          </td>
-                          <td className="py-2 text-right text-xs font-semibold text-foreground">
-                            {item.precio ? `$${item.precio.toLocaleString("es-CO")}` : "-"}
-                          </td>
+                           </td>
+                           <td className="py-2 pr-3">
+                             {item.urlPdf ? (
+                               <a
+                                 href={item.urlPdf}
+                                 target="_blank"
+                                 rel="noopener noreferrer"
+                                 className="text-[10px] text-primary hover:underline flex items-center gap-1"
+                               >
+                                 <FileText size={12} />
+                                 Ver PDF
+                               </a>
+                             ) : (
+                               <span className="text-[10px] text-muted-foreground">-</span>
+                             )}
+                           </td>
+                           <td className="py-2 text-right text-xs font-semibold text-foreground">
+                             {item.precio ? `$${item.precio.toLocaleString("es-CO")}` : "-"}
+                           </td>
                         </tr>
                       ))}
                     </tbody>

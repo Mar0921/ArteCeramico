@@ -31,6 +31,8 @@ import {
   Wallet,
   Check,
   Bell,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react"
 
 import { Navbar } from "@/components/navbar"
@@ -68,6 +70,7 @@ interface Solicitud {
   historia_clinica: string | null
   odontologo: string | null
   cc_odontologo: string | null
+  odontologo_registro_medico: string | null
   paciente: string | null
   cc_paciente: string | null
   direccion: string | null
@@ -192,6 +195,7 @@ export default function ClientesPage() {
   const [saving, setSaving] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [notificacionesNoLeidas, setNotificacionesNoLeidas] = useState<Record<number, number>>({})
+  const [expandedSolicitudId, setExpandedSolicitudId] = useState<number | null>(null)
 
   const { toast } = useToast()
 
@@ -1743,120 +1747,138 @@ export default function ClientesPage() {
                   <li key={solicitud.id} className="space-y-3 p-5 transition-all hover:bg-background/30">
                     <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                       <div className="flex-1">
-                        <p className="text-sm font-semibold text-foreground">
-                          {(solicitud as any).servicios_detalle?.length > 0
-                            ? (solicitud as any).servicios_detalle.map((s: any) => s.nombre).join(", ")
-                            : solicitud.servicio}
-                        </p>
-
-                        {solicitud.observaciones && (
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            {solicitud.observaciones}
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-semibold text-foreground flex-1">
+                            {solicitud.codigo_trazabilidad
+                              ? `#${solicitud.codigo_trazabilidad} `
+                              : ""}
+                            {(solicitud as any).servicios_detalle?.length > 0
+                              ? (solicitud as any).servicios_detalle.map((s: any) => s.nombre).join(", ")
+                              : solicitud.servicio}
                           </p>
-                        )}
-
-                        {(solicitud.odontologo || solicitud.cc_odontologo || solicitud.paciente || solicitud.cc_paciente || solicitud.historia_clinica || solicitud.fecha_elaboracion || solicitud.fecha_entrega || solicitud.caja || solicitud.codigo_trazabilidad || solicitud.guia) && (
-                          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground">
-                            {(solicitud as any).odontologo && (
-                              <div><span className="text-gray-500">Dr(a):</span> <span className="text-gray-800">{(solicitud as any).odontologo}</span></div>
-                            )}
-                            {(solicitud as any).cc_odontologo && (
-                              <div><span className="text-gray-500">CC Odontólogo:</span> <span className="text-gray-800">{(solicitud as any).cc_odontologo}</span></div>
-                            )}
-                            {(solicitud as any).paciente && (
-                              <div><span className="text-gray-500">Paciente:</span> <span className="text-gray-800">{(solicitud as any).paciente}</span></div>
-                            )}
-                            {(solicitud as any).cc_paciente && (
-                              <div><span className="text-gray-500">CC Paciente:</span> <span className="text-gray-800">{(solicitud as any).cc_paciente}</span></div>
-                            )}
-                            {(solicitud as any).fecha_elaboracion && (
-                              <div><span className="text-gray-500">Elaboración:</span> <span className="text-gray-800">{(solicitud as any).fecha_elaboracion}</span></div>
-                            )}
-                            {(solicitud as any).fecha_entrega && (
-                              <div><span className="text-gray-500">Entrega:</span> <span className="text-gray-800">{(solicitud as any).fecha_entrega}</span></div>
-                            )}
-                            {(solicitud as any).historia_clinica && (
-                              <div><span className="text-gray-500">Historia Clínica:</span> <span className="text-gray-800">#{(solicitud as any).historia_clinica}</span></div>
-                            )}
-                            {(solicitud as any).caja && (
-                              <div><span className="text-gray-500">Caja:</span> <span className="text-gray-800">#{(solicitud as any).caja}</span></div>
-                            )}
-                            {(solicitud as any).codigo_trazabilidad && (
-                              <div><span className="text-gray-500">Trazabilidad:</span> <span className="text-gray-800">#{(solicitud as any).codigo_trazabilidad}</span></div>
-                            )}
-                            {(solicitud as any).guia && (
-                              <div><span className="text-gray-500">Guía:</span> <span className="text-gray-800">{(solicitud as any).guia}</span></div>
-                            )}
-                            {(solicitud as any).tipos_trabajo?.length > 0 && (
-                              <div className="contents">
-                                {(solicitud as any).tipos_trabajo.map((tipo: string, i: number) => (
-                                  <span key={i} className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700 w-fit">{tipo}</span>
-                                ))}
-                              </div>
-                            )}
-                            {(solicitud as any).materiales?.length > 0 && (
-                              <div className="contents">
-                                {(solicitud as any).materiales.map((mat: string, i: number) => (
-                                  <span key={i} className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700 w-fit">{mat}</span>
-                                ))}
-                              </div>
-                            )}
-                            {(solicitud as any).piezas_enviadas?.length > 0 && (
-                              <div className="contents">
-                                {(solicitud as any).piezas_enviadas.map((pieza: string, i: number) => (
-                                  <span key={i} className="inline-flex rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-700 w-fit">{pieza}</span>
-                                ))}
-                              </div>
-                            )}
-                            {(solicitud as any).dientes_trabajados?.length > 0 && (
-                              <div className="contents">
-                                {(solicitud as any).dientes_detallados?.length > 0
-                                  ? (solicitud as any).dientes_detallados.map((d: any, i: number) => (
-                                      <span key={i} className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700 w-fit">#{d.numero}{d.servicio ? ` - ${d.servicio}` : ""} - {d.estado}</span>
-                                    ))
-                                  : (solicitud as any).dientes_trabajados.map((diente: string, i: number) => (
-                                      <span key={i} className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700 w-fit">#{diente}</span>
-                                    ))
-                                }
-                              </div>
-                            )}
-                            {(solicitud as any).servicios_detalle?.length > 0 && (
-                              <div className="contents">
-                                {(solicitud as any).servicios_detalle.map((serv: any, i: number) => (
-                                  <span key={serv.id || i} className="inline-flex rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-medium text-indigo-700 w-fit">
-                                    {serv.nombre} {serv.precio ? `($${Number(serv.precio).toLocaleString("es-CO")})` : ""} {serv.cantidad > 1 ? `x${serv.cantidad}` : ""}
-                                  </span>
-                                ))}
-                              </div>
-                            )}
-                            {solicitud.precio !== null && solicitud.precio !== undefined && (
-                              <div>
-                                <span className="text-gray-500">Precio:</span>{" "}
-                                <span className="text-gray-800 font-semibold">${solicitud.precio.toLocaleString("es-CO")}</span>
-                              </div>
-                            )}
-                          </div>
-                        )}
-
-                        <div className="mt-3 flex flex-wrap items-center gap-3">
-                          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary capitalize">
-                            {solicitud.estado.replace("_", " ")}
-                          </span>
-
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(solicitud.created_at).toLocaleString()}
-                          </span>
+                          <button
+                            onClick={() => setExpandedSolicitudId(expandedSolicitudId === solicitud.id ? null : solicitud.id)}
+                            className="rounded-lg p-1 text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
+                          >
+                            {expandedSolicitudId === solicitud.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                          </button>
                         </div>
 
-                        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                          <div className="rounded-xl bg-muted/30 p-3">
-                            <p className="text-xs text-muted-foreground">
-                              Valor
-                            </p>
-                            <p className="font-bold text-primary">
-                              ${solicitud.precio?.toLocaleString("es-CO")}
-                            </p>
-                          </div>
+                        </div>
+
+                        {expandedSolicitudId === solicitud.id && (
+                          <>
+                            {solicitud.observaciones && (
+                              <p className="mt-1 text-sm text-muted-foreground">
+                                {solicitud.observaciones}
+                              </p>
+                            )}
+
+                            {(solicitud.odontologo || solicitud.odontologo_registro_medico || solicitud.paciente || solicitud.cc_paciente || solicitud.historia_clinica || solicitud.fecha_elaboracion || solicitud.fecha_entrega || solicitud.caja || solicitud.codigo_trazabilidad || solicitud.guia) && (
+                              <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground">
+                                {(solicitud as any).odontologo && (
+                                  <div><span className="text-gray-500">Dr(a):</span> <span className="text-gray-800">{(solicitud as any).odontologo}</span></div>
+                                )}
+                                {(solicitud as any).odontologo_registro_medico && (
+                                  <div><span className="text-gray-500">Registro Médico:</span> <span className="text-gray-800">{(solicitud as any).odontologo_registro_medico}</span></div>
+                                )}
+                                {(solicitud as any).paciente && (
+                                  <div><span className="text-gray-500">Paciente:</span> <span className="text-gray-800">{(solicitud as any).paciente}</span></div>
+                                )}
+                                {(solicitud as any).cc_paciente && (
+                                  <div><span className="text-gray-500">CC Paciente:</span> <span className="text-gray-800">{(solicitud as any).cc_paciente}</span></div>
+                                )}
+                                {(solicitud as any).fecha_elaboracion && (
+                                  <div><span className="text-gray-500">Elaboración:</span> <span className="text-gray-800">{(solicitud as any).fecha_elaboracion}</span></div>
+                                )}
+                                {(solicitud as any).fecha_entrega && (
+                                  <div><span className="text-gray-500">Entrega:</span> <span className="text-gray-800">{(solicitud as any).fecha_entrega}</span></div>
+                                )}
+                                {(solicitud as any).historia_clinica && (
+                                  <div><span className="text-gray-500">Historia Clínica:</span> <span className="text-gray-800">#{(solicitud as any).historia_clinica}</span></div>
+                                )}
+                                {(solicitud as any).caja && (
+                                  <div><span className="text-gray-500">Caja:</span> <span className="text-gray-800">#{(solicitud as any).caja}</span></div>
+                                )}
+                                {(solicitud as any).codigo_trazabilidad && (
+                                  <div><span className="text-gray-500">Trazabilidad:</span> <span className="text-gray-800">#{(solicitud as any).codigo_trazabilidad}</span></div>
+                                )}
+                                {(solicitud as any).guia && (
+                                  <div><span className="text-gray-500">Guía:</span> <span className="text-gray-800">{(solicitud as any).guia}</span></div>
+                                )}
+                                {(solicitud as any).tipos_trabajo?.length > 0 && (
+                                  <div className="contents">
+                                    {(solicitud as any).tipos_trabajo.map((tipo: string, i: number) => (
+                                      <span key={i} className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700 w-fit">{tipo}</span>
+                                    ))}
+                                  </div>
+                                )}
+                                {(solicitud as any).materiales?.length > 0 && (
+                                  <div className="contents">
+                                    {(solicitud as any).materiales.map((mat: string, i: number) => (
+                                      <span key={i} className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700 w-fit">{mat}</span>
+                                    ))}
+                                  </div>
+                                )}
+                                {(solicitud as any).piezas_enviadas?.length > 0 && (
+                                  <div className="contents">
+                                    {(solicitud as any).piezas_enviadas.map((pieza: string, i: number) => (
+                                      <span key={i} className="inline-flex rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-700 w-fit">{pieza}</span>
+                                    ))}
+                                  </div>
+                                )}
+                                {(solicitud as any).dientes_trabajados?.length > 0 && (
+                                  <div className="contents">
+                                    {(solicitud as any).dientes_detallados?.length > 0
+                                      ? (solicitud as any).dientes_detallados.map((d: any, i: number) => (
+                                          <span key={i} className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700 w-fit">#{d.numero}{d.servicio ? ` - ${d.servicio}` : ""} - {d.estado}</span>
+                                        ))
+                                      : (solicitud as any).dientes_trabajados.map((diente: string, i: number) => (
+                                          <span key={i} className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700 w-fit">#{diente}</span>
+                                        ))
+                                    }
+                                  </div>
+                                )}
+                                {(solicitud as any).servicios_detalle?.length > 0 && (
+                                  <div className="contents">
+                                    {(solicitud as any).servicios_detalle.map((serv: any, i: number) => (
+                                      <span key={serv.id || i} className="inline-flex rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-medium text-indigo-700 w-fit">
+                                        {serv.nombre} {serv.precio ? `($${Number(serv.precio).toLocaleString("es-CO")})` : ""} {serv.cantidad > 1 ? `x${serv.cantidad}` : ""}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                                {solicitud.precio !== null && solicitud.precio !== undefined && (
+                                  <div>
+                                    <span className="text-gray-500">Precio:</span>{" "}
+                                    <span className="text-gray-800 font-semibold">${solicitud.precio.toLocaleString("es-CO")}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            <div className="mt-3 flex flex-wrap items-center gap-3">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary capitalize">
+                                {solicitud.estado.replace("_", " ")}
+                              </span>
+
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(solicitud.created_at).toLocaleString()}
+                              </span>
+                            </div>
+                          </>
+                        )}
+
+                        {expandedSolicitudId === solicitud.id && (
+                          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                            <div className="rounded-xl bg-muted/30 p-3">
+                              <p className="text-xs text-muted-foreground">
+                                Valor
+                              </p>
+                              <p className="font-bold text-primary">
+                                ${solicitud.precio?.toLocaleString("es-CO")}
+                              </p>
+                            </div>
 
                            <div className="rounded-xl bg-muted/30 p-3">
                              <p className="text-xs text-muted-foreground">
@@ -1870,109 +1892,115 @@ export default function ClientesPage() {
                              </p>
                            </div>
 
-                          <div className="rounded-xl bg-muted/30 p-3">
-                            <p className="text-xs text-muted-foreground">
-                              Material
-                            </p>
-                            <p className="font-medium">
-                              {solicitud.materiales?.join(", ") || "-"}
-                            </p>
-                          </div>
+                           <div className="rounded-xl bg-muted/30 p-3">
+                             <p className="text-xs text-muted-foreground">
+                               Material
+                             </p>
+                             <p className="font-medium">
+                               {solicitud.materiales?.join(", ") || "-"}
+                             </p>
+                           </div>
 
-                          <div className="rounded-xl bg-muted/30 p-3">
-                            <p className="text-xs text-muted-foreground">
-                              Piezas
-                            </p>
-                            <p className="font-medium">
-                              {solicitud.piezasEnviadas}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="mt-3 flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
-                          {(["declaracion_conformidad", "guia_fabricacion", "manual_uso"] as const).map((campo) => {
-                            const url = solicitud[campo]
-                            const label =
-                              campo === "declaracion_conformidad"
-                                ? "Declaración de Conformidad"
-                                : campo === "guia_fabricacion"
-                                  ? "Guía de Fabricación"
-                                  : "Manual de Uso"
-                            return (
-                              <span
-                                key={campo}
-                                className={
-                                  "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 " +
-                                  (url
-                                    ? "border-green-500/40 bg-green-500/10 text-green-700"
-                                    : "border-border bg-background/70 text-muted-foreground")
-                                }
-                              >
-                                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: url ? "#16a34a" : "#a1a1aa" }} />
-                                {url ? (
-                                  <a
-                                    href={url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="underline-offset-2 hover:underline"
-                                  >
-                                    {label}
-                                  </a>
-                                ) : (
-                                  label + " pendiente"
-                                )}
-                              </span>
-                            )
-                          })}
-                        </div>
-                      </div>
-
-                        {(solicitud as any).odontologo_firma && (
-                          <div className="mt-3">
-                            <p className="text-xs text-muted-foreground mb-1">Firma del doctor</p>
-                            {String((solicitud as any).odontologo_firma).startsWith("data:image") ? (
-                              <img
-                                src={(solicitud as any).odontologo_firma}
-                                alt="Firma del doctor"
-                                className="h-20 w-auto rounded-lg border border-border bg-white"
-                              />
-                            ) : (
-                              <p className="text-sm text-foreground">{(solicitud as any).odontologo_firma}</p>
-                            )}
-                          </div>
+                           <div className="rounded-xl bg-muted/30 p-3">
+                             <p className="text-xs text-muted-foreground">
+                               Piezas
+                             </p>
+                             <p className="font-medium">
+                               {solicitud.piezasEnviadas}
+                             </p>
+                           </div>
+                         </div>
                         )}
 
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => abrirChatSolicitud(solicitud)}
-                          className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-white relative"
-                        >
-                          <MessageCircle size={16} />
-                          Chat Arte Cerámico
-                          {notificacionesNoLeidas[solicitud.id] > 0 && (
-                            <span className="absolute -top-1 -right-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white px-1">
-                              {notificacionesNoLeidas[solicitud.id]}
-                            </span>
-                          )}
-                        </button>
-                        <button
-                          onClick={() => handleVerSolicitud(solicitud)}
-                          className="flex items-center gap-1 rounded-xl border border-border bg-card/50 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:border-primary/60 hover:bg-primary/10 hover:text-primary"
-                        >
-                          <Eye size={14} />
-                          Ver
-                        </button>
-                        <button
-                          onClick={() => handleDeleteSolicitud(solicitud)}
-                          className="flex items-center gap-1 rounded-xl border border-border bg-card/50 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:border-red-500/60 hover:bg-red-500/10 hover:text-red-500"
-                        >
-                          <Trash2 size={14} />
-                          Eliminar
-                        </button>
+                        {expandedSolicitudId === solicitud.id && (
+                          <div className="mt-3 flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
+                            {(["declaracion_conformidad", "guia_fabricacion", "manual_uso"] as const).map((campo) => {
+                              const url = solicitud[campo]
+                              const label =
+                                campo === "declaracion_conformidad"
+                                  ? "Declaración de Conformidad"
+                                  : campo === "guia_fabricacion"
+                                    ? "Guía de Fabricación"
+                                    : "Manual de Uso"
+                              return (
+                                <span
+                                  key={campo}
+                                  className={
+                                    "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 " +
+                                    (url
+                                      ? "border-green-500/40 bg-green-500/10 text-green-700"
+                                      : "border-border bg-background/70 text-muted-foreground")
+                                  }
+                                >
+                                  <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: url ? "#16a34a" : "#a1a1aa" }} />
+                                  {url ? (
+                                    <a
+                                      href={url}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="underline-offset-2 hover:underline"
+                                    >
+                                      {label}
+                                    </a>
+                                  ) : (
+                                    label + " pendiente"
+                                  )}
+                                </span>
+                              )
+                            })}
+                          </div>
+                        )}
                       </div>
-                    </div>
 
-                    {solicitud.urls_documentos && solicitud.urls_documentos.length > 0 && (
+                        {expandedSolicitudId === solicitud.id && (
+                          <>
+                            {(solicitud as any).odontologo_firma && (
+                              <div className="mt-3">
+                                <p className="text-xs text-muted-foreground mb-1">Firma del doctor</p>
+                                {String((solicitud as any).odontologo_firma).startsWith("data:image") ? (
+                                  <img
+                                    src={(solicitud as any).odontologo_firma}
+                                    alt="Firma del doctor"
+                                    className="h-20 w-auto rounded-lg border border-border bg-white"
+                                  />
+                                ) : (
+                                  <p className="text-sm text-foreground">{(solicitud as any).odontologo_firma}</p>
+                                )}
+                              </div>
+                            )}
+
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => abrirChatSolicitud(solicitud)}
+                              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-white relative"
+                            >
+                              <MessageCircle size={16} />
+                              Chat Arte Cerámico
+                              {notificacionesNoLeidas[solicitud.id] > 0 && (
+                                <span className="absolute -top-1 -right-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white px-1">
+                                  {notificacionesNoLeidas[solicitud.id]}
+                                </span>
+                              )}
+                            </button>
+                            <button
+                              onClick={() => handleVerSolicitud(solicitud)}
+                              className="flex items-center gap-1 rounded-xl border border-border bg-card/50 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:border-primary/60 hover:bg-primary/10 hover:text-primary"
+                            >
+                              <Eye size={14} />
+                              Ver
+                            </button>
+                            <button
+                              onClick={() => handleDeleteSolicitud(solicitud)}
+                              className="flex items-center gap-1 rounded-xl border border-border bg-card/50 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:border-red-500/60 hover:bg-red-500/10 hover:text-red-500"
+                            >
+                              <Trash2 size={14} />
+                               Eliminar
+                             </button>
+                            </div>
+                          </>
+                          )}
+                          
+                          {expandedSolicitudId === solicitud.id && solicitud.urls_documentos && solicitud.urls_documentos.length > 0 && (
                       <div className="grid gap-3 pt-2 sm:grid-cols-2 lg:grid-cols-3">
                         {solicitud.urls_documentos.map((url, docIndex) => {
                           const esImagen = isImagen(url)
@@ -2095,10 +2123,10 @@ export default function ClientesPage() {
                     <p className="text-sm text-foreground">{(selectedSolicitud as any).odontologo}</p>
                   </div>
                 )}
-                {(selectedSolicitud as any).cc_odontologo && (
+                {(selectedSolicitud as any).odontologo_registro_medico && (
                   <div>
-                    <p className="text-sm font-medium text-muted-foreground">CC. Odontólogo</p>
-                    <p className="text-sm text-foreground">{(selectedSolicitud as any).cc_odontologo}</p>
+                    <p className="text-sm font-medium text-muted-foreground">Registro Médico</p>
+                    <p className="text-sm text-foreground">{(selectedSolicitud as any).odontologo_registro_medico}</p>
                   </div>
                 )}
                 {(selectedSolicitud as any).paciente && (

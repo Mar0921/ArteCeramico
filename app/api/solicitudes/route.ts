@@ -34,9 +34,8 @@ async function buildPdfBuffer(data: {
   fechaEntrega?: string
   historiaClinica?: string
   odontologo?: string
-  ccOdontologo?: string
   paciente?: string
-  tarjetaProfesional?: string
+  registroMedico?: string
   ccPaciente?: string
   direccion?: string
   firma?: string
@@ -112,7 +111,7 @@ async function buildPdfBuffer(data: {
       const offsetX = labelWidth + 3
       doc.text(labelStr, currentX, currentY)
       doc.setFont("helvetica", "normal")
-      const availableWidth = colWidth - offsetX - margin
+      const availableWidth = colWidth - offsetX
       const splitValue = doc.splitTextToSize(value || "N/A", availableWidth)
       doc.text(splitValue, currentX + offsetX, currentY)
       const needed = Math.max(splitValue.length, 1) * 4.5 + 3
@@ -205,10 +204,9 @@ async function buildPdfBuffer(data: {
 
   addSectionTitle("DATOS DEL ODONTOLOGO")
   addFieldsGrid([
-    ["Nombre", data.odontologo || "N/A"],
-    ["CC", data.ccOdontologo || "N/A"],
-    ["Tarjeta Profesional", data.tarjetaProfesional || "N/A"],
-    ["Direccion", data.direccion || "N/A"],
+     ["Nombre", data.odontologo || "N/A"],
+     ["Registro Medico", data.odontologo_registro_medico || "N/A"],
+     ["Direccion", data.direccion || "N/A"],
   ])
 
   if (data.firma) {
@@ -344,7 +342,7 @@ export async function POST(request: Request) {
     const fechaEntregaFormateada = convertirFecha(fechaEntrega)
     const paciente = String(formData.get("paciente") || "").trim()
     const ccPaciente = String(formData.get("ccPaciente") || "").trim()
-    const tarjetaProfesional = String(formData.get("tarjetaProfesional") || "").trim()
+    const registroMedico = String(formData.get("registroMedico") || "").trim()
     const direccion = String(formData.get("direccion") || "").trim()
     const firma = String(formData.get("firma") || "").trim()
     const tiposTrabajoJson = String(formData.get("tiposTrabajo") || "[]").trim()
@@ -453,7 +451,7 @@ export async function POST(request: Request) {
       )
     }
 
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
       console.error("Faltan variables de entorno de Supabase")
       return NextResponse.json(
         { message: "Error de configuración del servidor." },
@@ -463,7 +461,7 @@ export async function POST(request: Request) {
 
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
     const { data: cliente, error: clienteError } = await supabase
@@ -577,10 +575,9 @@ export async function POST(request: Request) {
       fechaElaboracion: fechaElaboracion || undefined,
       fechaEntrega: fechaEntrega || undefined,
       historiaClinica: historiaClinica || undefined,
-      odontologo: formData.get("odontologo")?.toString() || undefined,
-      ccOdontologo: formData.get("ccOdontologo")?.toString() || undefined,
-      paciente: paciente || undefined,
-      tarjetaProfesional: tarjetaProfesional || undefined,
+       odontologo: formData.get("odontologo")?.toString() || undefined,
+       registroMedico: registroMedico || undefined,
+       paciente: paciente || undefined,
       ccPaciente: ccPaciente || undefined,
       direccion: direccion || undefined,
       firma: firma || undefined,
@@ -635,8 +632,7 @@ export async function POST(request: Request) {
       fecha_entrega: fechaEntregaFormateada,
       historia_clinica: historiaClinica || null,
       odontologo: formData.get("odontologo")?.toString() || null,
-      cc_odontologo: formData.get("ccOdontologo")?.toString() || null,
-      odontologo_tarjeta_profesional: tarjetaProfesional || null,
+       odontologo_registro_medico: registroMedico || null,
       odontologo_direccion: direccion || null,
       odontologo_firma: firma || null,
       paciente: paciente || null,
@@ -800,12 +796,12 @@ export async function GET(request: Request) {
   try {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
     let query = supabase
       .from("solicitudes")
-      .select("id, servicio, estado, created_at, cliente_id, dientes_trabajados")
+      .select("id, servicio, estado, created_at, cliente_id, dientes_trabajados, odontologo, cc_odontologo, paciente, cc_paciente, odontologo_registro_medico, fecha_elaboracion, fecha_entrega, odontologo_firma, color, guia, tipos_trabajo, materiales, urls_documentos, dibujo_odontologo")
       .order("created_at", { ascending: false })
       .limit(limit)
 
@@ -975,10 +971,20 @@ export async function GET(request: Request) {
         dientesTrabajados: info?.dientes || [],
         dientes_detallados: dientesInfo,
         servicios_detalle: info?.servicios_detalle || [],
-        tiposTrabajo: info?.tipoTrabajo || [],
-        materiales: info?.materiales || [],
+        tiposTrabajo: item.tipos_trabajo || info?.tipoTrabajo || [],
+        materiales: item.materiales || info?.materiales || [],
         piezasEnviadas: info?.piezas || 0,
         precio: info?.precio || null,
+        fecha_elaboracion: item.fecha_elaboracion || null,
+        fecha_entrega: item.fecha_entrega || null,
+        odontologo: item.odontologo || null,
+        paciente: item.paciente || null,
+        cc_paciente: item.cc_paciente || null,
+        odontologo_firma: item.odontologo_firma || null,
+        color: item.color || null,
+        guia: item.guia || null,
+        urls_documentos: item.urls_documentos || [],
+        dibujo_odontologo: item.dibujo_odontologo || null,
       }
     })
 

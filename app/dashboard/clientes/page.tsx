@@ -29,6 +29,9 @@ import {
   MessageCircle,
   Send,
   Shield,
+  Edit3,
+  Save,
+  X,
 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
@@ -57,6 +60,7 @@ interface Solicitud {
   historia_clinica: string | null
   odontologo: string | null
   cc_odontologo: string | null
+  odontologo_registro_medico: string | null
   paciente: string | null
   cc_paciente: string | null
   direccion: string | null
@@ -143,6 +147,11 @@ export default function ClientesPage() {
   const [mostrarNotificaciones, setMostrarNotificaciones] = useState(false)
   const [notificacionesVistas, setNotificacionesVistas] = useState<number[]>([])
 
+  const [editPrecioOpen, setEditPrecioOpen] = useState(false)
+  const [editPrecioId, setEditPrecioId] = useState<number | null>(null)
+  const [editPrecioValue, setEditPrecioValue] = useState("")
+  const [guardandoPrecio, setGuardandoPrecio] = useState(false)
+
   useEffect(() => {
     const getAdmin = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -227,28 +236,58 @@ export default function ClientesPage() {
     if (!loadingSolicitudes[clienteId]) {
       setLoadingSolicitudes((prev) => ({ ...prev, [clienteId]: true }))
 
-      const { data } = await supabase
-        .from("solicitudes")
-        .select("*")
-        .eq("cliente_id", clienteId)
-        .order("created_at", { ascending: false })
+      try {
+        const response = await fetch(`/api/solicitudes?cliente_id=${clienteId}&limit=100`)
+        const result = await response.json()
+        const solicitudes = (result.data || []).map((s: any) => ({
+          ...s,
+          servicios_detalle: s.servicios || [],
+        }))
 
-      const solicitudes = data || []
-      setClientes((prev) =>
-        prev.map((c) =>
-          c.id === clienteId
-            ? { ...c, solicitudes }
-            : c
+        const solicitudesIds = solicitudes.map((s: any) => s.id)
+        const { data: serviciosData } = await supabase
+          .from("servicios")
+          .select("solicitud_id, precio")
+          .in("solicitud_id", solicitudesIds)
+
+        const preciosPorSolicitud = new Map<number, number>()
+        ;(serviciosData || []).forEach((serv: any) => {
+          preciosPorSolicitud.set(serv.solicitud_id, (preciosPorSolicitud.get(serv.solicitud_id) || 0) + (Number(serv.precio) || 0))
+        })
+
+        const solicitudesConPrecio = solicitudes.map((s: any) => ({
+          ...s,
+          precio: preciosPorSolicitud.get(s.id) || 0,
+        }))
+
+        setClientes((prev) =>
+          prev.map((c) =>
+            c.id === clienteId
+              ? { ...c, solicitudes: solicitudesConPrecio }
+              : c
+          )
         )
-      )
 
-      if (solicitudes.length > 0) {
-        for (const sol of solicitudes) {
-          cargarNoLeidos(sol.id)
+        if (solicitudes.length > 0) {
+          for (const sol of solicitudes) {
+            cargarNoLeidos(sol.id)
+          }
+
+          setServiciosPorSolicitud((prev) => {
+            const next = { ...prev }
+            solicitudes.forEach((s: any) => {
+              if (s.servicios?.length > 0) {
+                next[s.id] = s.servicios
+              }
+            })
+            return next
+          })
         }
+      } catch (error) {
+        console.error("Error cargando solicitudes:", error)
+      } finally {
+        setLoadingSolicitudes((prev) => ({ ...prev, [clienteId]: false }))
       }
-
-      setLoadingSolicitudes((prev) => ({ ...prev, [clienteId]: false }))
     }
   }
 
@@ -334,6 +373,90 @@ export default function ClientesPage() {
 
     if (abrir && (!itemsEstadoCuenta[clienteId] || itemsEstadoCuenta[clienteId].length === 0)) {
       await cargarEstadoCuenta(clienteId)
+    }
+  }
+
+  const getServiciosDeSolicitud = (solicitudId: number) => {
+    const cliente = clientes.find((c) => c.id === expandedCliente)
+    if (!cliente) return []
+    const solicitud = (cliente as any).solicitudes?.find?.((s: any) => s.id === solicitudId)
+    if (solicitud?.servicios_detalle?.length > 0) {
+      return solicitud.servicios_detalle
+    }
+    return serviciosPorSolicitud[solicitudId] || []
+  }
+
+  const calcularPrecioSolicitud = (solicitud: any) => {
+    const servicios = getServiciosDeSolicitud(solicitud.id)
+    const precioServicios = servicios.reduce((acc: number, serv: any) => acc + (Number(serv.precio) || 0), 0)
+    if (precioServicios > 0) return precioServicios
+    if ((solicitud as any).precio && Number((solicitud as any).precio) > 0) {
+      return Number((solicitud as any).precio)
+    }
+    return 0
+  }
+
+  const handleGuardarPrecioCliente = async (solicitudId: number) => {
+    setGuardandoPrecio(true)
+    try {
+      const precioNum = editPrecioValue ? Number(editPrecioValue) : null
+      const { data, error } = await supabase
+        .from("servicios")
+        .select("id, precio, es_principal")
+        .eq("solicitud_id", solicitudId)
+        .order("es_principal", { ascending: false })
+
+      if (error) throw error
+
+      const principal = (data || []).find((s: any) => s.es_principal)
+
+      if (principal && precioNum !== null) {
+        const { error: updateError } = await supabase
+          .from("servicios")
+          .update({ precio: precioNum })
+          .eq("id", principal.id)
+
+        if (updateError) throw updateError
+      } else if (!principal && precioNum !== null) {
+        const { data: servicios } = await supabase
+          .from("servicios")
+          .select("id, nombre")
+          .eq("solicitud_id", solicitudId)
+          .limit(1)
+
+        const nombreServicio = servicios && servicios.length > 0 ? servicios[0].nombre : `Solicitud #${solicitudId}`
+
+        const { error: insertError } = await supabase
+          .from("servicios")
+          .insert({ solicitud_id: solicitudId, nombre: nombreServicio, precio: precioNum, es_principal: true })
+
+        if (insertError) throw insertError
+      }
+
+      setClientes((prev) =>
+        prev.map((c) =>
+          c.id === (expandedCliente || 0)
+            ? {
+                ...c,
+                solicitudes: (c.solicitudes || []).map((s: any) =>
+                  s.id === solicitudId ? { ...s, precio: precioNum } : s
+                ),
+              }
+            : c
+        )
+      )
+
+      const clienteId = expandedCliente
+      if (clienteId && mostrarEstadoCuenta[clienteId]) {
+        await cargarEstadoCuenta(clienteId)
+      }
+
+      toast({ title: "Precio actualizado", description: "El precio de la solicitud se actualizó correctamente." })
+      setEditPrecioOpen(false)
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "No se pudo actualizar el precio.", variant: "destructive" })
+    } finally {
+      setGuardandoPrecio(false)
     }
   }
 
@@ -891,16 +1014,28 @@ export default function ClientesPage() {
                     {new Date(solicitud.created_at).toLocaleDateString("es-CO")}
                   </span>
                 </div>
-                {(solicitud as any).servicios_detalle?.length > 0 && (
-                  <div className="mt-2 space-y-1">
-                    {(solicitud as any).servicios_detalle.map((serv: any) => (
-                      <div key={serv.id} className="flex items-center justify-between text-[10px]">
-                        <span className="text-gray-700">{serv.nombre}</span>
-                        <span className="font-medium text-primary">${serv.precio ? Number(serv.precio).toLocaleString("es-CO") : "0"}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                 {(solicitud as any).servicios_detalle?.length > 0 && (
+                   <div className="mt-2 space-y-1">
+                     {(solicitud as any).servicios_detalle.map((serv: any) => (
+                       <div key={serv.id} className="flex items-center justify-between text-[10px]">
+                         <span className="text-gray-700">{serv.nombre}</span>
+                         <span className="font-medium text-primary">${serv.precio ? Number(serv.precio).toLocaleString("es-CO") : "0"}</span>
+                       </div>
+                     ))}
+                   </div>
+                 )}
+                  {calcularPrecioSolicitud(solicitud) > 0 && !solicitud.precio && (
+                    <div className="mt-2">
+                      <span className="text-[10px] text-gray-500">Total solicitud:</span>
+                      <span className="text-sm font-bold text-primary ml-1">${calcularPrecioSolicitud(solicitud).toLocaleString("es-CO")}</span>
+                    </div>
+                  )}
+                  {calcularPrecioSolicitud(solicitud) === 0 && (
+                    <div className="mt-2">
+                      <span className="text-[10px] text-gray-500">Total solicitud:</span>
+                      <span className="text-sm font-bold text-primary ml-1">$0</span>
+                    </div>
+                  )}
                 {solicitud.odontologo_firma && (
                   <div className="mt-2">
                     {String(solicitud.odontologo_firma).startsWith("data:image") ? (
@@ -914,24 +1049,65 @@ export default function ClientesPage() {
                     )}
                   </div>
                 )}
-              </div>
-                                <div className="flex items-center gap-2">
-                                  {solicitud.precio && (
-                                    <span className="text-sm font-bold text-primary">
-                                      ${solicitud.precio?.toLocaleString("es-CO")}
-                                    </span>
-                                  )}
-                                  <Link
-                                    href={`/dashboard/clientes/${cliente.id}?solicitud=${solicitud.id}`}
-                                    className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted"
-                                  >
-                                    <Eye size={12} />
-                                    Ver
-                                  </Link>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
+               </div>
+                                 <div className="flex flex-col items-end gap-2">
+                                   <div className="flex items-center gap-2">
+                                     {editPrecioOpen && editPrecioId === solicitud.id ? (
+                                       <>
+                                         <input
+                                           type="number"
+                                           value={editPrecioValue}
+                                           onChange={(e) => setEditPrecioValue(e.target.value)}
+                                           className="w-28 text-xs rounded-lg border border-border bg-white px-2 py-1.5 text-right"
+                                         />
+                                         <button
+                                           onClick={() => handleGuardarPrecioCliente(solicitud.id)}
+                                           disabled={guardandoPrecio}
+                                           className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary hover:bg-primary/20 disabled:opacity-50"
+                                         >
+                                           {guardandoPrecio ? (
+                                             <><Loader2 size={12} className="animate-spin" /> Guardando</>
+                                           ) : (
+                                             <><Save size={12} /> Guardar</>
+                                           )}
+                                         </button>
+                                         <button
+                                           onClick={() => setEditPrecioOpen(false)}
+                                           className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted"
+                                         >
+                                           <X size={12} />
+                                         </button>
+                                       </>
+                                     ) : (
+                                       <>
+                                         <span className="text-sm font-bold text-primary">
+                                           ${calcularPrecioSolicitud(solicitud).toLocaleString("es-CO")}
+                                         </span>
+                                         <button
+                                           onClick={() => {
+                                             setEditPrecioId(solicitud.id)
+                                             setEditPrecioValue(String(calcularPrecioSolicitud(solicitud) || ""))
+                                             setEditPrecioOpen(true)
+                                           }}
+                                           className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted"
+                                         >
+                                           <Edit3 size={12} />
+                                           Precio
+                                         </button>
+                                       </>
+                                     )}
+                                   </div>
+                                   <Link
+                                     href={`/dashboard/clientes/${cliente.id}?solicitud=${solicitud.id}`}
+                                     className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted"
+                                   >
+                                     <Eye size={12} />
+                                     Ver
+                                   </Link>
+                                 </div>
+                               </div>
+                             ))}
+                           </div>
                         )}
                       </div>
                     </motion.div>

@@ -371,7 +371,7 @@ export function SolicitudSection({
 
           <div className="text-right">
             <span className="text-2xl font-serif text-[#c62828] italic">Prescripción</span>
-            <div className="text-[10px] text-gray-600 mt-0.5">HISTORIA CLÍNICA</div>
+            <div className="text-[10px] text-gray-600 mt-0.5">Nº PRESCRIPCIÓN</div>
             <div className="flex items-center justify-end gap-1 mt-0.5">
               <span className="text-xs">Nº</span>
               <Input
@@ -395,17 +395,17 @@ export function SolicitudSection({
               onChange={(e) => onFormDataChange({ odontologo: e.target.value })}
             />
           </div>
+          <div className="flex items-center gap-1 flex-1">
+            <Label className="text-xs whitespace-nowrap">REGISTRO MÉDICO:</Label>
+            <Input
+              className="flex-1 h-6 border-b border-gray-400 rounded-none border-t-0 border-l-0 border-r-0 text-xs"
+              value={formData.registroMedico}
+              onChange={(e) => onFormDataChange({ registroMedico: e.target.value })}
+            />
+          </div>
         </div>
 
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 flex-1">
-            <Label className="text-xs whitespace-nowrap">CC.:</Label>
-            <Input
-              className="flex-1 h-6 border-b border-gray-400 rounded-none border-t-0 border-l-0 border-r-0 text-xs"
-              value={formData.ccOdontologo}
-              onChange={(e) => onFormDataChange({ ccOdontologo: e.target.value })}
-            />
-          </div>
           <div className="flex items-center gap-1 flex-1">
             <Label className="text-xs whitespace-nowrap">PACIENTE:</Label>
             <Input
@@ -414,18 +414,7 @@ export function SolicitudSection({
               onChange={(e) => onFormDataChange({ paciente: e.target.value })}
             />
           </div>
-        </div>
-
-        <div className="flex items-center gap-4">
           <div className="flex items-center gap-1 flex-1">
-            <Label className="text-xs whitespace-nowrap">No. TARJETA PROFESIONAL:</Label>
-            <Input
-              className="flex-1 h-6 border-b border-gray-400 rounded-none border-t-0 border-l-0 border-r-0 text-xs"
-              value={formData.tarjetaProfesional}
-              onChange={(e) => onFormDataChange({ tarjetaProfesional: e.target.value })}
-            />
-          </div>
-          <div className="flex items-center gap-1 w-32">
             <Label className="text-xs whitespace-nowrap">CC.:</Label>
             <Input
               className="flex-1 h-6 border-b border-gray-400 rounded-none border-t-0 border-l-0 border-r-0 text-xs"

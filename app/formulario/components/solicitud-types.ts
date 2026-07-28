@@ -13,11 +13,9 @@ export interface ProductoLine {
 export interface SolicitudFormData {
   fechaElaboracion: FechaPartes
   fechaEntrega: FechaPartes
-  historiaClinica: string
   odontologo: string
-  ccOdontologo: string
+  registroMedico: string
   paciente: string
-  tarjetaProfesional: string
   ccPaciente: string
   direccion: string
   firma: string
@@ -50,8 +48,15 @@ export interface SolicitudEntry {
   total: number
 }
 
-function generateCodigoTrazabilidad(): string {
-  return "TRZ-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 6)
+export function generateCodigoTrazabilidad(): string {
+  const now = new Date()
+  const year = now.getFullYear()
+  const month = String(now.getMonth() + 1).padStart(2, "0")
+  const day = String(now.getDate()).padStart(2, "0")
+  const hours = String(now.getHours()).padStart(2, "0")
+  const minutes = String(now.getMinutes()).padStart(2, "0")
+  const seconds = String(now.getSeconds()).padStart(2, "0")
+  return `${year}${month}${day}${hours}${minutes}${seconds}`
 }
 
 function getTodayStr(): FechaPartes {
@@ -65,7 +70,6 @@ function getTodayStr(): FechaPartes {
 
 export function createDefaultSolicitud(options?: {
   odontologo?: string
-  ccOdontologo?: string
   tipoTrabajo?: string[]
   material?: string[]
   servicioTipo?: string
@@ -80,11 +84,9 @@ export function createDefaultSolicitud(options?: {
     formData: {
       fechaElaboracion: getTodayStr(),
       fechaEntrega: { dia: "", mes: "", anio: "" },
-      historiaClinica: "501",
       odontologo: options?.odontologo ?? "",
-      ccOdontologo: options?.ccOdontologo ?? "",
+      registroMedico: "",
       paciente: "",
-      tarjetaProfesional: "",
       ccPaciente: "",
       direccion: "",
       firma: "",
