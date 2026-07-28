@@ -15,6 +15,10 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [redirectUrl, setRedirectUrl] = useState<string | null>(null)
+  const [existingEmail, setExistingEmail] = useState<string | null>(null)
+  const [showSessionWarning, setShowSessionWarning] = useState(false)
+  const [pendingEmail, setPendingEmail] = useState("")
+  const [pendingPassword, setPendingPassword] = useState("")
   const router = useRouter()
 
   useEffect(() => {
@@ -27,13 +31,38 @@ export default function LoginPage() {
     }
   }, [])
 
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user?.email) {
+          setExistingEmail(session.user.email)
+        }
+      } catch {
+        // ignore
+      }
+    }
+    checkSession()
+  }, [])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError(null)
 
     try {
-      // Login con Supabase Auth
+      const normalizedEmail = email.trim().toLowerCase()
+      const normalizedExisting = existingEmail?.trim().toLowerCase()
+
+      if (normalizedExisting && normalizedExisting !== normalizedEmail) {
+        setPendingEmail(email)
+        setPendingPassword(password)
+        setShowSessionWarning(true)
+        setLoading(false)
+        return
+      }
+
       const { data: authData, error: authError } =
         await supabase.auth.signInWithPassword({
           email,
@@ -60,6 +89,49 @@ export default function LoginPage() {
 // Guardar sesión
       sessionStorage.setItem("clienteId", String(cliente.id))
       localStorage.setItem("isLoggedIn", "true")
+
+      if (redirectUrl) {
+        router.push(redirectUrl)
+      } else {
+        router.push("/page_clientes")
+      }
+    } catch (err: any) {
+      setError(err.message || "Error al iniciar sesión")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const confirmSwitchAccount = async () => {
+    setShowSessionWarning(false)
+    setLoading(true)
+    setError(null)
+
+    try {
+      await supabase.auth.signOut()
+      const { data: authData, error: authError } =
+        await supabase.auth.signInWithPassword({
+          email: pendingEmail,
+          password: pendingPassword,
+        })
+
+      if (authError) {
+        throw authError
+      }
+
+      const { data: cliente, error: clienteError } = await supabase
+        .from("clientes")
+        .select("*")
+        .eq("user_id", authData.user.id)
+        .single()
+
+      if (clienteError || !cliente) {
+        throw new Error("Cliente no encontrado")
+      }
+
+      sessionStorage.setItem("clienteId", String(cliente.id))
+      localStorage.setItem("isLoggedIn", "true")
+      setExistingEmail(authData.user.email)
 
       if (redirectUrl) {
         router.push(redirectUrl)
@@ -225,6 +297,38 @@ export default function LoginPage() {
           </p>
         </motion.div>
       </div>
+
+      {showSessionWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl">
+            <h3 className="mb-2 text-lg font-semibold text-foreground">
+              Sesión activa detectada
+            </h3>
+            <p className="mb-6 text-sm text-muted-foreground">
+              Tienes una sesión abierta como <span className="font-semibold text-foreground">{existingEmail}</span>.
+              ¿Deseas cerrarla y continuar con la cuenta <span className="font-semibold text-foreground">{pendingEmail}</span>?
+            </p>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                onClick={() => {
+                  setShowSessionWarning(false)
+                  setLoading(false)
+                }}
+                className="rounded-xl border border-border bg-card/50 px-4 py-2 text-sm font-medium transition-all hover:bg-muted"
+              >
+                Continuar con la misma cuenta
+              </button>
+              <button
+                onClick={confirmSwitchAccount}
+                disabled={loading}
+                className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-all hover:bg-primary-dark disabled:opacity-50"
+              >
+                {loading ? "Cambiando..." : "Cerrar sesión anterior y continuar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
