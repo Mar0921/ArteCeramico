@@ -1686,7 +1686,7 @@ if (!conv) return
                                 <div className="space-y-2">
                                   {(["declaracion_conformidad", "guia_fabricacion", "manual_uso"] as const).map((campo) => {
                                     const url = solicitud[campo]
-                                    const etiqueta = campo === "declaracion_conformidad" ? "Declaración de Conformidad" : campo === "guia_fabricacion" ? "Guía de Fabricación" : "Manual de Uso"
+                                    const etiqueta = campo === "declaracion_conformidad" ? "Declaración de Conformidad" : campo === "guia_fabricacion" ? "Ficha Técnica" : "Manual de Uso"
                                     const uploading = uploadingSolicitudDoc[campo]
                                     const error = uploadSolicitudError[campo]
                                     const success = uploadSolicitudSuccess[campo]
@@ -1821,12 +1821,12 @@ if (!conv) return
                                                 </p>
                                                 <div className="mt-2 space-y-1">
                                                   {(["declaracion_conformidad", "guia_fabricacion", "manual_uso"] as const).map((campo) => {
-                                                    const etiqueta =
-                                                      campo === "declaracion_conformidad"
-                                                        ? "Declaración de Conformidad"
-                                                        : campo === "guia_fabricacion"
-                                                          ? "Guía de Fabricación"
-                                                          : "Manual de Uso"
+                                                     const etiqueta =
+                                                       campo === "declaracion_conformidad"
+                                                         ? "Declaración de Conformidad"
+                                                         : campo === "guia_fabricacion"
+                                                           ? "Ficha Técnica"
+                                                           : "Manual de Uso"
                                                     const url = servicio[campo as keyof typeof servicio] as string | null
                                                     const uploadKey = `${servicio.id}-${campo}`
                                                     const error = uploadError[uploadKey]

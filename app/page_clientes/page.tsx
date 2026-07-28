@@ -1099,7 +1099,7 @@ export default function ClientesPage() {
         campo === "declaracion_conformidad"
           ? "Declaración de Conformidad"
           : campo === "guia_fabricacion"
-            ? "Guía de Fabricación"
+            ? "Ficha Técnica"
             : "Manual de Uso"
 
       setSolicitudMensaje(`${nombreDocumento} subido correctamente para el servicio #${servicioId}`)
@@ -1916,12 +1916,12 @@ export default function ClientesPage() {
                           <div className="mt-3 flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
                             {(["declaracion_conformidad", "guia_fabricacion", "manual_uso"] as const).map((campo) => {
                               const url = solicitud[campo]
-                              const label =
-                                campo === "declaracion_conformidad"
-                                  ? "Declaración de Conformidad"
-                                  : campo === "guia_fabricacion"
-                                    ? "Guía de Fabricación"
-                                    : "Manual de Uso"
+                               const label =
+                                 campo === "declaracion_conformidad"
+                                   ? "Declaración de Conformidad"
+                                   : campo === "guia_fabricacion"
+                                     ? "Ficha Técnica"
+                                     : "Manual de Uso"
                               return (
                                 <span
                                   key={campo}
@@ -2198,12 +2198,12 @@ export default function ClientesPage() {
 
                           <div className="space-y-2">
                             {(["declaracion_conformidad", "guia_fabricacion", "manual_uso"] as const).map((campo) => {
-                              const etiqueta =
-                                campo === "declaracion_conformidad"
-                                  ? "Declaración de Conformidad"
-                                  : campo === "guia_fabricacion"
-                                    ? "Guía de Fabricación"
-                                    : "Manual de Uso"
+                               const etiqueta =
+                                 campo === "declaracion_conformidad"
+                                   ? "Declaración de Conformidad"
+                                   : campo === "guia_fabricacion"
+                                     ? "Ficha Técnica"
+                                     : "Manual de Uso"
                               const url =
                                 campo === "declaracion_conformidad"
                                   ? servicio.declaracion_conformidad
