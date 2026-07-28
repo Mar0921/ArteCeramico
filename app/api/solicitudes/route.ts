@@ -358,6 +358,8 @@ export async function POST(request: Request) {
     const dientesTrabajadosJson = String(formData.get("dientesTrabajados") || "[]").trim()
     const dibujoOdontologo = String(formData.get("dibujoOdontologo") || "").trim()
     const productosJson = String(formData.get("productos") || "[]").trim()
+    const recomendaciones = String(formData.get("recomendaciones") || "").trim()
+    const garantia = String(formData.get("garantia") || "").trim()
 
     let tiposTrabajo: string[] = []
     let materiales: string[] = []
@@ -649,6 +651,8 @@ export async function POST(request: Request) {
       dientes_trabajados: dientesTrabajados,
       piezas_enviadas: piezasEnviadas,
       dibujo_odontologo: dibujoOdontologo || null,
+      recomendaciones: recomendaciones || null,
+      garantia: garantia || null,
     }
 
     const siNo = (value: boolean) => (value ? "Si" : "No")

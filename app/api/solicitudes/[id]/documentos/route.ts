@@ -28,7 +28,7 @@ export async function POST(
       )
     }
 
-    const tiposValidos = ["declaracion_conformidad", "guia_fabricacion", "manual_uso"]
+    const tiposValidos = ["declaracion_conformidad", "guia_fabricacion", "manual_uso", "recomendaciones", "garantia"]
     if (!tiposValidos.includes(tipo)) {
       return NextResponse.json(
         { error: "Tipo de documento no válido" },
@@ -103,7 +103,7 @@ export async function POST(
 
     const { data: solicitudActualizada } = await supabase
       .from("solicitudes")
-      .select("id, servicio, declaracion_conformidad, guia_fabricacion, manual_uso")
+      .select("id, servicio, declaracion_conformidad, guia_fabricacion, manual_uso, recomendaciones, garantia")
       .eq("id", solicitudId)
       .single()
 

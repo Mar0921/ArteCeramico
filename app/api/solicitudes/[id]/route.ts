@@ -112,7 +112,7 @@ export async function GET(
 
 const { data: solicitud, error: solicitudError } = await supabase
         .from("solicitudes")
-        .select("id, servicio, observaciones, estado, created_at, updated_at, cliente_id, urls_documentos, fecha_elaboracion, fecha_entrega, historia_clinica, odontologo, cc_odontologo, odontologo_direccion, odontologo_firma, paciente, cc_paciente, color, guia, prueba, terminado, chimenea, caja, codigo_trazabilidad, dientes_trabajados, piezas_enviadas, declaracion_conformidad, guia_fabricacion, manual_uso")
+        .select("id, servicio, observaciones, estado, created_at, updated_at, cliente_id, urls_documentos, fecha_elaboracion, fecha_entrega, historia_clinica, odontologo, cc_odontologo, odontologo_direccion, odontologo_firma, paciente, cc_paciente, color, guia, prueba, terminado, chimenea, caja, codigo_trazabilidad, dientes_trabajados, piezas_enviadas, declaracion_conformidad, guia_fabricacion, manual_uso, recomendaciones, garantia")
       .eq("id", solicitudId)
       .single()
 

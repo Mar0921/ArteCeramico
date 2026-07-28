@@ -105,6 +105,8 @@ interface Solicitud {
   declaracion_conformidad: string | null
   guia_fabricacion: string | null
   manual_uso: string | null
+  recomendaciones: string | null
+  garantia: string | null
 }
 
 interface Cliente {
@@ -172,9 +174,37 @@ export default function ClientesPage() {
   const [serviciosDetalle, setServiciosDetalle] = useState<Servicio[]>([])
   const [loadingDetalle, setLoadingDetalle] = useState(false)
   const [servicioDocs, setServicioDocs] = useState<Record<number, { declaracion_conformidad: File | null; guia_fabricacion: File | null; manual_uso: File | null }>>({})
+  const [solicitudDocs, setSolicitudDocs] = useState<{ declaracion_conformidad: File | null; guia_fabricacion: File | null; manual_uso: File | null; recomendaciones: File | null; garantia: File | null }>({
+    declaracion_conformidad: null,
+    guia_fabricacion: null,
+    manual_uso: null,
+    recomendaciones: null,
+    garantia: null,
+  })
   const [uploadingDoc, setUploadingDoc] = useState<Record<string, boolean>>({})
+  const [uploadingSolicitudDoc, setUploadingSolicitudDoc] = useState<{ declaracion_conformidad: boolean; guia_fabricacion: boolean; manual_uso: boolean; recomendaciones: boolean; garantia: boolean }>({
+    declaracion_conformidad: false,
+    guia_fabricacion: false,
+    manual_uso: false,
+    recomendaciones: false,
+    garantia: false,
+  })
   const [uploadError, setUploadError] = useState<Record<string, string>>({})
+  const [uploadSolicitudError, setUploadSolicitudError] = useState<{ declaracion_conformidad: string; guia_fabricacion: string; manual_uso: string; recomendaciones: string; garantia: string }>({
+    declaracion_conformidad: "",
+    guia_fabricacion: "",
+    manual_uso: "",
+    recomendaciones: "",
+    garantia: "",
+  })
   const [uploadSuccess, setUploadSuccess] = useState<Record<string, boolean>>({})
+  const [uploadSolicitudSuccess, setUploadSolicitudSuccess] = useState<{ declaracion_conformidad: boolean; guia_fabricacion: boolean; manual_uso: boolean; recomendaciones: boolean; garantia: boolean }>({
+    declaracion_conformidad: false,
+    guia_fabricacion: false,
+    manual_uso: false,
+    recomendaciones: false,
+    garantia: false,
+  })
   const [mostrarEstadoCuenta, setMostrarEstadoCuenta] = useState(false)
   const [itemsEstadoCuenta, setItemsEstadoCuenta] = useState<{
     id: number
@@ -1112,6 +1142,65 @@ export default function ClientesPage() {
     }
   }
 
+  const handleUploadDocSolicitud = async (solicitudId: number, campo: "declaracion_conformidad" | "guia_fabricacion" | "manual_uso" | "recomendaciones" | "garantia") => {
+    const archivo = solicitudDocs[campo]
+    if (!archivo) return
+
+    setUploadingSolicitudDoc((prev) => ({ ...prev, [campo]: true }))
+    setUploadSolicitudError((prev) => ({ ...prev, [campo]: "" }))
+    setUploadSolicitudSuccess((prev) => ({ ...prev, [campo]: false }))
+
+    try {
+      const formData = new FormData()
+      formData.append("tipo", campo)
+      formData.append("archivo", archivo)
+
+      const response = await fetch(`/api/solicitudes/${solicitudId}/documentos`, {
+        method: "POST",
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const result = await response.json().catch(() => ({ error: "Error al subir documento" }))
+        throw new Error(result.error || "Error al subir documento")
+      }
+
+      const result = await response.json()
+      setSolicitudes((prev) => prev.map((s) => (s.id === solicitudId ? result.data : s)))
+
+      setUploadSolicitudSuccess((prev) => ({ ...prev, [campo]: true }))
+      setTimeout(() => {
+        setUploadSolicitudSuccess((prev) => {
+          const next = { ...prev }
+          delete next[campo]
+          return next
+        })
+      }, 3000)
+
+      const nombreDocumento =
+        campo === "declaracion_conformidad"
+          ? "Declaración de Conformidad"
+          : campo === "guia_fabricacion"
+            ? "Ficha Técnica"
+            : campo === "manual_uso"
+              ? "Manual de Uso"
+              : campo === "recomendaciones"
+                ? "Recomendaciones"
+                : "Garantía"
+
+      setSolicitudMensaje(`${nombreDocumento} subido correctamente`)
+      setTimeout(() => setSolicitudMensaje(null), 4000)
+    } catch (err) {
+      console.error("Error subiendo documento de solicitud:", err)
+      const message = err instanceof Error ? err.message : "No se pudo subir el documento."
+      setUploadSolicitudError((prev) => ({ ...prev, [campo]: message }))
+      alert(message)
+    } finally {
+      setUploadingSolicitudDoc((prev) => ({ ...prev, [campo]: false }))
+      setSolicitudDocs((prev) => ({ ...prev, [campo]: null }))
+    }
+  }
+
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut()
@@ -1914,40 +2003,103 @@ export default function ClientesPage() {
 
                         {expandedSolicitudId === solicitud.id && (
                           <div className="mt-3 flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
-                            {(["declaracion_conformidad", "guia_fabricacion", "manual_uso"] as const).map((campo) => {
-                              const url = solicitud[campo]
-                               const label =
-                                 campo === "declaracion_conformidad"
-                                   ? "Declaración de Conformidad"
-                                   : campo === "guia_fabricacion"
-                                     ? "Ficha Técnica"
-                                     : "Manual de Uso"
-                              return (
-                                <span
-                                  key={campo}
-                                  className={
-                                    "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 " +
-                                    (url
-                                      ? "border-green-500/40 bg-green-500/10 text-green-700"
-                                      : "border-border bg-background/70 text-muted-foreground")
-                                  }
+                            <span
+                              className={
+                                "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 " +
+                                (solicitud.declaracion_conformidad
+                                  ? "border-green-500/40 bg-green-500/10 text-green-700"
+                                  : "border-border bg-background/70 text-muted-foreground")
+                              }
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: solicitud.declaracion_conformidad ? "#16a34a" : "#a1a1aa" }} />
+                              {solicitud.declaracion_conformidad ? (
+                                <a
+                                  href={solicitud.declaracion_conformidad}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="underline-offset-2 hover:underline"
                                 >
-                                  <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: url ? "#16a34a" : "#a1a1aa" }} />
-                                  {url ? (
-                                    <a
-                                      href={url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="underline-offset-2 hover:underline"
+                                  Declaración de Conformidad
+                                </a>
+                              ) : (
+                                "Declaración de Conformidad pendiente"
+                              )}
+                            </span>
+
+                            <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background/70 px-2 py-0.5 text-muted-foreground">
+                              Ficha Técnica
+                            </span>
+
+                            <div className="w-full mt-1 ml-1 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
+                              {(["manual_uso", "recomendaciones", "garantia"] as const).map((campo) => {
+                                const url = solicitud[campo]
+                                const label =
+                                  campo === "manual_uso"
+                                    ? "Manual de Uso"
+                                    : campo === "recomendaciones"
+                                      ? "Recomendaciones"
+                                      : "Garantía"
+                                const uploading = uploadingSolicitudDoc[campo]
+                                const error = uploadSolicitudError[campo]
+                                const success = uploadSolicitudSuccess[campo]
+
+                                return (
+                                  <div key={campo} className="flex items-center gap-2">
+                                    <span
+                                      className={
+                                        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 " +
+                                        (url
+                                          ? "border-green-500/40 bg-green-500/10 text-green-700"
+                                          : "border-border bg-background/70 text-muted-foreground")
+                                      }
                                     >
-                                      {label}
-                                    </a>
-                                  ) : (
-                                    label + " pendiente"
-                                  )}
-                                </span>
-                              )
-                            })}
+                                      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: url ? "#16a34a" : "#a1a1aa" }} />
+                                      {url ? (
+                                        <a
+                                          href={url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="underline-offset-2 hover:underline"
+                                        >
+                                          {label}
+                                        </a>
+                                      ) : (
+                                        label + " pendiente"
+                                      )}
+                                    </span>
+                                    <input
+                                      type="file"
+                                      className="hidden"
+                                      id={`solicitud-${solicitud.id}-${campo}`}
+                                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
+                                      onChange={(e) => {
+                                        const file = e.target.files?.[0]
+                                        if (file) {
+                                          setSolicitudDocs((prev) => ({ ...prev, [campo]: file }))
+                                          setUploadSolicitudError((prev) => ({ ...prev, [campo]: "" }))
+                                        }
+                                      }}
+                                    />
+                                    <label htmlFor={`solicitud-${solicitud.id}-${campo}`} className="cursor-pointer">
+                                      <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-background/70 px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted">
+                                        {uploading ? "Subiendo..." : "Subir"}
+                                      </span>
+                                    </label>
+                                    {solicitudDocs[campo] && (
+                                      <button
+                                        onClick={() => handleUploadDocSolicitud(solicitud.id, campo)}
+                                        disabled={uploading}
+                                        className="inline-flex items-center gap-1 rounded-lg border border-border bg-background/70 px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted disabled:opacity-50"
+                                      >
+                                        Guardar
+                                      </button>
+                                    )}
+                                    {error && <span className="text-[10px] text-red-500">{error}</span>}
+                                    {success && <span className="text-[10px] text-green-600">OK</span>}
+                                  </div>
+                                )
+                              })}
+                            </div>
                           </div>
                         )}
                       </div>
