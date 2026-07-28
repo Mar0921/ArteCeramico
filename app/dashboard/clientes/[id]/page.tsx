@@ -1759,9 +1759,9 @@ if (!conv) return
                                     </button>
                                     {expandedFichaTecnica[solicitud.id] && (
                                       <div className="px-2 pb-2 space-y-2">
-                                        {(["manual_uso", "recomendaciones", "garantia"] as const).map((campo) => {
+                                        {(["guia_fabricacion", "manual_uso", "recomendaciones", "garantia"] as const).map((campo) => {
                                           const url = solicitud[campo]
-                                          const etiqueta = campo === "manual_uso" ? "Manual de Uso" : campo === "recomendaciones" ? "Recomendaciones" : "Garantía"
+                                          const etiqueta = campo === "guia_fabricacion" ? "Ficha Técnica" : campo === "manual_uso" ? "Manual de Uso" : campo === "recomendaciones" ? "Recomendaciones" : "Garantía"
                                           const uploading = uploadingSolicitudDoc[campo]
                                           const error = uploadSolicitudError[campo]
                                           const success = uploadSolicitudSuccess[campo]

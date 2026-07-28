@@ -226,6 +226,7 @@ export default function ClientesPage() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [notificacionesNoLeidas, setNotificacionesNoLeidas] = useState<Record<number, number>>({})
   const [expandedSolicitudId, setExpandedSolicitudId] = useState<number | null>(null)
+  const [expandedFichaTecnica, setExpandedFichaTecnica] = useState<Record<number, boolean>>({})
 
   const { toast } = useToast()
 
@@ -2026,79 +2027,90 @@ export default function ClientesPage() {
                               )}
                             </span>
 
-                            <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background/70 px-2 py-0.5 text-muted-foreground">
-                              Ficha Técnica
-                            </span>
+                            <div className="w-full mt-1 ml-1 border border-border rounded-lg">
+                              <button
+                                onClick={() => setExpandedFichaTecnica(prev => ({ ...prev, [solicitud.id]: !prev[solicitud.id] }))}
+                                className="w-full flex items-center justify-between p-2 text-xs font-medium text-foreground hover:bg-muted/50 transition-colors"
+                              >
+                                <span>Ficha Técnica</span>
+                                <span className="text-[10px] text-muted-foreground">
+                                  {expandedFichaTecnica[solicitud.id] ? "Ocultar" : "Ver"}
+                                </span>
+                              </button>
+                              {expandedFichaTecnica[solicitud.id] && (
+                                <div className="px-2 pb-2 space-y-2">
+                                  {(["guia_fabricacion", "manual_uso", "recomendaciones", "garantia"] as const).map((campo) => {
+                                    const url = solicitud[campo]
+                                    const label =
+                                      campo === "guia_fabricacion"
+                                        ? "Ficha Técnica"
+                                        : campo === "manual_uso"
+                                          ? "Manual de Uso"
+                                          : campo === "recomendaciones"
+                                            ? "Recomendaciones"
+                                            : "Garantía"
+                                    const uploading = uploadingSolicitudDoc[campo]
+                                    const error = uploadSolicitudError[campo]
+                                    const success = uploadSolicitudSuccess[campo]
 
-                            <div className="w-full mt-1 ml-1 flex flex-wrap items-center gap-2 text-[10px] text-muted-foreground">
-                              {(["manual_uso", "recomendaciones", "garantia"] as const).map((campo) => {
-                                const url = solicitud[campo]
-                                const label =
-                                  campo === "manual_uso"
-                                    ? "Manual de Uso"
-                                    : campo === "recomendaciones"
-                                      ? "Recomendaciones"
-                                      : "Garantía"
-                                const uploading = uploadingSolicitudDoc[campo]
-                                const error = uploadSolicitudError[campo]
-                                const success = uploadSolicitudSuccess[campo]
-
-                                return (
-                                  <div key={campo} className="flex items-center gap-2">
-                                    <span
-                                      className={
-                                        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 " +
-                                        (url
-                                          ? "border-green-500/40 bg-green-500/10 text-green-700"
-                                          : "border-border bg-background/70 text-muted-foreground")
-                                      }
-                                    >
-                                      <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: url ? "#16a34a" : "#a1a1aa" }} />
-                                      {url ? (
-                                        <a
-                                          href={url}
-                                          target="_blank"
-                                          rel="noopener noreferrer"
-                                          className="underline-offset-2 hover:underline"
+                                    return (
+                                      <div key={campo} className="flex items-center gap-2">
+                                        <span
+                                          className={
+                                            "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 " +
+                                            (url
+                                              ? "border-green-500/40 bg-green-500/10 text-green-700"
+                                              : "border-border bg-background/70 text-muted-foreground")
+                                          }
                                         >
-                                          {label}
-                                        </a>
-                                      ) : (
-                                        label + " pendiente"
-                                      )}
-                                    </span>
-                                    <input
-                                      type="file"
-                                      className="hidden"
-                                      id={`solicitud-${solicitud.id}-${campo}`}
-                                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
-                                      onChange={(e) => {
-                                        const file = e.target.files?.[0]
-                                        if (file) {
-                                          setSolicitudDocs((prev) => ({ ...prev, [campo]: file }))
-                                          setUploadSolicitudError((prev) => ({ ...prev, [campo]: "" }))
-                                        }
-                                      }}
-                                    />
-                                    <label htmlFor={`solicitud-${solicitud.id}-${campo}`} className="cursor-pointer">
-                                      <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-background/70 px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted">
-                                        {uploading ? "Subiendo..." : "Subir"}
-                                      </span>
-                                    </label>
-                                    {solicitudDocs[campo] && (
-                                      <button
-                                        onClick={() => handleUploadDocSolicitud(solicitud.id, campo)}
-                                        disabled={uploading}
-                                        className="inline-flex items-center gap-1 rounded-lg border border-border bg-background/70 px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted disabled:opacity-50"
-                                      >
-                                        Guardar
-                                      </button>
-                                    )}
-                                    {error && <span className="text-[10px] text-red-500">{error}</span>}
-                                    {success && <span className="text-[10px] text-green-600">OK</span>}
-                                  </div>
-                                )
-                              })}
+                                          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: url ? "#16a34a" : "#a1a1aa" }} />
+                                          {url ? (
+                                            <a
+                                              href={url}
+                                              target="_blank"
+                                              rel="noopener noreferrer"
+                                              className="underline-offset-2 hover:underline"
+                                            >
+                                              {label}
+                                            </a>
+                                          ) : (
+                                            label + " pendiente"
+                                          )}
+                                        </span>
+                                        <input
+                                          type="file"
+                                          className="hidden"
+                                          id={`solicitud-${solicitud.id}-${campo}`}
+                                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
+                                          onChange={(e) => {
+                                            const file = e.target.files?.[0]
+                                            if (file) {
+                                              setSolicitudDocs((prev) => ({ ...prev, [campo]: file }))
+                                              setUploadSolicitudError((prev) => ({ ...prev, [campo]: "" }))
+                                            }
+                                          }}
+                                        />
+                                        <label htmlFor={`solicitud-${solicitud.id}-${campo}`} className="cursor-pointer">
+                                          <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-background/70 px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted">
+                                            {uploading ? "Subiendo..." : "Subir"}
+                                          </span>
+                                        </label>
+                                        {solicitudDocs[campo] && (
+                                          <button
+                                            onClick={() => handleUploadDocSolicitud(solicitud.id, campo)}
+                                            disabled={uploading}
+                                            className="inline-flex items-center gap-1 rounded-lg border border-border bg-background/70 px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted disabled:opacity-50"
+                                          >
+                                            Guardar
+                                          </button>
+                                        )}
+                                        {error && <span className="text-[10px] text-red-500">{error}</span>}
+                                        {success && <span className="text-[10px] text-green-600">OK</span>}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )}
                             </div>
                           </div>
                         )}
