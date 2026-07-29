@@ -408,7 +408,7 @@ export default function ClientePerfilPage() {
 
           const solicitudesConPrecio = (data as any[]).map((s: any) => ({
             ...s,
-            servicios_detalle: s.servicios || [],
+            servicios_detalle: s.servicios_detalle || [],
             precio: preciosPorSolicitud.get(s.id) || 0,
           }))
 

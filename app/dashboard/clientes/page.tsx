@@ -241,7 +241,7 @@ export default function ClientesPage() {
         const result = await response.json()
         const solicitudes = (result.data || []).map((s: any) => ({
           ...s,
-          servicios_detalle: s.servicios || [],
+          servicios_detalle: s.servicios_detalle || [],
         }))
 
         const solicitudesIds = solicitudes.map((s: any) => s.id)
@@ -276,8 +276,8 @@ export default function ClientesPage() {
           setServiciosPorSolicitud((prev) => {
             const next = { ...prev }
             solicitudes.forEach((s: any) => {
-              if (s.servicios?.length > 0) {
-                next[s.id] = s.servicios
+              if (s.servicios_detalle?.length > 0) {
+                next[s.id] = s.servicios_detalle
               }
             })
             return next
