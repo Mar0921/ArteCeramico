@@ -387,7 +387,7 @@ export default function ClientesPage() {
   }
 
   const calcularPrecioSolicitud = (solicitud: any) => {
-    const servicios = getServiciosDeSolicitud(solicitud.id)
+    const servicios = (solicitud as any)?.servicios_detalle || []
     const precioServicios = servicios.reduce((acc: number, serv: any) => acc + (Number(serv.precio) || 0), 0)
     if (precioServicios > 0) return precioServicios
     if ((solicitud as any).precio && Number((solicitud as any).precio) > 0) {
@@ -993,125 +993,210 @@ export default function ClientesPage() {
                           <p className="text-sm text-muted-foreground text-center py-4">
                             Sin solicitudes registradas
                           </p>
-                        ) : (
-                          <div className="space-y-2">
-                            {cliente.solicitudes.map((solicitud) => (
-                              <div
-                                key={solicitud.id}
-                                className="flex items-center justify-between rounded-lg border border-border bg-white p-3"
-                              >
-                                <div className="flex-1">
-                                  <p className="text-sm font-medium text-foreground">
-                                    {solicitud.codigo_trazabilidad
-                                      ? `${solicitud.codigo_trazabilidad} + `
-                                      : ""}
-                                    {(solicitud as any).servicios_detalle?.length > 0
-                                      ? (solicitud as any).servicios_detalle.map((s: any) => s.nombre).join(", ")
-                                      : solicitud.servicio}
-                                  </p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary capitalize">
-                    {solicitud.estado?.replace("_", " ") || "Pendiente"}
-                  </span>
-                  <span className="text-[10px] text-muted-foreground">
-                    {new Date(solicitud.created_at).toLocaleDateString("es-CO")}
-                  </span>
-                </div>
-                 {(solicitud as any).servicios_detalle?.length > 0 && (
-                   <div className="mt-2 space-y-1">
-                     {(solicitud as any).servicios_detalle.map((serv: any) => (
-                       <div key={serv.id} className="flex items-center justify-between text-[10px]">
-                         <span className="text-gray-700">{serv.nombre}</span>
-                         <span className="font-medium text-primary">${serv.precio ? Number(serv.precio).toLocaleString("es-CO") : "0"}</span>
-                       </div>
-                     ))}
-                   </div>
-                 )}
-                  {calcularPrecioSolicitud(solicitud) > 0 && !solicitud.precio && (
-                    <div className="mt-2">
-                      <span className="text-[10px] text-gray-500">Total solicitud:</span>
-                      <span className="text-sm font-bold text-primary ml-1">${calcularPrecioSolicitud(solicitud).toLocaleString("es-CO")}</span>
-                    </div>
-                  )}
-                  {calcularPrecioSolicitud(solicitud) === 0 && (
-                    <div className="mt-2">
-                      <span className="text-[10px] text-gray-500">Total solicitud:</span>
-                      <span className="text-sm font-bold text-primary ml-1">$0</span>
-                    </div>
-                  )}
-                {solicitud.odontologo_firma && (
-                  <div className="mt-2">
-                    {String(solicitud.odontologo_firma).startsWith("data:image") ? (
-                      <img
-                        src={solicitud.odontologo_firma}
-                        alt="Firma del doctor"
-                        className="h-12 w-auto rounded border border-border bg-white"
-                      />
-                    ) : (
-                      <span className="text-xs text-muted-foreground">Firma: {solicitud.odontologo_firma}</span>
-                    )}
-                  </div>
-                )}
-               </div>
-                                 <div className="flex flex-col items-end gap-2">
-                                   <div className="flex items-center gap-2">
-                                     {editPrecioOpen && editPrecioId === solicitud.id ? (
-                                       <>
-                                         <input
-                                           type="number"
-                                           value={editPrecioValue}
-                                           onChange={(e) => setEditPrecioValue(e.target.value)}
-                                           className="w-28 text-xs rounded-lg border border-border bg-white px-2 py-1.5 text-right"
-                                         />
-                                         <button
-                                           onClick={() => handleGuardarPrecioCliente(solicitud.id)}
-                                           disabled={guardandoPrecio}
-                                           className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary hover:bg-primary/20 disabled:opacity-50"
-                                         >
-                                           {guardandoPrecio ? (
-                                             <><Loader2 size={12} className="animate-spin" /> Guardando</>
-                                           ) : (
-                                             <><Save size={12} /> Guardar</>
-                                           )}
-                                         </button>
-                                         <button
-                                           onClick={() => setEditPrecioOpen(false)}
-                                           className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted"
-                                         >
-                                           <X size={12} />
-                                         </button>
-                                       </>
-                                     ) : (
-                                       <>
-                                         <span className="text-sm font-bold text-primary">
-                                           ${calcularPrecioSolicitud(solicitud).toLocaleString("es-CO")}
+                         ) : (
+                           <div className="space-y-2">
+                             {cliente.solicitudes.map((solicitud) => {
+                               const isExpanded = expandedSolicitud[solicitud.id]
+                               const servicios = (solicitud as any).servicios_detalle || []
+                               const precioTotal = calcularPrecioSolicitud(solicitud)
+
+                               return (
+                                 <div
+                                   key={solicitud.id}
+                                   className="rounded-lg border border-border bg-white"
+                                 >
+                                   <div
+                                     className="flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                                     onClick={() => setExpandedSolicitud((prev) => ({ ...prev, [solicitud.id]: !prev[solicitud.id] }))}
+                                   >
+                                     <div className="flex-1">
+                                       <p className="text-sm font-medium text-foreground">
+                                         {solicitud.codigo_trazabilidad
+                                           ? `${solicitud.codigo_trazabilidad} + `
+                                           : ""}
+                                         {(solicitud as any).servicios_detalle?.length > 0
+                                           ? (solicitud as any).servicios_detalle.map((s: any) => s.nombre).join(", ")
+                                           : solicitud.servicio}
+                                       </p>
+                                       <div className="flex items-center gap-2 mt-1">
+                                         <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary capitalize">
+                                           {solicitud.estado?.replace("_", " ") || "Pendiente"}
                                          </span>
-                                         <button
-                                           onClick={() => {
-                                             setEditPrecioId(solicitud.id)
-                                             setEditPrecioValue(String(calcularPrecioSolicitud(solicitud) || ""))
-                                             setEditPrecioOpen(true)
-                                           }}
+                                         <span className="text-[10px] text-muted-foreground">
+                                           {new Date(solicitud.created_at).toLocaleDateString("es-CO")}
+                                         </span>
+                                       </div>
+                                     </div>
+                                     <div className="flex items-center gap-2">
+                                       <span className="text-sm font-bold text-primary">
+                                         ${precioTotal.toLocaleString("es-CO")}
+                                       </span>
+                                       {isExpanded ? (
+                                         <ChevronUp size={16} className="text-muted-foreground" />
+                                       ) : (
+                                         <ChevronDown size={16} className="text-muted-foreground" />
+                                       )}
+                                     </div>
+                                   </div>
+
+                                   {isExpanded && (
+                                     <div className="border-t border-border p-3 space-y-2">
+                                       <div className="grid grid-cols-2 gap-2 text-xs">
+                                         <div>
+                                           <span className="text-gray-500">Dr(a):</span>{" "}
+                                           <span className="text-gray-800">{(solicitud as any).odontologo || "-"}</span>
+                                         </div>
+                                         <div>
+                                           <span className="text-gray-500">Registro Médico:</span>{" "}
+                                           <span className="text-gray-800">{(solicitud as any).odontologo_registro_medico || "-"}</span>
+                                         </div>
+                                         <div>
+                                           <span className="text-gray-500">Paciente:</span>{" "}
+                                           <span className="text-gray-800">{(solicitud as any).paciente || "-"}</span>
+                                         </div>
+                                         <div>
+                                           <span className="text-gray-500">CC Paciente:</span>{" "}
+                                           <span className="text-gray-800">{(solicitud as any).cc_paciente || "-"}</span>
+                                         </div>
+                                         <div>
+                                           <span className="text-gray-500">Elaboración:</span>{" "}
+                                           <span className="text-gray-800">{(solicitud as any).fecha_elaboracion || "-"}</span>
+                                         </div>
+                                         <div>
+                                           <span className="text-gray-500">Entrega:</span>{" "}
+                                           <span className="text-gray-800">{(solicitud as any).fecha_entrega || "-"}</span>
+                                         </div>
+                                         <div>
+                                           <span className="text-gray-500">Historia Clínica:</span>{" "}
+                                           <span className="text-gray-800">#{(solicitud as any).historia_clinica || "-"}</span>
+                                         </div>
+                                         <div>
+                                           <span className="text-gray-500">Caja:</span>{" "}
+                                           <span className="text-gray-800">#{(solicitud as any).caja || "-"}</span>
+                                         </div>
+                                         <div>
+                                           <span className="text-gray-500">Trazabilidad:</span>{" "}
+                                           <span className="text-gray-800">#{(solicitud as any).codigo_trazabilidad || "-"}</span>
+                                         </div>
+                                         <div>
+                                           <span className="text-gray-500">Guía:</span>{" "}
+                                           <span className="text-gray-800">{(solicitud as any).guia || "-"}</span>
+                                         </div>
+                                       </div>
+
+                                       {(solicitud as any).tipos_trabajo?.length > 0 && (
+                                         <div className="flex flex-wrap gap-1">
+                                           {(solicitud as any).tipos_trabajo.map((tipo: string, i: number) => (
+                                             <span key={i} className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700">{tipo}</span>
+                                           ))}
+                                         </div>
+                                       )}
+
+                                       {(solicitud as any).materiales?.length > 0 && (
+                                         <div className="flex flex-wrap gap-1">
+                                           {(solicitud as any).materiales.map((mat: string, i: number) => (
+                                             <span key={i} className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700">{mat}</span>
+                                           ))}
+                                         </div>
+                                       )}
+
+                                       {(solicitud as any).piezas_enviadas?.length > 0 && (
+                                         <div className="flex flex-wrap gap-1">
+                                           {(solicitud as any).piezas_enviadas.map((pieza: string, i: number) => (
+                                             <span key={i} className="inline-flex rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-700">{pieza}</span>
+                                           ))}
+                                         </div>
+                                       )}
+
+                                       {(solicitud as any).dientes_trabajados?.length > 0 && (
+                                         <div className="flex flex-wrap gap-1">
+                                           {(solicitud as any).dientes_detallados?.length > 0
+                                             ? (solicitud as any).dientes_detallados.map((d: any, i: number) => (
+                                                 <span key={i} className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700">#{d.numero}{d.servicio ? ` - ${d.servicio}` : ""} - {d.estado}</span>
+                                               ))
+                                             : (solicitud as any).dientes_trabajados.map((diente: string, i: number) => (
+                                                 <span key={i} className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700">#{diente}</span>
+                                               ))
+                                           }
+                                         </div>
+                                       )}
+
+                                       {servicios.length > 0 && (
+                                         <div className="space-y-1">
+                                           {servicios.map((serv: any) => (
+                                             <div key={serv.id} className="flex items-center justify-between text-[10px]">
+                                               <span className="text-gray-700">{serv.nombre}</span>
+                                               <span className="font-medium text-primary">${serv.precio ? Number(serv.precio).toLocaleString("es-CO") : "0"}</span>
+                                             </div>
+                                           ))}
+                                         </div>
+                                       )}
+
+                                       <div className="pt-2 border-t border-border">
+                                         <p className="text-sm font-bold text-primary">Precio: ${precioTotal.toLocaleString("es-CO")}</p>
+                                       </div>
+
+                                       <div className="mt-2 space-y-1">
+                                         <p className="text-[10px] text-gray-500">Documentos:</p>
+                                         <div className="flex flex-wrap gap-2">
+                                           {(solicitud as any).declaracion_conformidad && (
+                                             <a href={(solicitud as any).declaracion_conformidad} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">
+                                               Declaración de Conformidad
+                                             </a>
+                                           )}
+                                           {(solicitud as any).guia_fabricacion && (
+                                             <a href={(solicitud as any).guia_fabricacion} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">
+                                               Ficha Técnica
+                                             </a>
+                                           )}
+                                           {(solicitud as any).manual_uso && (
+                                             <a href={(solicitud as any).manual_uso} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">
+                                               Manual de Uso
+                                             </a>
+                                           )}
+                                           {(solicitud as any).recomendaciones && (
+                                             <a href={(solicitud as any).recomendaciones} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">
+                                               Recomendaciones
+                                             </a>
+                                           )}
+                                           {(solicitud as any).garantia && (
+                                             <a href={(solicitud as any).garantia} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">
+                                               Garantía
+                                             </a>
+                                           )}
+                                         </div>
+                                       </div>
+
+                                       {solicitud.odontologo_firma && (
+                                         <div>
+                                           {String(solicitud.odontologo_firma).startsWith("data:image") ? (
+                                             <img
+                                               src={solicitud.odontologo_firma}
+                                               alt="Firma del doctor"
+                                               className="h-16 w-auto rounded border border-border bg-white"
+                                             />
+                                           ) : (
+                                             <span className="text-xs text-muted-foreground">Firma: {solicitud.odontologo_firma}</span>
+                                           )}
+                                         </div>
+                                       )}
+
+                                       <div className="flex items-center gap-2 pt-2">
+                                         <Link
+                                           href={`/dashboard/clientes/${cliente.id}?solicitud=${solicitud.id}`}
                                            className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted"
                                          >
-                                           <Edit3 size={12} />
-                                           Precio
-                                         </button>
-                                       </>
-                                     )}
-                                   </div>
-                                   <Link
-                                     href={`/dashboard/clientes/${cliente.id}?solicitud=${solicitud.id}`}
-                                     className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted"
-                                   >
-                                     <Eye size={12} />
-                                     Ver
-                                   </Link>
+                                           <Eye size={12} />
+                                           Ver
+                                         </Link>
+                                       </div>
+                                     </div>
+                                   )}
                                  </div>
-                               </div>
-                             ))}
+                               )
+                             })}
                            </div>
-                        )}
+                         )}
                       </div>
                     </motion.div>
                   )}
