@@ -2038,7 +2038,7 @@ export default function ClientesPage() {
                                 </span>
                               </button>
                               {expandedFichaTecnica[solicitud.id] && (
-                                <div className="px-2 pb-2 space-y-2">
+                                <div className="px-2 pb-2 space-y-1">
                                   {(["guia_fabricacion", "manual_uso", "recomendaciones", "garantia"] as const).map((campo) => {
                                     const url = solicitud[campo]
                                     const label =
@@ -2049,12 +2049,9 @@ export default function ClientesPage() {
                                           : campo === "recomendaciones"
                                             ? "Recomendaciones"
                                             : "Garantía"
-                                    const uploading = uploadingSolicitudDoc[campo]
-                                    const error = uploadSolicitudError[campo]
-                                    const success = uploadSolicitudSuccess[campo]
 
                                     return (
-                                      <div key={campo} className="flex items-center gap-2">
+                                      <div key={campo} className="flex items-center justify-between gap-2">
                                         <span
                                           className={
                                             "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 " +
@@ -2077,35 +2074,6 @@ export default function ClientesPage() {
                                             label + " pendiente"
                                           )}
                                         </span>
-                                        <input
-                                          type="file"
-                                          className="hidden"
-                                          id={`solicitud-${solicitud.id}-${campo}`}
-                                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
-                                          onChange={(e) => {
-                                            const file = e.target.files?.[0]
-                                            if (file) {
-                                              setSolicitudDocs((prev) => ({ ...prev, [campo]: file }))
-                                              setUploadSolicitudError((prev) => ({ ...prev, [campo]: "" }))
-                                            }
-                                          }}
-                                        />
-                                        <label htmlFor={`solicitud-${solicitud.id}-${campo}`} className="cursor-pointer">
-                                          <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-background/70 px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted">
-                                            {uploading ? "Subiendo..." : "Subir"}
-                                          </span>
-                                        </label>
-                                        {solicitudDocs[campo] && (
-                                          <button
-                                            onClick={() => handleUploadDocSolicitud(solicitud.id, campo)}
-                                            disabled={uploading}
-                                            className="inline-flex items-center gap-1 rounded-lg border border-border bg-background/70 px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted disabled:opacity-50"
-                                          >
-                                            Guardar
-                                          </button>
-                                        )}
-                                        {error && <span className="text-[10px] text-red-500">{error}</span>}
-                                        {success && <span className="text-[10px] text-green-600">OK</span>}
                                       </div>
                                     )
                                   })}
@@ -2360,77 +2328,40 @@ export default function ClientesPage() {
                           <p className="text-sm font-medium text-foreground mb-2">{idx + 1}. {servicio.nombre}</p>
                           {servicio.descripcion && <p className="text-xs text-muted-foreground mb-2">{servicio.descripcion}</p>}
 
-                          <div className="space-y-2">
-                            {(["declaracion_conformidad", "guia_fabricacion", "manual_uso"] as const).map((campo) => {
-                               const etiqueta =
-                                 campo === "declaracion_conformidad"
-                                   ? "Declaración de Conformidad"
-                                   : campo === "guia_fabricacion"
-                                     ? "Ficha Técnica"
-                                     : "Manual de Uso"
-                              const url =
-                                campo === "declaracion_conformidad"
-                                  ? servicio.declaracion_conformidad
-                                  : campo === "guia_fabricacion"
-                                    ? servicio.guia_fabricacion
-                                    : servicio.manual_uso
+                              <div className="space-y-2">
+                                {(["declaracion_conformidad", "guia_fabricacion", "manual_uso"] as const).map((campo) => {
+                                  const etiqueta =
+                                    campo === "declaracion_conformidad"
+                                      ? "Declaración de Conformidad"
+                                      : campo === "guia_fabricacion"
+                                        ? "Ficha Técnica"
+                                        : "Manual de Uso"
+                                  const url =
+                                    campo === "declaracion_conformidad"
+                                      ? servicio.declaracion_conformidad
+                                      : campo === "guia_fabricacion"
+                                        ? servicio.guia_fabricacion
+                                        : servicio.manual_uso
 
-                              return (
-                                <div key={campo} className="flex items-center justify-between gap-2">
-                                  <div className="flex items-center gap-2">
-                                    <FileText size={14} className="text-muted-foreground shrink-0" />
-                                    {url ? (
-                                      <a
-                                        href={url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-xs text-primary hover:underline"
-                                      >
-                                        {etiqueta}
-                                      </a>
-                                    ) : (
-                                      <span className="text-xs text-muted-foreground">{etiqueta}</span>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <input
-                                      type="file"
-                                      className="hidden"
-                                      id={`${servicio.id}-${campo}`}
-                                      accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
-                                      onChange={(e) => {
-                                        const file = e.target.files?.[0]
-                                        if (file) handleDocChange(servicio.id, campo, file)
-                                      }}
-                                    />
-                                    <label
-                                      htmlFor={`${servicio.id}-${campo}`}
-                                      className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-border bg-background px-2 py-1 text-[10px] font-medium text-foreground transition-colors hover:border-primary hover:text-primary"
-                                    >
-                                      <Upload size={12} />
-                                      {url ? "Reemplazar" : "Adjuntar"}
-                                    </label>
-                                    {(servicioDocs[servicio.id]?.[campo] || url) && (
-                                      <button
-                                        onClick={() => handleUploadDoc(servicio.id, campo)}
-                                        disabled={uploadingDoc[`${servicio.id}-${campo}`]}
-                                        className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary transition-colors hover:bg-primary/20 disabled:opacity-50"
-                                      >
-                                        {uploadingDoc[`${servicio.id}-${campo}`] ? (
-                                          <>
-                                            <Loader2 size={12} className="animate-spin" />
-                                            Guardando
-                                          </>
-                                        ) : (
-                                          "Guardar"
-                                        )}
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-                              )
-                            })}
-                          </div>
+                                  return (
+                                    <div key={campo} className="flex items-center gap-2">
+                                      <FileText size={14} className="text-muted-foreground shrink-0" />
+                                      {url ? (
+                                        <a
+                                          href={url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-xs text-primary hover:underline"
+                                        >
+                                          {etiqueta}
+                                        </a>
+                                      ) : (
+                                        <span className="text-xs text-muted-foreground">{etiqueta}</span>
+                                      )}
+                                    </div>
+                                  )
+                                })}
+                              </div>
 
                           <div className="text-right mt-2">
                             <p className="text-sm font-semibold text-foreground">
