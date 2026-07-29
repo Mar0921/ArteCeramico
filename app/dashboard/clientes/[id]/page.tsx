@@ -295,8 +295,8 @@ export default function ClientePerfilPage() {
     }
   }
 
-  const handleUploadDocSolicitud = async (solicitudId: number, campo: "declaracion_conformidad" | "guia_fabricacion" | "manual_uso") => {
-    const archivo = solicitudDocs[campo]
+  const handleUploadDocSolicitud = async (solicitudId: number, campo: "declaracion_conformidad" | "guia_fabricacion" | "manual_uso" | "recomendaciones" | "garantia", archivoDirecto?: File) => {
+    const archivo = archivoDirecto || solicitudDocs[campo]
     if (!archivo) return
 
     const solicitud = solicitudes.find(s => s.id === solicitudId)
@@ -1695,9 +1695,17 @@ if (!conv) return
                               <div className="mt-4">
                                 <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">Documentos de la Solicitud</p>
                                 <div className="space-y-2">
-                                  {(["declaracion_conformidad"] as const).map((campo) => {
+                                  {(["declaracion_conformidad", "guia_fabricacion", "manual_uso", "recomendaciones", "garantia"] as const).map((campo) => {
                                     const url = solicitud[campo]
-                                    const etiqueta = "Declaración de Conformidad"
+                                    const etiqueta = campo === "declaracion_conformidad"
+                                      ? "Declaración de Conformidad"
+                                      : campo === "guia_fabricacion"
+                                        ? "Ficha Técnica"
+                                        : campo === "manual_uso"
+                                          ? "Manual de Uso"
+                                          : campo === "recomendaciones"
+                                            ? "Recomendaciones"
+                                            : "Garantía"
                                     const uploading = uploadingSolicitudDoc[campo]
                                     const error = uploadSolicitudError[campo]
                                     const success = uploadSolicitudSuccess[campo]
@@ -1725,12 +1733,12 @@ if (!conv) return
                                             accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
                                             onChange={(e) => {
                                               const file = e.target.files?.[0]
-                                              if (file) setSolicitudDocs((prev) => ({ ...prev, [campo]: file }))
+                                              if (file) handleUploadDocSolicitud(solicitud.id, campo, file)
                                             }}
                                           />
                                           <label htmlFor={`solicitud-${solicitud.id}-${campo}`} className="cursor-pointer">
                                             <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted">
-                                              {uploading ? "Subiendo..." : "Subir"}
+                                              {uploadingSolicitudDoc[campo] ? "Subiendo..." : "Subir"}
                                             </span>
                                           </label>
                                           {solicitud[campo] && (
@@ -1789,23 +1797,23 @@ if (!conv) return
                                                   accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
                                                   onChange={(e) => {
                                                     const file = e.target.files?.[0]
-                                                    if (file) setSolicitudDocs((prev) => ({ ...prev, [campo]: file }))
+                                                    if (file) handleUploadDocSolicitud(solicitud.id, campo, file)
                                                   }}
                                                 />
-                                                <label htmlFor={`solicitud-${solicitud.id}-${campo}`} className="cursor-pointer">
-                                                  <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted">
-                                                    {uploading ? "Subiendo..." : "Subir"}
-                                                  </span>
-                                                </label>
-                                                {solicitud[campo] && (
-                                                  <button
-                                                    onClick={() => handleUploadDocSolicitud(solicitud.id, campo)}
-                                                    disabled={uploading}
-                                                    className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted disabled:opacity-50"
-                                                  >
-                                                    Actualizar
-                                                  </button>
-                                                )}
+                                                 <label htmlFor={`solicitud-${solicitud.id}-${campo}`} className="cursor-pointer">
+                                                   <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted">
+                                                     {uploadingSolicitudDoc[campo] ? "Subiendo..." : "Subir"}
+                                                   </span>
+                                                 </label>
+                                                 {(solicitudDocs[campo] || solicitud[campo]) && (
+                                                   <button
+                                                     onClick={() => handleUploadDocSolicitud(solicitud.id, campo)}
+                                                     disabled={uploadingSolicitudDoc[campo]}
+                                                     className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted disabled:opacity-50"
+                                                   >
+                                                     {solicitudDocs[campo] ? "Guardar" : "Actualizar"}
+                                                   </button>
+                                                 )}
                                               </div>
                                             </div>
                                           )
