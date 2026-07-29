@@ -1832,13 +1832,23 @@ export default function ClientesPage() {
                 </p>
               </div>
             ) : (
-              <ul className="divide-y divide-border/60">
-                {solicitudesFiltradas.map((solicitud, index) => (
-                  <li key={solicitud.id} className="space-y-3 p-5 transition-all hover:bg-background/30">
-                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <p className="text-sm font-semibold text-foreground flex-1">
+              <div className="space-y-2">
+                {solicitudesFiltradas.map((solicitud) => {
+                  const isExpanded = expandedSolicitudId === solicitud.id
+                  const servicios = (solicitud as any).servicios_detalle || []
+                  const precioTotal = solicitud.precio || servicios.reduce((acc: number, serv: any) => acc + (Number(serv.precio) || 0), 0)
+
+                  return (
+                    <div
+                      key={solicitud.id}
+                      className="rounded-lg border border-border bg-white"
+                    >
+                      <div
+                        className="flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                        onClick={() => setExpandedSolicitudId(isExpanded ? null : solicitud.id)}
+                      >
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-foreground">
                             {solicitud.codigo_trazabilidad
                               ? `${solicitud.codigo_trazabilidad} + `
                               : ""}
@@ -1846,264 +1856,172 @@ export default function ClientesPage() {
                               ? (solicitud as any).servicios_detalle.map((s: any) => s.nombre).join(", ")
                               : solicitud.servicio}
                           </p>
-                          <button
-                            onClick={() => setExpandedSolicitudId(expandedSolicitudId === solicitud.id ? null : solicitud.id)}
-                            className="rounded-lg p-1 text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
-                          >
-                            {expandedSolicitudId === solicitud.id ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                          </button>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary capitalize">
+                              {solicitud.estado?.replace("_", " ") || "Pendiente"}
+                            </span>
+                            <span className="text-[10px] text-muted-foreground">
+                              {new Date(solicitud.created_at).toLocaleDateString("es-CO")}
+                            </span>
+                          </div>
                         </div>
-
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold text-primary">
+                            ${precioTotal.toLocaleString("es-CO")}
+                          </span>
+                          {isExpanded ? (
+                            <ChevronUp size={16} className="text-muted-foreground" />
+                          ) : (
+                            <ChevronDown size={16} className="text-muted-foreground" />
+                          )}
                         </div>
+                      </div>
 
-                        {expandedSolicitudId === solicitud.id && (
-                          <>
-                            {solicitud.observaciones && (
-                              <p className="mt-1 text-sm text-muted-foreground">
-                                {solicitud.observaciones}
-                              </p>
-                            )}
-
-                            {(solicitud.odontologo || solicitud.odontologo_registro_medico || solicitud.paciente || solicitud.cc_paciente || solicitud.historia_clinica || solicitud.fecha_elaboracion || solicitud.fecha_entrega || solicitud.caja || solicitud.codigo_trazabilidad || solicitud.guia) && (
-                              <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground">
-                                {(solicitud as any).odontologo && (
-                                  <div><span className="text-gray-500">Dr(a):</span> <span className="text-gray-800">{(solicitud as any).odontologo}</span></div>
-                                )}
-                                {(solicitud as any).odontologo_registro_medico && (
-                                  <div><span className="text-gray-500">Registro Médico:</span> <span className="text-gray-800">{(solicitud as any).odontologo_registro_medico}</span></div>
-                                )}
-                                {(solicitud as any).paciente && (
-                                  <div><span className="text-gray-500">Paciente:</span> <span className="text-gray-800">{(solicitud as any).paciente}</span></div>
-                                )}
-                                {(solicitud as any).cc_paciente && (
-                                  <div><span className="text-gray-500">CC Paciente:</span> <span className="text-gray-800">{(solicitud as any).cc_paciente}</span></div>
-                                )}
-                                {(solicitud as any).fecha_elaboracion && (
-                                  <div><span className="text-gray-500">Elaboración:</span> <span className="text-gray-800">{(solicitud as any).fecha_elaboracion}</span></div>
-                                )}
-                                {(solicitud as any).fecha_entrega && (
-                                  <div><span className="text-gray-500">Entrega:</span> <span className="text-gray-800">{(solicitud as any).fecha_entrega}</span></div>
-                                )}
-                                {(solicitud as any).historia_clinica && (
-                                  <div><span className="text-gray-500">Historia Clínica:</span> <span className="text-gray-800">#{(solicitud as any).historia_clinica}</span></div>
-                                )}
-                                {(solicitud as any).caja && (
-                                  <div><span className="text-gray-500">Caja:</span> <span className="text-gray-800">#{(solicitud as any).caja}</span></div>
-                                )}
-                                {(solicitud as any).codigo_trazabilidad && (
-                                  <div><span className="text-gray-500">Trazabilidad:</span> <span className="text-gray-800">#{(solicitud as any).codigo_trazabilidad}</span></div>
-                                )}
-                                {(solicitud as any).guia && (
-                                  <div><span className="text-gray-500">Guía:</span> <span className="text-gray-800">{(solicitud as any).guia}</span></div>
-                                )}
-                                {(solicitud as any).tipos_trabajo?.length > 0 && (
-                                  <div className="contents">
-                                    {(solicitud as any).tipos_trabajo.map((tipo: string, i: number) => (
-                                      <span key={i} className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700 w-fit">{tipo}</span>
-                                    ))}
-                                  </div>
-                                )}
-                                {(solicitud as any).materiales?.length > 0 && (
-                                  <div className="contents">
-                                    {(solicitud as any).materiales.map((mat: string, i: number) => (
-                                      <span key={i} className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700 w-fit">{mat}</span>
-                                    ))}
-                                  </div>
-                                )}
-                                {(solicitud as any).piezas_enviadas?.length > 0 && (
-                                  <div className="contents">
-                                    {(solicitud as any).piezas_enviadas.map((pieza: string, i: number) => (
-                                      <span key={i} className="inline-flex rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-700 w-fit">{pieza}</span>
-                                    ))}
-                                  </div>
-                                )}
-                                {(solicitud as any).dientes_trabajados?.length > 0 && (
-                                  <div className="contents">
-                                    {(solicitud as any).dientes_detallados?.length > 0
-                                      ? (solicitud as any).dientes_detallados.map((d: any, i: number) => (
-                                          <span key={i} className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700 w-fit">#{d.numero}{d.servicio ? ` - ${d.servicio}` : ""} - {d.estado}</span>
-                                        ))
-                                      : (solicitud as any).dientes_trabajados.map((diente: string, i: number) => (
-                                          <span key={i} className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700 w-fit">#{diente}</span>
-                                        ))
-                                    }
-                                  </div>
-                                )}
-                                {(solicitud as any).servicios_detalle?.length > 0 && (
-                                  <div className="contents">
-                                    {(solicitud as any).servicios_detalle.map((serv: any, i: number) => (
-                                      <span key={serv.id || i} className="inline-flex rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-medium text-indigo-700 w-fit">
-                                        {serv.nombre} {serv.precio ? `($${Number(serv.precio).toLocaleString("es-CO")})` : ""} {serv.cantidad > 1 ? `x${serv.cantidad}` : ""}
-                                      </span>
-                                    ))}
-                                  </div>
-                                )}
-                                {solicitud.precio !== null && solicitud.precio !== undefined && (
-                                  <div>
-                                    <span className="text-gray-500">Precio:</span>{" "}
-                                    <span className="text-gray-800 font-semibold">${solicitud.precio.toLocaleString("es-CO")}</span>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            <div className="mt-3 flex flex-wrap items-center gap-3">
-                              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary capitalize">
-                                {solicitud.estado.replace("_", " ")}
-                              </span>
-
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(solicitud.created_at).toLocaleString()}
-                              </span>
+                      {isExpanded && (
+                        <div className="border-t border-border p-3 space-y-2">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                            <div>
+                              <span className="text-gray-500">Dr(a):</span>{" "}
+                              <span className="text-gray-800">{(solicitud as any).odontologo || "-"}</span>
                             </div>
-                          </>
-                        )}
-
-                        {expandedSolicitudId === solicitud.id && (
-                          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                            <div className="rounded-xl bg-muted/30 p-3">
-                              <p className="text-xs text-muted-foreground">
-                                Valor
-                              </p>
-                              <p className="font-bold text-primary">
-                                ${solicitud.precio?.toLocaleString("es-CO")}
-                              </p>
+                            <div>
+                              <span className="text-gray-500">Registro Médico:</span>{" "}
+                              <span className="text-gray-800">{(solicitud as any).odontologo_registro_medico || "-"}</span>
                             </div>
+                            <div>
+                              <span className="text-gray-500">Paciente:</span>{" "}
+                              <span className="text-gray-800">{(solicitud as any).paciente || "-"}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">CC Paciente:</span>{" "}
+                              <span className="text-gray-800">{(solicitud as any).cc_paciente || "-"}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Elaboración:</span>{" "}
+                              <span className="text-gray-800">{(solicitud as any).fecha_elaboracion || "-"}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Entrega:</span>{" "}
+                              <span className="text-gray-800">{(solicitud as any).fecha_entrega || "-"}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Historia Clínica:</span>{" "}
+                              <span className="text-gray-800">#{(solicitud as any).historia_clinica || "-"}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Caja:</span>{" "}
+                              <span className="text-gray-800">#{(solicitud as any).caja || "-"}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Trazabilidad:</span>{" "}
+                              <span className="text-gray-800">#{(solicitud as any).codigo_trazabilidad || "-"}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Guía:</span>{" "}
+                              <span className="text-gray-800">{(solicitud as any).guia || "-"}</span>
+                            </div>
+                          </div>
 
-                           <div className="rounded-xl bg-muted/30 p-3">
-                             <p className="text-xs text-muted-foreground">
-                               Dientes
-                             </p>
-                             <p className="font-medium">
-                               {(solicitud as any).dientes_detallados?.length > 0
-                                 ? (solicitud as any).dientes_detallados.map((d: any) => `${d.numero}${d.servicio ? ` - ${d.servicio}` : ""} - ${d.estado}`).join(", ")
-                                 : solicitud.dientesTrabajados?.join(", ") || "-"
-                               }
-                             </p>
-                           </div>
+                          {(solicitud as any).tipos_trabajo?.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {(solicitud as any).tipos_trabajo.map((tipo: string, i: number) => (
+                                <span key={i} className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700">{tipo}</span>
+                              ))}
+                            </div>
+                          )}
 
-                           <div className="rounded-xl bg-muted/30 p-3">
-                             <p className="text-xs text-muted-foreground">
-                               Material
-                             </p>
-                             <p className="font-medium">
-                               {solicitud.materiales?.join(", ") || "-"}
-                             </p>
-                           </div>
+                          {(solicitud as any).materiales?.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {(solicitud as any).materiales.map((mat: string, i: number) => (
+                                <span key={i} className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700">{mat}</span>
+                              ))}
+                            </div>
+                          )}
 
-                           <div className="rounded-xl bg-muted/30 p-3">
-                             <p className="text-xs text-muted-foreground">
-                               Piezas
-                             </p>
-                             <p className="font-medium">
-                               {solicitud.piezasEnviadas}
-                             </p>
-                           </div>
-                         </div>
-                        )}
+                          {(solicitud as any).piezas_enviadas?.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {(solicitud as any).piezas_enviadas.map((pieza: string, i: number) => (
+                                <span key={i} className="inline-flex rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-medium text-purple-700">{pieza}</span>
+                              ))}
+                            </div>
+                          )}
 
-                        {expandedSolicitudId === solicitud.id && (
-                          <div className="mt-3 flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
-                            <span
-                              className={
-                                "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 " +
-                                (solicitud.declaracion_conformidad
-                                  ? "border-green-500/40 bg-green-500/10 text-green-700"
-                                  : "border-border bg-background/70 text-muted-foreground")
+                          {(solicitud as any).dientes_trabajados?.length > 0 && (
+                            <div className="flex flex-wrap gap-1">
+                              {(solicitud as any).dientes_detallados?.length > 0
+                                ? (solicitud as any).dientes_detallados.map((d: any, i: number) => (
+                                    <span key={i} className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700">#{d.numero}{d.servicio ? ` - ${d.servicio}` : ""} - {d.estado}</span>
+                                  ))
+                                : (solicitud as any).dientes_trabajados.map((diente: string, i: number) => (
+                                    <span key={i} className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700">#{diente}</span>
+                                  ))
                               }
-                            >
-                              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: solicitud.declaracion_conformidad ? "#16a34a" : "#a1a1aa" }} />
-                              {solicitud.declaracion_conformidad ? (
-                                <a
-                                  href={solicitud.declaracion_conformidad}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="underline-offset-2 hover:underline"
-                                >
+                            </div>
+                          )}
+
+                          {servicios.length > 0 && (
+                            <div className="space-y-1">
+                              {servicios.map((serv: any) => (
+                                <div key={serv.id} className="flex items-center justify-between text-[10px]">
+                                  <span className="text-gray-700">{serv.nombre}</span>
+                                  <span className="font-medium text-primary">${serv.precio ? Number(serv.precio).toLocaleString("es-CO") : "0"}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          <div className="pt-2 border-t border-border">
+                            <p className="text-sm font-bold text-primary">Precio: ${precioTotal.toLocaleString("es-CO")}</p>
+                          </div>
+
+                          <div className="mt-2 space-y-1">
+                            <p className="text-[10px] text-gray-500">Documentos:</p>
+                            <div className="flex flex-wrap gap-2">
+                              {solicitud.declaracion_conformidad && (
+                                <a href={solicitud.declaracion_conformidad} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">
                                   Declaración de Conformidad
                                 </a>
-                              ) : (
-                                "Declaración de Conformidad pendiente"
                               )}
-                            </span>
-
-                            <div className="w-full mt-1 ml-1 border border-border rounded-lg">
-                              <button
-                                onClick={() => setExpandedFichaTecnica(prev => ({ ...prev, [solicitud.id]: !prev[solicitud.id] }))}
-                                className="w-full flex items-center justify-between p-2 text-xs font-medium text-foreground hover:bg-muted/50 transition-colors"
-                              >
-                                <span>Ficha Técnica</span>
-                                <span className="text-[10px] text-muted-foreground">
-                                  {expandedFichaTecnica[solicitud.id] ? "Ocultar" : "Ver"}
-                                </span>
-                              </button>
-                              {expandedFichaTecnica[solicitud.id] && (
-                                <div className="px-2 pb-2 space-y-1">
-                                  {(["guia_fabricacion", "manual_uso", "recomendaciones", "garantia"] as const).map((campo) => {
-                                    const url = solicitud[campo]
-                                    const label =
-                                      campo === "guia_fabricacion"
-                                        ? "Ficha Técnica"
-                                        : campo === "manual_uso"
-                                          ? "Manual de Uso"
-                                          : campo === "recomendaciones"
-                                            ? "Recomendaciones"
-                                            : "Garantía"
-
-                                    return (
-                                      <div key={campo} className="flex items-center justify-between gap-2">
-                                        <span
-                                          className={
-                                            "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 " +
-                                            (url
-                                              ? "border-green-500/40 bg-green-500/10 text-green-700"
-                                              : "border-border bg-background/70 text-muted-foreground")
-                                          }
-                                        >
-                                          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: url ? "#16a34a" : "#a1a1aa" }} />
-                                          {url ? (
-                                            <a
-                                              href={url}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              className="underline-offset-2 hover:underline"
-                                            >
-                                              {label}
-                                            </a>
-                                          ) : (
-                                            label + " pendiente"
-                                          )}
-                                        </span>
-                                      </div>
-                                    )
-                                  })}
-                                </div>
+                              {solicitud.guia_fabricacion && (
+                                <a href={solicitud.guia_fabricacion} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">
+                                  Ficha Técnica
+                                </a>
+                              )}
+                              {solicitud.manual_uso && (
+                                <a href={solicitud.manual_uso} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">
+                                  Manual de Uso
+                                </a>
+                              )}
+                              {solicitud.recomendaciones && (
+                                <a href={solicitud.recomendaciones} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">
+                                  Recomendaciones
+                                </a>
+                              )}
+                              {solicitud.garantia && (
+                                <a href={solicitud.garantia} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">
+                                  Garantía
+                                </a>
                               )}
                             </div>
                           </div>
-                        )}
-                      </div>
 
-                        {expandedSolicitudId === solicitud.id && (
-                          <>
-                            {(solicitud as any).odontologo_firma && (
-                              <div className="mt-3">
-                                <p className="text-xs text-muted-foreground mb-1">Firma del doctor</p>
-                                {String((solicitud as any).odontologo_firma).startsWith("data:image") ? (
-                                  <img
-                                    src={(solicitud as any).odontologo_firma}
-                                    alt="Firma del doctor"
-                                    className="h-20 w-auto rounded-lg border border-border bg-white"
-                                  />
-                                ) : (
-                                  <p className="text-sm text-foreground">{(solicitud as any).odontologo_firma}</p>
-                                )}
-                              </div>
-                            )}
+                          {(solicitud as any).odontologo_firma && (
+                            <div>
+                              {String((solicitud as any).odontologo_firma).startsWith("data:image") ? (
+                                <img
+                                  src={(solicitud as any).odontologo_firma}
+                                  alt="Firma del doctor"
+                                  className="h-16 w-auto rounded border border-border bg-white"
+                                />
+                              ) : (
+                                <span className="text-xs text-muted-foreground">Firma: {(solicitud as any).odontologo_firma}</span>
+                              )}
+                            </div>
+                          )}
 
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => abrirChatSolicitud(solicitud)}
+                          <div className="flex items-center gap-2 pt-2">
+                            <button
+                              onClick={() => abrirChatSolicitud(solicitud)}
                               className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-white relative"
                             >
                               <MessageCircle size={16} />
@@ -2126,85 +2044,15 @@ export default function ClientesPage() {
                               className="flex items-center gap-1 rounded-xl border border-border bg-card/50 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:border-red-500/60 hover:bg-red-500/10 hover:text-red-500"
                             >
                               <Trash2 size={14} />
-                               Eliminar
-                             </button>
-                            </div>
-                          </>
-                          )}
-                          
-                          {expandedSolicitudId === solicitud.id && solicitud.urls_documentos && solicitud.urls_documentos.length > 0 && (
-                      <div className="grid gap-3 pt-2 sm:grid-cols-2 lg:grid-cols-3">
-                        {solicitud.urls_documentos.map((url, docIndex) => {
-                          const esImagen = isImagen(url)
-                          const esDocumento = isDocumento(url)
-
-                          if (esImagen) {
-                            return (
-                              <div key={docIndex} className="overflow-hidden rounded-xl border border-border/60 bg-background/60">
-                                <a href={url} target="_blank" rel="noopener noreferrer" className="block">
-                                  <img
-                                    src={url}
-                                    alt={`Adjunto ${index + 1} - imagen`}
-                                    className="h-32 w-full object-cover transition-transform duration-300 hover:scale-105"
-                                  />
-                                </a>
-
-                                <div className="flex items-center justify-between px-3 py-2">
-                                  <span className="truncate text-xs text-muted-foreground">
-                                    Imagen adjunta
-                                  </span>
-                                  <a
-                                    href={url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="rounded-lg bg-primary/10 px-2 py-1 text-xs font-medium text-primary transition-all hover:bg-primary/20"
-                                  >
-                                    Ver
-                                  </a>
-                                </div>
-                              </div>
-                            )
-                          }
-
-                          if (esDocumento) {
-                            return (
-                              <a
-                                key={docIndex}
-                                href={url}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center gap-3 rounded-xl border border-border/60 bg-background/60 px-3 py-3 transition-all hover:border-primary/60"
-                              >
-                                <FileText className="text-red-500" size={22} />
-
-                                <span className="truncate text-xs font-medium text-foreground">
-                                  Documento adjunto
-                                </span>
-                              </a>
-                            )
-                          }
-
-                          return (
-                            <a
-                              key={docIndex}
-                              href={url}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center gap-3 rounded-xl border border-border/60 bg-background/60 px-3 py-3 transition-all hover:border-primary/60"
-                            >
-                              <Paperclip className="text-primary" size={18} />
-
-                              <span className="truncate text-xs font-medium text-foreground">
-                                Archivo adjunto
-                              </span>
-                            </a>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
+                              Eliminar
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
             )}
           </div>
         </section>
