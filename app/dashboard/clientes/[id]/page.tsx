@@ -1695,7 +1695,7 @@ if (!conv) return
                               <div className="mt-4">
                                 <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">Documentos de la Solicitud</p>
                                 <div className="space-y-2">
-                                  {(["declaracion_conformidad", "guia_fabricacion", "manual_uso", "recomendaciones", "garantia"] as const).map((campo) => {
+                                  {(["declaracion_conformidad"] as const).map((campo) => {
                                     const url = solicitud[campo]
                                     const etiqueta = campo === "declaracion_conformidad"
                                       ? "Declaración de Conformidad"
