@@ -1840,7 +1840,7 @@ export default function ClientesPage() {
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-semibold text-foreground flex-1">
                             {solicitud.codigo_trazabilidad
-                              ? `#${solicitud.codigo_trazabilidad} `
+                              ? `${solicitud.codigo_trazabilidad} + `
                               : ""}
                             {(solicitud as any).servicios_detalle?.length > 0
                               ? (solicitud as any).servicios_detalle.map((s: any) => s.nombre).join(", ")

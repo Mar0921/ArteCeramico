@@ -1201,9 +1201,14 @@ if (!conv) return
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <h5 className="font-semibold text-foreground text-sm">
-                            {solicitud.servicio}
-                          </h5>
+                           <h5 className="font-semibold text-foreground text-sm">
+                             {solicitud.codigo_trazabilidad
+                               ? `${solicitud.codigo_trazabilidad} + `
+                               : ""}
+                             {(solicitud as any).servicios_detalle?.length > 0
+                               ? (solicitud as any).servicios_detalle.map((s: any) => s.nombre).join(", ")
+                               : solicitud.servicio}
+                           </h5>
                           <div className="flex items-center gap-2 mt-1">
                             <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary capitalize">
                               {solicitud.estado?.replace("_", " ") || "Pendiente"}
