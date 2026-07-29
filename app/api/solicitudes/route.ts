@@ -952,16 +952,25 @@ export async function GET(request: Request) {
 
       if (dientesInfo.length === 0 && Array.isArray(item.dientes_trabajados)) {
         dientesInfo = item.dientes_trabajados.map((d: string) => {
-          const partes = String(d).split("-")
-          const numero = parseInt(partes[0], 10)
-          if (partes.length === 3) {
-            return { numero, servicio: partes[1], estado: partes[2] }
+          const texto = String(d).trim()
+          const primerGuion = texto.indexOf("-")
+          const ultimoGuion = texto.lastIndexOf("-")
+
+          if (primerGuion === -1) {
+            const numero = parseInt(texto, 10)
+            return { numero: isNaN(numero) ? null : numero, servicio: "", estado: "normal" }
           }
-          if (partes.length === 2) {
-            return { numero, servicio: "", estado: partes[1] }
+
+          const numero = parseInt(texto.slice(0, primerGuion), 10)
+          const estado = ultimoGuion > primerGuion ? texto.slice(ultimoGuion + 1).trim() : "normal"
+          const servicio = ultimoGuion > primerGuion ? texto.slice(primerGuion + 1, ultimoGuion).trim() : texto.slice(primerGuion + 1).trim()
+
+          return {
+            numero: isNaN(numero) ? null : numero,
+            servicio: servicio || "",
+            estado: estado || "normal",
           }
-          return { numero, servicio: "", estado: "normal" }
-        }).filter((d: any) => !isNaN(d.numero))
+        }).filter((d: any) => d.numero !== null)
       }
 
       return {
