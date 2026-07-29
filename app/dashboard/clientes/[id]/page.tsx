@@ -199,7 +199,19 @@ export default function ClientePerfilPage() {
         setSelectedSolicitud(solicitud)
         setEditTiposTrabajo(solicitud.tipos_trabajo || [])
         setEditMateriales(solicitud.materiales || [])
-        setEditDientes(solicitud.dientes_trabajados || [])
+        const detallados = (solicitud as any).dientes_detallados || []
+        if (detallados.length > 0) {
+          const textos = detallados.map((d: any) => {
+            const num = Number(d.numero)
+            const serv = String(d.servicio || "").trim()
+            const estado = String(d.estado || "normal").trim()
+            if (serv) return `${num}-${serv}-${estado}`
+            return `${num}-${estado}`
+          })
+          setEditDientes(textos)
+        } else {
+          setEditDientes(solicitud.dientes_trabajados || [])
+        }
       }
     }
   }, [editandoSolicitudId, solicitudes])
@@ -241,38 +253,6 @@ export default function ClientePerfilPage() {
         .eq("id", selectedSolicitud.id)
 
       if (error) throw error
-
-      const servicioNombre = (selectedSolicitud as any).servicio || ""
-      const servicioTipo = servicioNombre.includes("|")
-        ? servicioNombre.split("|")[0].trim()
-        : servicioNombre
-
-      await supabase
-        .from("dientes")
-        .delete()
-        .eq("solicitud_id", selectedSolicitud.id)
-
-      if (dientes.length > 0) {
-        const dientesRows = dientes.map((d) => {
-          const num = parseInt(d, 10)
-          return {
-            solicitud_id: selectedSolicitud.id,
-            numero: isNaN(num) ? 0 : num,
-            servicio: servicioTipo || null,
-            estado: "normal",
-          }
-        }).filter((d) => d.numero > 0)
-
-        if (dientesRows.length > 0) {
-          const { error: dientesError } = await supabase
-            .from("dientes")
-            .insert(dientesRows)
-
-          if (dientesError) {
-            console.error("Error actualizando dientes:", dientesError)
-          }
-        }
-      }
 
       const { data: refreshed } = await supabase
         .from("solicitudes")
@@ -1625,15 +1605,15 @@ if (!conv) return
                                       placeholder="Porcelana, Zirconio, Metal..."
                                     />
                                   </div>
-                                  <div>
-                                    <label className="text-[10px] font-medium text-foreground mb-1 block">Dientes Trabajados (uno por línea)</label>
-                                    <textarea
-                                      value={editDientes.join("\n")}
-                                      onChange={(e) => setEditDientes(e.target.value.split("\n"))}
-                                      rows={2}
-                                      className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs"
-                                      placeholder="11, 21, 36..."
-                                    />
+                                   <div>
+                                     <label className="text-[10px] font-medium text-foreground mb-1 block">Dientes Trabajados (uno por línea)</label>
+                                     <textarea
+                                       value={editDientes.join("\n")}
+                                       onChange={(e) => setEditDientes(e.target.value.split("\n"))}
+                                       rows={2}
+                                       className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs"
+                                       placeholder="32-Híbrida metal-acrílico (Duratone)-pilar&#10;11-Encerado guía-normal"
+                                     />
                                   </div>
                                   <div>
                                     <label className="text-[10px] font-medium text-foreground mb-1 block">Observaciones</label>
