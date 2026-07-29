@@ -134,9 +134,39 @@ const { data: solicitud, error: solicitudError } = await supabase
       .select("id, nombre, descripcion, precio, cantidad, created_at, tipo_trabajo, material, dientes, piezas_enviadas, declaracion_conformidad, guia_fabricacion, manual_uso")
       .eq("solicitud_id", solicitudId)
 
+    const { data: dientesData, error: dientesError } = await supabase
+      .from("dientes")
+      .select("solicitud_id, numero, servicio, estado")
+      .eq("solicitud_id", solicitudId)
+      .order("numero", { ascending: true })
+
+    const dientesDetallados = (dientesData || []).map((d: any) => ({
+      numero: Number(d.numero),
+      servicio: String(d.servicio || ""),
+      estado: String(d.estado || "normal"),
+    }))
+
+    const serviciosDetalle = (servicios || []).map((serv: any) => ({
+      id: serv.id,
+      nombre: serv.nombre,
+      descripcion: serv.descripcion,
+      precio: Number(serv.precio || 0),
+      cantidad: serv.cantidad || 1,
+      tipo_trabajo: serv.tipo_trabajo || null,
+      material: serv.material || null,
+      dientes: serv.dientes || null,
+      piezas_enviadas: serv.piezas_enviadas || null,
+    }))
+
+    const solicitudFormateada = {
+      ...solicitud,
+      dientes_detallados: dientesDetallados,
+      servicios_detalle: serviciosDetalle,
+    }
+
     return NextResponse.json({
       data: {
-        solicitud,
+        solicitud: solicitudFormateada,
         cliente: cliente || null,
         servicios: servicios || [],
       },

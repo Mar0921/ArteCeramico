@@ -448,8 +448,11 @@ export default function ClientePerfilPage() {
     try {
       const response = await fetch(`/api/solicitudes/${solicitud.id}`)
       const result = await response.json()
-      const servicios = result.data?.servicios || []
+      const servicios = result.data?.solicitud?.servicios_detalle || result.data?.servicios || []
       setServiciosDetalle(servicios as Servicio[])
+      if (result.data?.solicitud) {
+        setSelectedSolicitud(result.data.solicitud as Solicitud)
+      }
     } catch (err) {
       console.error("Error cargando detalle de solicitud:", err)
     } finally {
