@@ -1002,6 +1002,9 @@ export default function ClientesPage() {
                               >
                                 <div className="flex-1">
                                   <p className="text-sm font-medium text-foreground">
+                                    {solicitud.codigo_trazabilidad
+                                      ? `${solicitud.codigo_trazabilidad} + `
+                                      : ""}
                                     {(solicitud as any).servicios_detalle?.length > 0
                                       ? (solicitud as any).servicios_detalle.map((s: any) => s.nombre).join(", ")
                                       : solicitud.servicio}

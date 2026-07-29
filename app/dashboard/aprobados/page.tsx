@@ -29,6 +29,8 @@ interface AprobadoItem {
   created_at: string
   cliente_nombre: string
   precio: number | null
+  codigo_trazabilidad?: string | null
+  servicios_detalle?: { id: number; nombre: string; precio: number | null }[]
   servicios?: { id: number; nombre: string; precio: number | null }[]
 }
 
@@ -215,9 +217,14 @@ export default function AprobadosPage() {
                     className="border-b border-border last:border-0 hover:bg-muted/50"
                   >
                     <td className="px-6 py-4 font-medium text-foreground">{item.id}</td>
-                    <td className="px-6 py-4 text-foreground">
-                      {item.servicio}
-                    </td>
+                     <td className="px-6 py-4 text-foreground">
+                       {item.codigo_trazabilidad
+                         ? `${item.codigo_trazabilidad} + `
+                         : ""}
+                       {(item as any).servicios_detalle?.length > 0
+                         ? (item as any).servicios_detalle.map((s: any) => s.nombre).join(", ")
+                         : item.servicio}
+                     </td>
                     <td className="px-6 py-4 text-muted-foreground">{item.cliente_nombre}</td>
                     <td className="px-6 py-4 text-muted-foreground">
                       {new Date(item.created_at).toLocaleDateString("es-CO")}
