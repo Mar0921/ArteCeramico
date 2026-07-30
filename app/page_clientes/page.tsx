@@ -2005,6 +2005,19 @@ export default function ClientesPage() {
                             </div>
                           </div>
 
+                          {solicitud.urls_documentos && solicitud.urls_documentos.length > 0 && (
+                            <div className="mt-2 space-y-1">
+                              <p className="text-[10px] text-gray-500">Archivos adjuntos:</p>
+                              <div className="flex flex-wrap gap-2">
+                                {solicitud.urls_documentos.map((url, idx) => (
+                                  <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">
+                                    Adjunto {idx + 1}
+                                  </a>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
                           {(solicitud as any).odontologo_firma && (
                             <div>
                               {String((solicitud as any).odontologo_firma).startsWith("data:image") ? (
