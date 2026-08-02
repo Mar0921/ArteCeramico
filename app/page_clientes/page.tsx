@@ -33,6 +33,7 @@ import {
   Bell,
   ChevronDown,
   ChevronUp,
+  Shield,
 } from "lucide-react"
 
 import { Navbar } from "@/components/navbar"
@@ -145,11 +146,11 @@ export default function ClientesPage() {
   const [chatOpen, setChatOpen] = useState(false)
   const [notificacionesOpen, setNotificacionesOpen] = useState(false)
   const [notificacionesLista, setNotificacionesLista] = useState<any[]>([])
-  const [chatSolicitudOpen, setChatSolicitudOpen] = useState(false)
-  const [conversacionActual, setConversacionActual] = useState<any>(null)
-  const [mensajesSolicitud, setMensajesSolicitud] = useState<any[]>([])
-  const [mensajeSolicitudInput, setMensajeSolicitudInput] = useState("")
-  const [enviandoMensajeSolicitud, setEnviandoMensajeSolicitud] = useState(false)
+  const [activeTab, setActiveTab] = useState<Record<number, "detalle" | "chat">>({})
+  const [mensajesPorSolicitud, setMensajesPorSolicitud] = useState<Record<number, any[]>>({})
+  const [mensajeInput, setMensajeInput] = useState<Record<number, string>>({})
+  const [enviandoMensaje, setEnviandoMensaje] = useState<Record<number, boolean>>({})
+  const [loadingMensajes, setLoadingMensajes] = useState<Record<number, boolean>>({})
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -231,20 +232,14 @@ export default function ClientesPage() {
   const { toast } = useToast()
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
-  const mensajesSolicitudEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const chatBottomRefs = useRef<Record<number, HTMLDivElement | null>>({})
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({
       behavior: "smooth",
     })
   }, [messages])
-
-  useEffect(() => {
-    mensajesSolicitudEndRef.current?.scrollIntoView({
-      behavior: "smooth",
-    })
-  }, [mensajesSolicitud])
 
   useEffect(() => {
     const loadClient = async () => {
@@ -569,10 +564,14 @@ export default function ClientesPage() {
 
       setNotificacionesOpen(false)
 
-      const solicitud = solicitudes.find(s => s.id === conversacion.solicitud_id)
-      if (solicitud) {
-        await abrirChatSolicitud(solicitud)
-      }
+       const solicitud = solicitudes.find(s => s.id === conversacion.solicitud_id)
+       if (solicitud) {
+         setExpandedSolicitudId(solicitud.id)
+         setActiveTab(prev => ({ ...prev, [solicitud.id]: "chat" }))
+         setTimeout(() => {
+           cargarMensajes(solicitud.id)
+         }, 100)
+       }
     } catch (err) {
       console.error("Error abriendo notificación:", err)
     }
@@ -858,222 +857,165 @@ export default function ClientesPage() {
     }
   }
 
-  const abrirChatSolicitud = async (solicitud: Solicitud) => {
-    if (!clientData?.id) return
+  
 
-    try {
-      if (!clientData?.id) return
-
-      console.log("CLIENT DATA:", clientData)
-      console.log("SOLICITUD:", solicitud)
-
-      const authUser = await getValidUser()
-      console.log("AUTH UID:", authUser?.id)
-
-      let { data: conversacion, error: conversacionError } = await supabase
-        .from("conversaciones")
-        .select("*")
-        .eq("solicitud_id", solicitud.id)
-        .maybeSingle()
-
-      if (conversacionError) {
-        throw conversacionError
-      }
-
-      if (!conversacion) {
-        const { data: nuevaConversacion, error: insertError } =
-          await supabase
-            .from("conversaciones")
-            .insert({
-              solicitud_id: solicitud.id,
-              cliente_id: clientData.id,
-              admin_id: null,
-              estado: "activa",
-            })
-            .select()
-            .single()
-
-        console.log("INSERT ERROR:", insertError)
-        console.log("NUEVA CONVERSACION:", nuevaConversacion)
-
-        if (insertError) {
-          throw insertError
-        }
-
-        conversacion = nuevaConversacion
-      }
-
-      setConversacionActual(conversacion)
-      setChatSolicitudOpen(true)
-
-      if (conversacion?.id) {
-        await cargarMensajesSolicitud(conversacion.id)
-        await marcarMensajesSolicitudLeidos(conversacion.id)
-        await marcarNotificacionesLeidas(conversacion.id, conversacion.solicitud_id)
-
-        setTimeout(() => {
-          mensajesSolicitudEndRef.current?.scrollIntoView({
-            behavior: "smooth",
-          })
-        }, 100)
-      }
-    } catch (err: any) {
-      console.error("ERROR CREANDO CONVERSACION:", err)
-
-      toast({
-        title: "Error creando conversación",
-        description: err?.message,
-        variant: "destructive",
-      })
-
-      return
-    }
-  }
-
-  const cargarMensajesSolicitud = async (conversacionId: number) => {
-    try {
-      const { data, error } = await supabase
-        .from("mensajes")
-        .select("*")
-        .eq("conversacion_id", conversacionId)
-        .order("created_at", { ascending: true })
-
-      if (!error && data) {
-        setMensajesSolicitud(data as MensajeSolicitud[])
-      }
-    } catch (err) {
-      console.error("Error cargando mensajes de solicitud:", err)
-      setMensajesSolicitud([])
-    }
-  }
-
-  const marcarMensajesSolicitudLeidos = async (conversacionId: number) => {
-    try {
-      await supabase
-        .from("mensajes")
-        .update({ leido: true })
-        .eq("conversacion_id", conversacionId)
-        .eq("remitente", "admin")
-        .eq("leido", false)
-    } catch (err) {
-      console.error("Error marcando mensajes como leídos:", err)
-    }
-  }
-
-  const marcarNotificacionesLeidas = async (conversacionId: number, solicitudId?: number) => {
-    if (!clientData?.id) return
-    try {
-      await supabase
-        .from("notificaciones")
-        .update({ vista: true })
-        .eq("conversacion_id", conversacionId)
-        .eq("cliente_id", clientData.id)
-        .eq("tipo", "nuevo_mensaje")
-        .eq("vista", false)
-      if (solicitudId) {
-        setNotificacionesNoLeidas(prev => {
-          const next = { ...prev }
-          delete next[solicitudId]
-          return next
-        })
-      }
-    } catch (err) {
-      console.error("Error marcando notificaciones como leídas:", err)
-    }
-  }
-
-  const handleEnviarMensajeSolicitud = async () => {
-    const texto = mensajeSolicitudInput.trim()
-
-    if (!texto || !conversacionActual) return
-
-    const conversacionId = conversacionActual.id
-
-    setEnviandoMensajeSolicitud(true)
-
-    try {
-      // DEBUG
-      const authUser = await getValidUser()
-
-      console.log("================================")
-      console.log("AUTH USER:", authUser?.id)
-      console.log("CONVERSACION ACTUAL:", conversacionActual)
-      console.log("CONVERSACION ID:", conversacionId)
-      console.log("AUTH USER:", authUser?.id)
-      console.log("CONVERSACION ACTUAL:", JSON.stringify(conversacionActual, null, 2))
-      console.log("CONVERSACION ID:", conversacionId)
-
-      console.log("AUTH USER:", authUser?.id)
-
-      console.log("INSERTANDO:", {
-        conversacion_id: conversacionId,
-        contenido: texto,
-        remitente: "cliente",
-        leido: false,
-      })
-
-      console.log("USER:", authUser)
-      console.log("UID:", authUser?.id)
-
-      const response = await supabase
-        .from("mensajes")
-        .insert({
-          conversacion_id: conversacionId,
-          contenido: texto,
-          remitente: "cliente",
-          leido: false,
-        })
-        .select()
-        .single()
-
-      console.log("RESPUESTA SUPABASE:", response)
-
-      const { data, error } = response
-
-      if (error) {
-        console.error("ERROR SUPABASE:", error)
-        throw error
-      }
-
-      if (data) {
-        setMensajesSolicitud((prev) => [
-          ...prev,
-          data as MensajeSolicitud,
-        ])
-
-        setMensajeSolicitudInput("")
-
-        setTimeout(() => {
-          mensajesSolicitudEndRef.current?.scrollIntoView({
-            behavior: "smooth",
-          })
-        }, 50)
-      }
-    } catch (err: any) {
-      console.error("================================")
-      console.error("ERROR COMPLETO:", err)
-      console.error("ERROR STRING:", JSON.stringify(err, null, 2))
-      console.error("ERROR MESSAGE:", err?.message)
-      console.error("ERROR DETAILS:", err?.details)
-      console.error("ERROR HINT:", err?.hint)
-      console.error("================================")
-    } finally {
-      setEnviandoMensajeSolicitud(false)
-    }
-  }
-
-  const formatFechaMensajeSolicitud = (fecha: string) => {
-    const d = new Date(fecha)
-    const hoy = new Date()
-    const ayer = new Date()
-    ayer.setDate(hoy.getDate() - 1)
-
-    const hora = d.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })
-
-    if (d.toDateString() === hoy.toDateString()) return `Hoy ${hora}`
-    if (d.toDateString() === ayer.toDateString()) return `Ayer ${hora}`
-    return d.toLocaleDateString("es-CO", { day: "2-digit", month: "short" }) + " " + hora
-  }
+   const formatFechaMensajeSolicitud = (fecha: string) => {
+     const d = new Date(fecha)
+     const hoy = new Date()
+     const ayer = new Date()
+     ayer.setDate(hoy.getDate() - 1)
+ 
+     const hora = d.toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })
+ 
+     if (d.toDateString() === hoy.toDateString()) return `Hoy ${hora}`
+     if (d.toDateString() === ayer.toDateString()) return `Ayer ${hora}`
+     return d.toLocaleDateString("es-CO", { day: "2-digit", month: "short" }) + " " + hora
+   }
+ 
+   const handleSwitchTab = (solicitudId: number, tab: "detalle" | "chat") => {
+     setActiveTab((prev) => ({ ...prev, [solicitudId]: tab }))
+     if (tab === "chat") {
+       cargarMensajes(solicitudId)
+     }
+   }
+ 
+   const cargarMensajes = async (solicitudId: number) => {
+     setLoadingMensajes((prev) => ({ ...prev, [solicitudId]: true }))
+ 
+     try {
+       const { data: conversacion, error: convError } = await supabase
+         .from("conversaciones")
+         .select("id")
+         .eq("solicitud_id", solicitudId)
+         .single()
+ 
+       let conversacionId = conversacion?.id
+ 
+       if (!conversacionId && clientData) {
+         const { data: nueva, error } = await supabase
+           .from("conversaciones")
+           .insert({
+             solicitud_id: solicitudId,
+             cliente_id: clientData.id,
+             admin_id: null,
+             estado: "activa",
+           })
+           .select()
+           .single()
+ 
+         if (error) {
+           console.error(error)
+           return
+         }
+ 
+         conversacionId = nueva.id
+       }
+ 
+       if (!conversacionId) return
+ 
+       const { data, error } = await supabase
+         .from("mensajes")
+         .select("*")
+         .eq("conversacion_id", conversacionId)
+         .order("created_at", { ascending: true })
+ 
+       if (error) throw error
+ 
+       setMensajesPorSolicitud((prev) => ({
+         ...prev,
+         [solicitudId]: data || [],
+       }))
+ 
+       await supabase
+         .from("mensajes")
+         .update({ leido: true })
+         .eq("conversacion_id", conversacionId)
+         .eq("remitente", "admin")
+         .eq("leido", false)
+ 
+       setNotificacionesNoLeidas((prev) => {
+         const next = { ...prev }
+         delete next[solicitudId]
+         return next
+       })
+     } catch (err) {
+       console.error("chat error", err)
+     } finally {
+       setLoadingMensajes((prev) => ({
+         ...prev,
+         [solicitudId]: false
+       }))
+     }
+   }
+ 
+   const handleEnviarMensaje = async (solicitudId: number) => {
+     const mensaje = mensajeInput[solicitudId]?.trim()
+ 
+     if (!mensaje) return
+ 
+     setEnviandoMensaje((prev) => ({
+       ...prev,
+       [solicitudId]: true
+     }))
+ 
+     try {
+       const { data: conv } = await supabase
+         .from("conversaciones")
+         .select("id")
+         .eq("solicitud_id", solicitudId)
+         .single()
+ 
+       if (!conv) return
+ 
+       const insertPayload = {
+         conversacion_id: conv.id,
+         contenido: mensaje,
+         remitente: "cliente",
+         leido: false,
+       }
+ 
+       const { data, error } = await supabase
+         .from("mensajes")
+         .insert(insertPayload)
+         .select()
+ 
+       if (error) {
+         console.error("Error inserting mensaje:", error)
+         throw error
+       }
+ 
+       setMensajesPorSolicitud((prev) => ({
+         ...prev,
+         [solicitudId]: [
+           ...(prev[solicitudId] || []),
+           {
+             id: Date.now(),
+             contenido: mensaje,
+             remitente: "cliente",
+             created_at: new Date().toISOString(),
+           },
+         ],
+       }))
+ 
+       setMensajeInput((prev) => ({
+         ...prev,
+         [solicitudId]: "",
+       }))
+ 
+       setTimeout(() => {
+         chatBottomRefs.current[solicitudId]?.scrollIntoView({
+           behavior: "smooth",
+         })
+       }, 50)
+     } catch (e) {
+       console.error(e)
+     } finally {
+       setEnviandoMensaje((prev) => ({
+         ...prev,
+         [solicitudId]: false,
+       }))
+     }
+   }
 
   const handleCerrarDetalle = () => {
     setSelectedSolicitud(null)
@@ -2032,39 +1974,164 @@ export default function ClientesPage() {
                             </div>
                           )}
 
-                          <div className="flex items-center gap-2 pt-2">
-                            <button
-                              onClick={() => abrirChatSolicitud(solicitud)}
-                              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-white relative"
-                            >
-                              <MessageCircle size={16} />
-                              Chat Arte Cerámico
-                              {notificacionesNoLeidas[solicitud.id] > 0 && (
-                                <span className="absolute -top-1 -right-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white px-1">
-                                  {notificacionesNoLeidas[solicitud.id]}
-                                </span>
-                              )}
-                            </button>
-                            <button
-                              onClick={() => handleVerSolicitud(solicitud)}
-                              className="flex items-center gap-1 rounded-xl border border-border bg-card/50 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:border-primary/60 hover:bg-primary/10 hover:text-primary"
-                            >
-                              <Eye size={14} />
-                              Ver
-                            </button>
-                            <button
-                              onClick={() => handleDeleteSolicitud(solicitud)}
-                              className="flex items-center gap-1 rounded-xl border border-border bg-card/50 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:border-red-500/60 hover:bg-red-500/10 hover:text-red-500"
-                            >
-                              <Trash2 size={14} />
-                              Eliminar
-                            </button>
+                            <div className="flex items-center gap-2 pt-2">
+                              <button
+                                onClick={() => handleVerSolicitud(solicitud)}
+                                className="flex items-center gap-1 rounded-xl border border-border bg-card/50 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:border-primary/60 hover:bg-primary/10 hover:text-primary"
+                              >
+                                <Eye size={14} />
+                                Ver
+                              </button>
+                              <button
+                                onClick={() => handleDeleteSolicitud(solicitud)}
+                                className="flex items-center gap-1 rounded-xl border border-border bg-card/50 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:border-red-500/60 hover:bg-red-500/10 hover:text-red-500"
+                              >
+                                <Trash2 size={14} />
+                                Eliminar
+                              </button>
+                            </div>
+
+                            {/* Tabs detalle / chat */}
+                            <div className="flex border-b border-border mt-2">
+                              <button
+                                onClick={() => handleSwitchTab(solicitud.id, "detalle")}
+                                className={`flex items-center gap-2 px-4 py-2 text-xs font-medium border-b-2 transition-colors ${(activeTab[solicitud.id] ?? "detalle") === "detalle"
+                                  ? "border-primary text-primary"
+                                  : "border-transparent text-muted-foreground hover:text-foreground"
+                                  }`}
+                              >
+                                <FileText size={14} />
+                                Detalle
+                              </button>
+                              <button
+                                onClick={() => {
+                                  handleSwitchTab(solicitud.id, "chat")
+                                  cargarMensajes(solicitud.id)
+                                }}
+                                className={`flex items-center gap-2 px-4 py-2 text-xs font-medium border-b-2 transition-colors ${(activeTab[solicitud.id] ?? "detalle") === "chat"
+                                  ? "border-primary text-primary"
+                                  : "border-transparent text-muted-foreground hover:text-foreground"
+                                  }`}
+                              >
+                                <MessageCircle size={14} />
+                                Chat
+                                {notificacionesNoLeidas[solicitud.id] > 0 && (
+                                  <span className="inline-flex items-center justify-center w-4 h-4 rounded-full bg-red-500 text-[10px] font-semibold text-white">
+                                    {notificacionesNoLeidas[solicitud.id]}
+                                  </span>
+                                )}
+                              </button>
+                            </div>
+
+                            {/* Tab: Chat */}
+                            {(activeTab[solicitud.id] ?? "detalle") === "chat" && (
+                              <div className="bg-gray-50 flex flex-col" style={{ minHeight: "320px" }}>
+                                <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ maxHeight: "400px" }}>
+                                  {loadingMensajes[solicitud.id] ? (
+                                    <div className="flex justify-center py-8">
+                                      <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                                    </div>
+                                  ) : !mensajesPorSolicitud[solicitud.id] || mensajesPorSolicitud[solicitud.id].length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center py-10 text-center">
+                                      <MessageCircle size={32} className="text-muted-foreground mb-2 opacity-40" />
+                                      <p className="text-xs text-muted-foreground">Sin mensajes aún.</p>
+                                      <p className="text-[10px] text-muted-foreground mt-1">Envía un mensaje al cliente sobre esta solicitud.</p>
+                                    </div>
+                                  ) : (
+                                    mensajesPorSolicitud[solicitud.id].map((msg: any, idx: number, arr: any[]) => {
+                                      const esAdmin = msg.remitente === "admin"
+                                      const fechaActual = new Date(msg.created_at).toDateString()
+                                      const fechaAnterior = idx > 0 ? new Date(arr[idx - 1].created_at).toDateString() : null
+                                      const mostrarFecha = fechaActual !== fechaAnterior
+
+                                      return (
+                                        <div key={msg.id}>
+                                          {mostrarFecha && (
+                                            <div className="flex items-center gap-2 my-2">
+                                              <div className="flex-1 h-px bg-border" />
+                                              <span className="text-[10px] text-muted-foreground px-2">
+                                                {new Date(msg.created_at).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" })}
+                                              </span>
+                                              <div className="flex-1 h-px bg-border" />
+                                            </div>
+                                          )}
+                                          <div className={`flex flex-col ${esAdmin ? "items-end" : "items-start"}`}>
+                                            <div className={`flex items-center gap-1 mb-1 text-[10px] text-muted-foreground ${esAdmin ? "flex-row-reverse" : ""}`}>
+                                              {esAdmin ? (
+                                                <Shield size={11} className="text-primary" />
+                                              ) : (
+                                                <User size={11} />
+                                              )}
+                                              <span>{esAdmin ? "Admin" : clientData?.nombre || "Cliente"}</span>
+                                            </div>
+                                            <div
+                                              className={`max-w-[75%] rounded-xl px-3 py-2 text-xs leading-relaxed ${esAdmin
+                                                ? "bg-primary text-primary-foreground rounded-tr-sm"
+                                                : "bg-white border border-border text-foreground rounded-tl-sm"
+                                                }`}
+                                            >
+                                              <p className="whitespace-pre-line break-words">
+                                                {msg.contenido}
+                                              </p>
+                                            </div>
+                                            <span className="text-[10px] text-muted-foreground mt-1">
+                                              {formatFechaMensajeSolicitud(msg.created_at)}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      )
+                                    })
+                                  )}
+                                  <div ref={(el) => { chatBottomRefs.current[solicitud.id] = el }} />
+                                </div>
+
+                                {/* Input de mensaje */}
+                                <div className="border-t border-border bg-white p-3">
+                                  <div className="flex gap-2 items-end">
+                                    <textarea
+                                      value={mensajeInput[solicitud.id] ?? ""}
+                                      onChange={(e) =>
+                                        setMensajeInput((prev) => ({ ...prev, [solicitud.id]: e.target.value }))
+                                      }
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter" && !e.shiftKey) {
+                                          e.preventDefault()
+                                          handleEnviarMensaje(solicitud.id)
+                                        }
+                                      }}
+                                      placeholder="Escribe un mensaje al cliente... (Enter para enviar)"
+                                      rows={1}
+                                      className="flex-1 resize-none rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+                                      style={{ maxHeight: "80px" }}
+                                      onInput={(e) => {
+                                        const el = e.currentTarget
+                                        el.style.height = "auto"
+                                        el.style.height = Math.min(el.scrollHeight, 80) + "px"
+                                      }}
+                                    />
+                                    <button
+                                      onClick={() => handleEnviarMensaje(solicitud.id)}
+                                      disabled={enviandoMensaje[solicitud.id] || !mensajeInput[solicitud.id]?.trim()}
+                                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
+                                    >
+                                      {enviandoMensaje[solicitud.id] ? (
+                                        <Loader2 size={14} className="animate-spin" />
+                                      ) : (
+                                        <Send size={14} />
+                                      )}
+                                    </button>
+                                  </div>
+                                  <p className="text-[10px] text-muted-foreground mt-1.5">
+                                    Shift+Enter para nueva línea
+                                  </p>
+                                </div>
+                              </div>
+                            )}
                           </div>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
+                        )}
+                      </div>
+                    )
+                  })}
               </div>
             )}
           </div>
@@ -2244,108 +2311,6 @@ export default function ClientesPage() {
                 >
                   Cerrar
                 </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {chatSolicitudOpen && conversacionActual && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setChatSolicitudOpen(false)}>
-            <div className="flex h-[min(620px,90vh)] w-full max-w-2xl flex-col overflow-hidden rounded-xl bg-card shadow-xl" onClick={(e) => e.stopPropagation()}>
-              <div className="border-b border-border p-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-foreground">
-                      Chat Arte Cerámico
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      SOL-{String(conversacionActual.solicitud_id || conversacionActual.id).padStart(3, "0")}
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => setChatSolicitudOpen(false)}
-                    className="rounded-lg p-2 hover:bg-muted transition-colors"
-                  >
-                    <X size={18} className="text-muted-foreground" />
-                  </button>
-                </div>
-              </div>
-
-              <div className="flex-1 space-y-3 overflow-y-auto p-4">
-                {mensajesSolicitud.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-10 text-center">
-                    <MessageCircle size={32} className="mb-2 text-muted-foreground opacity-40" />
-                    <p className="text-sm font-medium text-foreground">Sin mensajes aún.</p>
-                    <p className="mt-1 text-xs text-muted-foreground">Escribe tu mensaje sobre esta solicitud.</p>
-                  </div>
-                ) : (
-                  mensajesSolicitud.map((msg, index, arr) => {
-                    const esAdmin = msg.remitente === "admin"
-                    const mostrarFecha = index === 0 || new Date(msg.created_at).toDateString() !== new Date(arr[index - 1].created_at).toDateString()
-
-                    return (
-                      <div key={msg.id}>
-                        {mostrarFecha && (
-                          <div className="my-3 flex items-center gap-2">
-                            <div className="h-px flex-1 bg-border" />
-                            <span className="text-[10px] text-muted-foreground">
-                              {new Date(msg.created_at).toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" })}
-                            </span>
-                            <div className="h-px flex-1 bg-border" />
-                          </div>
-                        )}
-                        <div className={`flex ${esAdmin ? "justify-end" : "justify-start"}`}>
-                          <div className={`max-w-[80%] rounded-3xl px-4 py-2.5 text-sm shadow-sm ${esAdmin ? "bg-primary text-primary-foreground rounded-tr-sm" : "bg-muted text-foreground rounded-tl-sm"}`}>
-                            <p className="whitespace-pre-line break-words">
-                              {msg.contenido}
-                            </p>
-                            <p className={`mt-1 text-[10px] ${esAdmin ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
-                              {formatFechaMensajeSolicitud(msg.created_at)}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    )
-                  })
-                )}
-                <div ref={mensajesSolicitudEndRef} />
-              </div>
-
-              <div className="border-t border-border p-4">
-                <div className="flex gap-3">
-                  <textarea
-                    value={mensajeSolicitudInput}
-                    onChange={(e) => setMensajeSolicitudInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault()
-                        handleEnviarMensajeSolicitud()
-                      }
-                    }}
-                    placeholder="Escribe tu mensaje..."
-                    rows={1}
-                    className="flex-1 resize-none rounded-xl border border-border bg-background/70 px-4 py-3 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
-                    onInput={(e) => {
-                      const el = e.currentTarget
-                      el.style.height = "auto"
-                      el.style.height = `${Math.min(el.scrollHeight, 120)}px`
-                    }}
-                  />
-                  <button
-                    onClick={handleEnviarMensajeSolicitud}
-                    disabled={enviandoMensajeSolicitud || !mensajeSolicitudInput.trim()}
-                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground transition-all hover:scale-105 disabled:opacity-50"
-                  >
-                    {enviandoMensajeSolicitud ? (
-                      <Loader2 className="animate-spin" size={18} />
-                    ) : (
-                      <Send size={18} />
-                    )}
-                  </button>
-                </div>
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Shift+Enter para nueva línea
-                </p>
               </div>
             </div>
           </div>
