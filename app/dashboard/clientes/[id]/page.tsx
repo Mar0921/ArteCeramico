@@ -144,7 +144,7 @@ export default function ClientePerfilPage() {
   const [editDientes, setEditDientes] = useState<string[]>([])
   const [expandedSolicitud, setExpandedSolicitud] = useState<number | null>(null)
   const [expandedFichaTecnica, setExpandedFichaTecnica] = useState<Record<number, boolean>>({})
-  const [activeTab, setActiveTab] = useState<{ [solicitudId: number]: "detalle" | "chat" }>({})
+  const [activeTab, setActiveTab] = useState<{ [solicitudId: number]: "detalle" | "chat" | "documentos" }>({})
   const [mensajesNoLeidos, setMensajesNoLeidos] = useState<{ [solicitudId: number]: number }>({})
   const [mensajesPorSolicitud, setMensajesPorSolicitud] = useState<{ [solicitudId: number]: any[] }>({})
   const [mensajeInput, setMensajeInput] = useState<{ [solicitudId: number]: string }>({})
@@ -689,7 +689,7 @@ export default function ClientePerfilPage() {
     setExpandedSolicitud((prev) => prev === solicitudId ? null : solicitudId)
   }
 
-  const handleSwitchTab = (solicitudId: number, tab: "detalle" | "chat") => {
+  const handleSwitchTab = (solicitudId: number, tab: "detalle" | "chat" | "documentos") => {
     setActiveTab((prev) => ({ ...prev, [solicitudId]: tab }))
   }
 
@@ -1232,7 +1232,7 @@ if (!conv) return
                           transition={{ duration: 0.3 }}
                           className="border-t border-border"
                         >
-                          {/* Tabs detalle / chat */}
+                          {/* Tabs detalle / chat / documentos */}
                           <div className="flex border-b border-border bg-white">
                             <button
                               onClick={() => handleSwitchTab(solicitud.id, "detalle")}
@@ -1261,6 +1261,16 @@ if (!conv) return
                                   {noLeidos}
                                 </span>
                               )}
+                            </button>
+                            <button
+                              onClick={() => handleSwitchTab(solicitud.id, "documentos")}
+                              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${tabActiva === "documentos"
+                                ? "border-primary text-primary"
+                                : "border-transparent text-muted-foreground hover:text-foreground"
+                                }`}
+                            >
+                              <Paperclip size={14} />
+                              Documentos
                             </button>
                           </div>
 
@@ -1679,140 +1689,7 @@ if (!conv) return
                                 </div>
                               )}
 
-                              {/* Documentos de la solicitud */}
-                              <div className="mt-4">
-                                <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">Documentos de la Solicitud</p>
-                                <div className="space-y-2">
-                                  {(["declaracion_conformidad"] as const).map((campo) => {
-                                    const url = solicitud[campo]
-                                    const etiqueta = campo === "declaracion_conformidad"
-                                      ? "Declaración de Conformidad"
-                                      : campo === "guia_fabricacion"
-                                        ? "Ficha Técnica"
-                                        : campo === "manual_uso"
-                                          ? "Manual de Uso"
-                                          : campo === "recomendaciones"
-                                            ? "Recomendaciones"
-                                            : "Garantía"
-                                    const uploading = uploadingSolicitudDoc[campo]
-                                    const error = uploadSolicitudError[campo]
-                                    const success = uploadSolicitudSuccess[campo]
-
-                                    return (
-                                      <div key={campo} className="flex items-center justify-between gap-2">
-                                        <div className="flex items-center gap-2 flex-1 min-w-0">
-                                          <FileText size={14} className="text-gray-500 shrink-0" />
-                                          {url ? (
-                                            <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline truncate">
-                                              {etiqueta}
-                                            </a>
-                                          ) : (
-                                            <span className="text-xs text-gray-500 truncate">{etiqueta} - No subido</span>
-                                          )}
-                                          {success && (
-                                            <CheckCircle size={12} className="text-green-500 shrink-0" />
-                                          )}
-                                        </div>
-                                        <div className="flex items-center gap-2 shrink-0">
-                                          <input
-                                            type="file"
-                                            className="hidden"
-                                            id={`solicitud-${solicitud.id}-${campo}`}
-                                            accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
-                                            onChange={(e) => {
-                                              const file = e.target.files?.[0]
-                                              if (file) handleUploadDocSolicitud(solicitud.id, campo, file)
-                                            }}
-                                          />
-                                          <label htmlFor={`solicitud-${solicitud.id}-${campo}`} className="cursor-pointer">
-                                            <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted">
-                                              {uploadingSolicitudDoc[campo] ? "Subiendo..." : "Subir"}
-                                            </span>
-                                          </label>
-                                          {solicitud[campo] && (
-                                            <button
-                                              onClick={() => handleUploadDocSolicitud(solicitud.id, campo)}
-                                              disabled={uploading}
-                                              className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted disabled:opacity-50"
-                                            >
-                                              Actualizar
-                                            </button>
-                                          )}
-                                        </div>
-                                      </div>
-                                    )
-                                  })}
-
-                                  <div className="border border-border rounded-lg">
-                                    <button
-                                      onClick={() => setExpandedFichaTecnica(prev => ({ ...prev, [solicitud.id]: !prev[solicitud.id] }))}
-                                      className="w-full flex items-center justify-between p-2 text-xs font-medium text-foreground hover:bg-muted/50 transition-colors"
-                                    >
-                                      <span>Ficha Técnica</span>
-                                      <span className="text-[10px] text-muted-foreground">
-                                        {expandedFichaTecnica[solicitud.id] ? "Ocultar" : "Ver"}
-                                      </span>
-                                    </button>
-                                    {expandedFichaTecnica[solicitud.id] && (
-                                      <div className="px-2 pb-2 space-y-2">
-                                        {(["guia_fabricacion", "manual_uso", "recomendaciones", "garantia"] as const).map((campo) => {
-                                          const url = solicitud[campo]
-                                          const etiqueta = campo === "guia_fabricacion" ? "Ficha Técnica" : campo === "manual_uso" ? "Manual de Uso" : campo === "recomendaciones" ? "Recomendaciones" : "Garantía"
-                                          const uploading = uploadingSolicitudDoc[campo]
-                                          const error = uploadSolicitudError[campo]
-                                          const success = uploadSolicitudSuccess[campo]
-
-                                          return (
-                                            <div key={campo} className="flex items-center justify-between gap-2">
-                                              <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                <FileText size={14} className="text-gray-500 shrink-0" />
-                                                {url ? (
-                                                  <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline truncate">
-                                                    {etiqueta}
-                                                  </a>
-                                                ) : (
-                                                  <span className="text-xs text-gray-500 truncate">{etiqueta} - No subido</span>
-                                                )}
-                                                {success && (
-                                                  <CheckCircle size={12} className="text-green-500 shrink-0" />
-                                                )}
-                                              </div>
-                                              <div className="flex items-center gap-2 shrink-0">
-                                                <input
-                                                  type="file"
-                                                  className="hidden"
-                                                  id={`solicitud-${solicitud.id}-${campo}`}
-                                                  accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
-                                                  onChange={(e) => {
-                                                    const file = e.target.files?.[0]
-                                                    if (file) handleUploadDocSolicitud(solicitud.id, campo, file)
-                                                  }}
-                                                />
-                                                 <label htmlFor={`solicitud-${solicitud.id}-${campo}`} className="cursor-pointer">
-                                                   <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted">
-                                                     {uploadingSolicitudDoc[campo] ? "Subiendo..." : "Subir"}
-                                                   </span>
-                                                 </label>
-                                                 {(solicitudDocs[campo] || solicitud[campo]) && (
-                                                   <button
-                                                     onClick={() => handleUploadDocSolicitud(solicitud.id, campo)}
-                                                     disabled={uploadingSolicitudDoc[campo]}
-                                                     className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted disabled:opacity-50"
-                                                   >
-                                                     {solicitudDocs[campo] ? "Guardar" : "Actualizar"}
-                                                   </button>
-                                                 )}
-                                              </div>
-                                            </div>
-                                          )
-                                        })}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Servicios Vinculados */}
+                               {/* Servicios Vinculados */}
                               <div className="mt-4">
                                 <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">Trabajos / Servicios</p>
                                 {loadingDetalle && serviciosDetalle.length === 0 ? (
@@ -2061,6 +1938,141 @@ if (!conv) return
                                 <p className="text-[10px] text-muted-foreground mt-1.5">
                                   Shift+Enter para nueva línea
                                 </p>
+                              </div>
+                            </div>
+                           )}
+
+                          {/* Tab: Documentos */}
+                          {tabActiva === "documentos" && (
+                            <div className="bg-gray-50 p-4">
+                              <div className="space-y-2">
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Documentos de la Solicitud</p>
+                                {(["declaracion_conformidad"] as const).map((campo) => {
+                                  const url = solicitud[campo]
+                                  const etiqueta = campo === "declaracion_conformidad"
+                                    ? "Declaración de Conformidad"
+                                    : campo === "guia_fabricacion"
+                                      ? "Ficha Técnica"
+                                      : campo === "manual_uso"
+                                        ? "Manual de Uso"
+                                        : campo === "recomendaciones"
+                                          ? "Recomendaciones"
+                                          : "Garantía"
+                                  const uploading = uploadingSolicitudDoc[campo]
+                                  const error = uploadSolicitudError[campo]
+                                  const success = uploadSolicitudSuccess[campo]
+
+                                  return (
+                                    <div key={campo} className="flex items-center justify-between gap-2">
+                                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                                        <FileText size={14} className="text-gray-500 shrink-0" />
+                                        {url ? (
+                                          <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline truncate">
+                                            {etiqueta}
+                                          </a>
+                                        ) : (
+                                          <span className="text-xs text-gray-500 truncate">{etiqueta} - No subido</span>
+                                        )}
+                                        {success && (
+                                          <CheckCircle size={12} className="text-green-500 shrink-0" />
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-2 shrink-0">
+                                        <input
+                                          type="file"
+                                          className="hidden"
+                                          id={`solicitud-${solicitud.id}-${campo}`}
+                                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
+                                          onChange={(e) => {
+                                            const file = e.target.files?.[0]
+                                            if (file) handleUploadDocSolicitud(solicitud.id, campo, file)
+                                          }}
+                                        />
+                                        <label htmlFor={`solicitud-${solicitud.id}-${campo}`} className="cursor-pointer">
+                                          <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted">
+                                            {uploadingSolicitudDoc[campo] ? "Subiendo..." : "Subir"}
+                                          </span>
+                                        </label>
+                                        {solicitud[campo] && (
+                                          <button
+                                            onClick={() => handleUploadDocSolicitud(solicitud.id, campo)}
+                                            disabled={uploading}
+                                            className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted disabled:opacity-50"
+                                          >
+                                            Actualizar
+                                          </button>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )
+                                })}
+
+                                <div className="border border-border rounded-lg">
+                                  <button
+                                    onClick={() => setExpandedFichaTecnica(prev => ({ ...prev, [solicitud.id]: !prev[solicitud.id] }))}
+                                    className="w-full flex items-center justify-between p-2 text-xs font-medium text-foreground hover:bg-muted/50 transition-colors"
+                                  >
+                                    <span>Ficha Técnica</span>
+                                    <span className="text-[10px] text-muted-foreground">
+                                      {expandedFichaTecnica[solicitud.id] ? "Ocultar" : "Ver"}
+                                    </span>
+                                  </button>
+                                  {expandedFichaTecnica[solicitud.id] && (
+                                    <div className="px-2 pb-2 space-y-2">
+                                      {(["guia_fabricacion", "manual_uso", "recomendaciones", "garantia"] as const).map((campo) => {
+                                        const url = solicitud[campo]
+                                        const etiqueta = campo === "guia_fabricacion" ? "Ficha Técnica" : campo === "manual_uso" ? "Manual de Uso" : campo === "recomendaciones" ? "Recomendaciones" : "Garantía"
+                                        const uploading = uploadingSolicitudDoc[campo]
+                                        const error = uploadSolicitudError[campo]
+                                        const success = uploadSolicitudSuccess[campo]
+
+                                        return (
+                                          <div key={campo} className="flex items-center justify-between gap-2">
+                                            <div className="flex items-center gap-2 flex-1 min-w-0">
+                                              <FileText size={14} className="text-gray-500 shrink-0" />
+                                              {url ? (
+                                                <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline truncate">
+                                                  {etiqueta}
+                                                </a>
+                                              ) : (
+                                                <span className="text-xs text-gray-500 truncate">{etiqueta} - No subido</span>
+                                              )}
+                                              {success && (
+                                                <CheckCircle size={12} className="text-green-500 shrink-0" />
+                                              )}
+                                            </div>
+                                            <div className="flex items-center gap-2 shrink-0">
+                                              <input
+                                                type="file"
+                                                className="hidden"
+                                                id={`solicitud-${solicitud.id}-${campo}`}
+                                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
+                                                onChange={(e) => {
+                                                  const file = e.target.files?.[0]
+                                                  if (file) handleUploadDocSolicitud(solicitud.id, campo, file)
+                                                }}
+                                              />
+                                              <label htmlFor={`solicitud-${solicitud.id}-${campo}`} className="cursor-pointer">
+                                                <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted">
+                                                  {uploadingSolicitudDoc[campo] ? "Subiendo..." : "Subir"}
+                                                </span>
+                                              </label>
+                                              {(solicitudDocs[campo] || solicitud[campo]) && (
+                                                <button
+                                                  onClick={() => handleUploadDocSolicitud(solicitud.id, campo)}
+                                                  disabled={uploadingSolicitudDoc[campo]}
+                                                  className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted disabled:opacity-50"
+                                                >
+                                                  {solicitudDocs[campo] ? "Guardar" : "Actualizar"}
+                                                </button>
+                                              )}
+                                            </div>
+                                          </div>
+                                        )
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             </div>
                           )}

@@ -146,7 +146,7 @@ export default function ClientesPage() {
   const [chatOpen, setChatOpen] = useState(false)
   const [notificacionesOpen, setNotificacionesOpen] = useState(false)
   const [notificacionesLista, setNotificacionesLista] = useState<any[]>([])
-  const [activeTab, setActiveTab] = useState<Record<number, "detalle" | "chat">>({})
+  const [activeTab, setActiveTab] = useState<Record<number, "detalle" | "chat" | "documentos">>({})
   const [mensajesPorSolicitud, setMensajesPorSolicitud] = useState<Record<number, any[]>>({})
   const [mensajeInput, setMensajeInput] = useState<Record<number, string>>({})
   const [enviandoMensaje, setEnviandoMensaje] = useState<Record<number, boolean>>({})
@@ -872,7 +872,7 @@ export default function ClientesPage() {
      return d.toLocaleDateString("es-CO", { day: "2-digit", month: "short" }) + " " + hora
    }
  
-   const handleSwitchTab = (solicitudId: number, tab: "detalle" | "chat") => {
+   const handleSwitchTab = (solicitudId: number, tab: "detalle" | "chat" | "documentos") => {
      setActiveTab((prev) => ({ ...prev, [solicitudId]: tab }))
      if (tab === "chat") {
        cargarMensajes(solicitudId)
@@ -1912,69 +1912,11 @@ export default function ClientesPage() {
                             </div>
                           )}
 
-                          <div className="pt-2 border-t border-border">
-                            <p className="text-sm font-bold text-primary">Precio: ${precioTotal.toLocaleString("es-CO")}</p>
-                          </div>
+                           <div className="pt-2 border-t border-border">
+                             <p className="text-sm font-bold text-primary">Precio: ${precioTotal.toLocaleString("es-CO")}</p>
+                           </div>
 
-                          <div className="mt-2 space-y-1">
-                            <p className="text-[10px] text-gray-500">Documentos:</p>
-                            <div className="flex flex-wrap gap-2">
-                              {solicitud.declaracion_conformidad && (
-                                <a href={solicitud.declaracion_conformidad} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">
-                                  Declaración de Conformidad
-                                </a>
-                              )}
-                              {solicitud.guia_fabricacion && (
-                                <a href={solicitud.guia_fabricacion} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">
-                                  Ficha Técnica
-                                </a>
-                              )}
-                              {solicitud.manual_uso && (
-                                <a href={solicitud.manual_uso} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">
-                                  Manual de Uso
-                                </a>
-                              )}
-                              {solicitud.recomendaciones && (
-                                <a href={solicitud.recomendaciones} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">
-                                  Recomendaciones
-                                </a>
-                              )}
-                              {solicitud.garantia && (
-                                <a href={solicitud.garantia} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">
-                                  Garantía
-                                </a>
-                              )}
-                            </div>
-                          </div>
-
-                          {solicitud.urls_documentos && solicitud.urls_documentos.length > 0 && (
-                            <div className="mt-2 space-y-1">
-                              <p className="text-[10px] text-gray-500">Archivos adjuntos:</p>
-                              <div className="flex flex-wrap gap-2">
-                                {solicitud.urls_documentos.map((url, idx) => (
-                                  <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">
-                                    Adjunto {idx + 1}
-                                  </a>
-                                ))}
-                              </div>
-                            </div>
-                          )}
-
-                          {(solicitud as any).odontologo_firma && (
-                            <div>
-                              {String((solicitud as any).odontologo_firma).startsWith("data:image") ? (
-                                <img
-                                  src={(solicitud as any).odontologo_firma}
-                                  alt="Firma del doctor"
-                                  className="h-16 w-auto rounded border border-border bg-white"
-                                />
-                              ) : (
-                                <span className="text-xs text-muted-foreground">Firma: {(solicitud as any).odontologo_firma}</span>
-                              )}
-                            </div>
-                          )}
-
-                            <div className="flex items-center gap-2 pt-2">
+                           <div className="flex items-center gap-2 pt-2">
                               <button
                                 onClick={() => handleVerSolicitud(solicitud)}
                                 className="flex items-center gap-1 rounded-xl border border-border bg-card/50 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:border-primary/60 hover:bg-primary/10 hover:text-primary"
@@ -1991,7 +1933,7 @@ export default function ClientesPage() {
                               </button>
                             </div>
 
-                            {/* Tabs detalle / chat */}
+                            {/* Tabs detalle / chat / documentos */}
                             <div className="flex border-b border-border mt-2">
                               <button
                                 onClick={() => handleSwitchTab(solicitud.id, "detalle")}
@@ -2020,6 +1962,16 @@ export default function ClientesPage() {
                                     {notificacionesNoLeidas[solicitud.id]}
                                   </span>
                                 )}
+                              </button>
+                              <button
+                                onClick={() => handleSwitchTab(solicitud.id, "documentos")}
+                                className={`flex items-center gap-2 px-4 py-2 text-xs font-medium border-b-2 transition-colors ${(activeTab[solicitud.id] ?? "detalle") === "documentos"
+                                  ? "border-primary text-primary"
+                                  : "border-transparent text-muted-foreground hover:text-foreground"
+                                  }`}
+                              >
+                                <Paperclip size={14} />
+                                Documentos
                               </button>
                             </div>
 
@@ -2124,6 +2076,81 @@ export default function ClientesPage() {
                                   <p className="text-[10px] text-muted-foreground mt-1.5">
                                     Shift+Enter para nueva línea
                                   </p>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Tab: Documentos */}
+                            {(activeTab[solicitud.id] ?? "detalle") === "documentos" && (
+                              <div className="bg-gray-50 p-4">
+                                <div className="space-y-2">
+                                  <p className="text-[10px] text-gray-500 uppercase tracking-wide">Documentos de la Solicitud</p>
+                                  {solicitud.declaracion_conformidad && (
+                                    <div className="flex items-center gap-2">
+                                      <FileText size={14} className="text-gray-500 shrink-0" />
+                                      <a href={solicitud.declaracion_conformidad} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
+                                        Declaración de Conformidad
+                                      </a>
+                                    </div>
+                                  )}
+                                  {solicitud.guia_fabricacion && (
+                                    <div className="flex items-center gap-2">
+                                      <FileText size={14} className="text-gray-500 shrink-0" />
+                                      <a href={solicitud.guia_fabricacion} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
+                                        Ficha Técnica
+                                      </a>
+                                    </div>
+                                  )}
+                                  {solicitud.manual_uso && (
+                                    <div className="flex items-center gap-2">
+                                      <FileText size={14} className="text-gray-500 shrink-0" />
+                                      <a href={solicitud.manual_uso} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
+                                        Manual de Uso
+                                      </a>
+                                    </div>
+                                  )}
+                                  {solicitud.recomendaciones && (
+                                    <div className="flex items-center gap-2">
+                                      <FileText size={14} className="text-gray-500 shrink-0" />
+                                      <a href={solicitud.recomendaciones} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
+                                        Recomendaciones
+                                      </a>
+                                    </div>
+                                  )}
+                                  {solicitud.garantia && (
+                                    <div className="flex items-center gap-2">
+                                      <FileText size={14} className="text-gray-500 shrink-0" />
+                                      <a href={solicitud.garantia} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
+                                        Garantía
+                                      </a>
+                                    </div>
+                                  )}
+                                  {solicitud.urls_documentos && solicitud.urls_documentos.length > 0 && (
+                                    <div className="mt-2 pt-2 border-t border-border">
+                                      <p className="text-[10px] text-gray-500 mb-1">Archivos adjuntos:</p>
+                                      <div className="flex flex-wrap gap-2">
+                                        {solicitud.urls_documentos.map((url, idx) => (
+                                          <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">
+                                            Adjunto {idx + 1}
+                                          </a>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
+                              {(solicitud as any).odontologo_firma && (
+                                <div className="mt-2 pt-2 border-t border-border">
+                                  <p className="text-[10px] text-gray-500 mb-1">Firma del Odontólogo</p>
+                                  {String((solicitud as any).odontologo_firma).startsWith("data:image") ? (
+                                    <img
+                                      src={(solicitud as any).odontologo_firma}
+                                      alt="Firma"
+                                      className="h-16 w-auto rounded border border-border bg-white"
+                                    />
+                                  ) : (
+                                    <span className="text-xs text-muted-foreground">{(solicitud as any).odontologo_firma}</span>
+                                  )}
+                                </div>
+                              )}
                                 </div>
                               </div>
                             )}
