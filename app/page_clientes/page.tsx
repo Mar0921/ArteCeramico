@@ -2025,25 +2025,9 @@ export default function ClientesPage() {
                                  {(solicitud as any).observaciones}
                                </p>
                              </div>
-                           )}
+                            )}
 
-                           {/* Estado */}
-                           <div className="mt-2">
-                             <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Estado</p>
-                             <span className="inline-flex rounded-full px-2.5 py-1 text-[10px] font-medium bg-primary/10 text-primary capitalize">
-                               {(solicitud as any).estado?.replace("_", " ") || "Pendiente"}
-                             </span>
-                           </div>
-
-                           {/* Precio Total */}
-                           <div className="mt-2 flex items-center justify-between">
-                             <div>
-                               <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Precio Total</p>
-                               <p className="text-sm font-bold text-primary">${precioTotal.toLocaleString("es-CO")}</p>
-                             </div>
-                           </div>
-
-                           <div className="flex items-center gap-2 pt-2">
+                            <div className="flex items-center gap-2 pt-2">
                               <button
                                 onClick={() => handleVerSolicitud(solicitud)}
                                 className="flex items-center gap-1 rounded-xl border border-border bg-card/50 px-3 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:border-primary/60 hover:bg-primary/10 hover:text-primary"
