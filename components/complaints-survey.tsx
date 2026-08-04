@@ -115,13 +115,28 @@ export function ComplaintsSurvey({
     }
   }
 
+  const hasResponse = !!surveyResponses[solicitudId] && (surveyResponses[solicitudId].tipo || surveyResponses[solicitudId].descripcion || surveyResponses[solicitudId].nombreCompleto)
+  const isCompleted = !!surveySuccess[solicitudId]
+
   return (
     <div className="rounded-lg border border-border bg-white">
       <button
         onClick={() => setCollapsed(!collapsed)}
         className="w-full flex items-center justify-between p-3 text-xs font-medium text-foreground hover:bg-muted/50 transition-colors"
       >
-        <span>📋 BUZÓN DE QUEJAS, RECLAMOS, SUGERENCIAS Y FELICITACIONES</span>
+        <span className="flex items-center gap-2">
+          📋 BUZÓN DE QUEJAS, RECLAMOS, SUGERENCIAS Y FELICITACIONES
+          {!isCompleted && !hasResponse && (
+            <span className="text-[10px] bg-yellow-100 text-yellow-700 px-2 py-0.5 rounded-full font-medium">
+              Pendiente por contestar
+            </span>
+          )}
+          {isCompleted && (
+            <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
+              Completado
+            </span>
+          )}
+        </span>
         <span className="text-[10px] text-muted-foreground">
           {collapsed ? "Ver" : "Ocultar"}
         </span>
