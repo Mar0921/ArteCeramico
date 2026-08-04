@@ -2072,11 +2072,41 @@ if (!conv) return
                                       })}
                                     </div>
                                   )}
-                                </div>
-                              </div>
-                            </div>
-                          )}
-                        </motion.div>
+                               </div>
+
+                                 {/* Documentos adjuntos del cliente */}
+                                 {solicitud.urls_documentos && solicitud.urls_documentos.length > 0 && (
+                                   <div className="mt-4 pt-3 border-t border-border">
+                                     <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">Archivos Adjuntos</p>
+                                     <div className="flex flex-wrap gap-2">
+                                       {solicitud.urls_documentos.map((url, idx) => (
+                                         <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">
+                                           Adjunto {idx + 1}
+                                         </a>
+                                       ))}
+                                     </div>
+                                   </div>
+                                 )}
+
+                                 {/* Firma del Odontólogo */}
+                                 {(solicitud as any).firma && (
+                                   <div className="mt-4 pt-3 border-t border-border">
+                                     <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">Firma del Odontólogo</p>
+                                     {String((solicitud as any).firma).startsWith("data:image") ? (
+                                       <img
+                                         src={(solicitud as any).firma}
+                                         alt="Firma"
+                                         className="h-16 w-auto rounded border border-border bg-white"
+                                       />
+                                     ) : (
+                                       <span className="text-xs text-muted-foreground">{(solicitud as any).firma}</span>
+                                     )}
+                                   </div>
+                                 )}
+                               </div>
+                             </div>
+                           )}
+                         </motion.div>
                       )}
                     </AnimatePresence>
                   </div>

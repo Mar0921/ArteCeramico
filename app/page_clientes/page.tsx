@@ -2085,46 +2085,87 @@ export default function ClientesPage() {
                               <div className="bg-gray-50 p-4">
                                 <div className="space-y-2">
                                   <p className="text-[10px] text-gray-500 uppercase tracking-wide">Documentos de la Solicitud</p>
-                                  {solicitud.declaracion_conformidad && (
-                                    <div className="flex items-center gap-2">
-                                      <FileText size={14} className="text-gray-500 shrink-0" />
+                                  <div className="flex items-center gap-2">
+                                    <FileText size={14} className="text-gray-500 shrink-0" />
+                                    {solicitud.declaracion_conformidad ? (
                                       <a href={solicitud.declaracion_conformidad} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
                                         Declaración de Conformidad
                                       </a>
-                                    </div>
-                                  )}
-                                  {solicitud.guia_fabricacion && (
-                                    <div className="flex items-center gap-2">
-                                      <FileText size={14} className="text-gray-500 shrink-0" />
+                                    ) : (
+                                      <span className="text-xs text-gray-500">Declaración de Conformidad - No subido</span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <FileText size={14} className="text-gray-500 shrink-0" />
+                                    {solicitud.guia_fabricacion ? (
                                       <a href={solicitud.guia_fabricacion} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
                                         Ficha Técnica
                                       </a>
-                                    </div>
-                                  )}
-                                  {solicitud.manual_uso && (
-                                    <div className="flex items-center gap-2">
-                                      <FileText size={14} className="text-gray-500 shrink-0" />
+                                    ) : (
+                                      <span className="text-xs text-gray-500">Ficha Técnica - No subido</span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <FileText size={14} className="text-gray-500 shrink-0" />
+                                    {solicitud.manual_uso ? (
                                       <a href={solicitud.manual_uso} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
                                         Manual de Uso
                                       </a>
-                                    </div>
-                                  )}
-                                  {solicitud.recomendaciones && (
-                                    <div className="flex items-center gap-2">
-                                      <FileText size={14} className="text-gray-500 shrink-0" />
+                                    ) : (
+                                      <span className="text-xs text-gray-500">Manual de Uso - No subido</span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <FileText size={14} className="text-gray-500 shrink-0" />
+                                    {solicitud.recomendaciones ? (
                                       <a href={solicitud.recomendaciones} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
                                         Recomendaciones
                                       </a>
-                                    </div>
-                                  )}
-                                  {solicitud.garantia && (
-                                    <div className="flex items-center gap-2">
-                                      <FileText size={14} className="text-gray-500 shrink-0" />
+                                    ) : (
+                                      <span className="text-xs text-gray-500">Recomendaciones - No subido</span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    <FileText size={14} className="text-gray-500 shrink-0" />
+                                    {solicitud.garantia ? (
                                       <a href={solicitud.garantia} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
                                         Garantía
                                       </a>
-                                    </div>
-                                  )}
+                                    ) : (
+                                      <span className="text-xs text-gray-500">Garantía - No subido</span>
+                                    )}
+                                  </div>
+                                  <div className="border border-border rounded-lg">
+                                    <button
+                                      onClick={() => setExpandedFichaTecnica(prev => ({ ...prev, [solicitud.id]: !prev[solicitud.id] }))}
+                                      className="w-full flex items-center justify-between p-2 text-xs font-medium text-foreground hover:bg-muted/50 transition-colors"
+                                    >
+                                      <span>Ficha Técnica</span>
+                                      <span className="text-[10px] text-muted-foreground">
+                                        {expandedFichaTecnica[solicitud.id] ? "Ocultar" : "Ver"}
+                                      </span>
+                                    </button>
+                                    {expandedFichaTecnica[solicitud.id] && (
+                                      <div className="px-2 pb-2 space-y-2">
+                                        {(["guia_fabricacion", "manual_uso", "recomendaciones", "garantia"] as const).map((campo) => {
+                                          const url = solicitud[campo]
+                                          const etiqueta = campo === "guia_fabricacion" ? "Ficha Técnica" : campo === "manual_uso" ? "Manual de Uso" : campo === "recomendaciones" ? "Recomendaciones" : "Garantía"
+                                          return (
+                                            <div key={campo} className="flex items-center gap-2">
+                                              <FileText size={14} className="text-gray-500 shrink-0" />
+                                              {url ? (
+                                                <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
+                                                  {etiqueta}
+                                                </a>
+                                              ) : (
+                                                <span className="text-xs text-gray-500">{etiqueta} - No subido</span>
+                                              )}
+                                            </div>
+                                          )
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
                                   {solicitud.urls_documentos && solicitud.urls_documentos.length > 0 && (
                                     <div className="mt-2 pt-2 border-t border-border">
                                       <p className="text-[10px] text-gray-500 mb-1">Archivos adjuntos:</p>
@@ -2137,20 +2178,20 @@ export default function ClientesPage() {
                                       </div>
                                     </div>
                                   )}
-                              {(solicitud as any).odontologo_firma && (
-                                <div className="mt-2 pt-2 border-t border-border">
-                                  <p className="text-[10px] text-gray-500 mb-1">Firma del Odontólogo</p>
-                                  {String((solicitud as any).odontologo_firma).startsWith("data:image") ? (
-                                    <img
-                                      src={(solicitud as any).odontologo_firma}
-                                      alt="Firma"
-                                      className="h-16 w-auto rounded border border-border bg-white"
-                                    />
-                                  ) : (
-                                    <span className="text-xs text-muted-foreground">{(solicitud as any).odontologo_firma}</span>
+                                  {(solicitud as any).odontologo_firma && (
+                                    <div className="mt-2 pt-2 border-t border-border">
+                                      <p className="text-[10px] text-gray-500 mb-1">Firma del Odontólogo</p>
+                                      {String((solicitud as any).odontologo_firma).startsWith("data:image") ? (
+                                        <img
+                                          src={(solicitud as any).odontologo_firma}
+                                          alt="Firma"
+                                          className="h-16 w-auto rounded border border-border bg-white"
+                                        />
+                                      ) : (
+                                        <span className="text-xs text-muted-foreground">{(solicitud as any).odontologo_firma}</span>
+                                      )}
+                                    </div>
                                   )}
-                                </div>
-                              )}
                                 </div>
                               </div>
                             )}
