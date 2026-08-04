@@ -39,6 +39,7 @@ import {
 import { Navbar } from "@/components/navbar"
 import { Checkbox } from "@/components/ui/checkbox"
 import { WhatsAppButton } from "@/components/whatsapp-button"
+import { SurveyForm } from "@/components/survey-form"
 
 interface Servicio {
   id: number
@@ -228,6 +229,16 @@ export default function ClientesPage() {
   const [notificacionesNoLeidas, setNotificacionesNoLeidas] = useState<Record<number, number>>({})
   const [expandedSolicitudId, setExpandedSolicitudId] = useState<number | null>(null)
   const [expandedFichaTecnica, setExpandedFichaTecnica] = useState<Record<number, boolean>>({})
+  const [surveyResponses, setSurveyResponses] = useState<Record<number, {
+    email: string
+    paciente: string
+    evaluaciones: string[]
+    opinion: string
+    nombreProfesional: string
+    fechaEntrega: string
+  }>>({})
+  const [submittingSurvey, setSubmittingSurvey] = useState<Record<number, boolean>>({})
+  const [surveySuccess, setSurveySuccess] = useState<Record<number, boolean>>({})
 
   const { toast } = useToast()
 
@@ -2178,23 +2189,40 @@ export default function ClientesPage() {
                                       </div>
                                     </div>
                                   )}
-                                  {(solicitud as any).odontologo_firma && (
-                                    <div className="mt-2 pt-2 border-t border-border">
-                                      <p className="text-[10px] text-gray-500 mb-1">Firma del Odontólogo</p>
-                                      {String((solicitud as any).odontologo_firma).startsWith("data:image") ? (
-                                        <img
-                                          src={(solicitud as any).odontologo_firma}
-                                          alt="Firma"
-                                          className="h-16 w-auto rounded border border-border bg-white"
-                                        />
-                                      ) : (
-                                        <span className="text-xs text-muted-foreground">{(solicitud as any).odontologo_firma}</span>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            )}
+                                   {(solicitud as any).odontologo_firma && (
+                                     <div className="mt-2 pt-2 border-t border-border">
+                                       <p className="text-[10px] text-gray-500 mb-1">Firma del Odontólogo</p>
+                                       {String((solicitud as any).odontologo_firma).startsWith("data:image") ? (
+                                         <img
+                                           src={(solicitud as any).odontologo_firma}
+                                           alt="Firma"
+                                           className="h-16 w-auto rounded border border-border bg-white"
+                                         />
+                                       ) : (
+                                         <span className="text-xs text-muted-foreground">{(solicitud as any).odontologo_firma}</span>
+                                       )}
+                                     </div>
+                                   )}
+                                   <div className="mt-4 pt-3 border-t border-border">
+                                     <p className="text-sm font-semibold text-foreground mb-3">
+                                       🦷 POS ADAPTACIÓN
+                                     </p>
+                                     <p className="text-xs text-muted-foreground mb-3">
+                                       Estimado(a) Doctor(a): Agradecemos nos comparta su apreciación sobre la adaptación clínica del dispositivo entregado al paciente.
+                                     </p>
+                                     <SurveyForm
+                                       solicitudId={solicitud.id}
+                                       surveyResponses={surveyResponses}
+                                       setSurveyResponses={setSurveyResponses}
+                                       submittingSurvey={submittingSurvey}
+                                       setSubmittingSurvey={setSubmittingSurvey}
+                                       surveySuccess={surveySuccess}
+                                       setSurveySuccess={setSurveySuccess}
+                                     />
+                                   </div>
+                                 </div>
+                               </div>
+                             )}
                           </div>
                         )}
                       </div>
