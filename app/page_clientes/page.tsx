@@ -2210,15 +2210,17 @@ export default function ClientesPage() {
                                      <p className="text-xs text-muted-foreground mb-3">
                                        Estimado(a) Doctor(a): Agradecemos nos comparta su apreciación sobre la adaptación clínica del dispositivo entregado al paciente.
                                      </p>
-                                     <SurveyForm
-                                       solicitudId={solicitud.id}
-                                       surveyResponses={surveyResponses}
-                                       setSurveyResponses={setSurveyResponses}
-                                       submittingSurvey={submittingSurvey}
-                                       setSubmittingSurvey={setSubmittingSurvey}
-                                       surveySuccess={surveySuccess}
-                                       setSurveySuccess={setSurveySuccess}
-                                     />
+                                      <SurveyForm
+                                        solicitudId={solicitud.id}
+                                        defaultEmail={clientData?.correo ?? ""}
+                                        defaultPaciente={solicitud.paciente ?? ""}
+                                        surveyResponses={surveyResponses}
+                                        setSurveyResponses={setSurveyResponses}
+                                        submittingSurvey={submittingSurvey}
+                                        setSubmittingSurvey={setSubmittingSurvey}
+                                        surveySuccess={surveySuccess}
+                                        setSurveySuccess={setSurveySuccess}
+                                      />
                                    </div>
                                  </div>
                                </div>

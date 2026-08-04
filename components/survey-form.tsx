@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils"
 
 interface SurveyFormProps {
   solicitudId: number
+  defaultEmail: string
+  defaultPaciente: string
   surveyResponses: Record<number, {
     email: string
     paciente: string
@@ -48,6 +50,8 @@ const OPINIONES = [
 
 export function SurveyForm({
   solicitudId,
+  defaultEmail,
+  defaultPaciente,
   surveyResponses,
   setSurveyResponses,
   submittingSurvey,
@@ -57,8 +61,8 @@ export function SurveyForm({
 }: SurveyFormProps) {
   const [openDate, setOpenDate] = useState(false)
   const response = surveyResponses[solicitudId] ?? {
-    email: "",
-    paciente: "",
+    email: defaultEmail,
+    paciente: defaultPaciente,
     evaluaciones: [],
     opinion: "",
     nombreProfesional: "",
