@@ -1982,15 +1982,15 @@ export default function ClientesPage() {
                              </span>
                            </div>
 
-                           {/* Precio Total */}
-                           <div className="mt-2 flex items-center justify-between">
-                             <div>
-                               <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Precio Total</p>
-                               <p className="text-sm font-bold text-primary">${precioTotal.toLocaleString("es-CO")}</p>
-                             </div>
-                          </div>
+                            {/* Estado */}
+                            <div className="mt-2">
+                              <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Estado</p>
+                              <span className="inline-flex rounded-full px-2.5 py-1 text-[10px] font-medium bg-primary/10 text-primary capitalize">
+                                {(solicitud as any).estado?.replace("_", " ") || "Pendiente"}
+                              </span>
+                            </div>
 
-                          {(solicitud as any).materiales?.length > 0 && (
+                            {(solicitud as any).materiales?.length > 0 && (
                             <div className="flex flex-wrap gap-1">
                               {(solicitud as any).materiales.map((mat: string, i: number) => (
                                 <span key={i} className="inline-flex rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700">{mat}</span>
@@ -2006,16 +2006,24 @@ export default function ClientesPage() {
                             </div>
                           )}
 
-                           {servicios.length > 0 && (
-                             <div className="space-y-1">
-                               {servicios.map((serv: any) => (
-                                 <div key={serv.id} className="flex items-center justify-between text-[10px]">
-                                   <span className="text-gray-700">{serv.nombre}</span>
-                                   <span className="font-medium text-primary">${serv.precio ? Number(serv.precio).toLocaleString("es-CO") : "0"}</span>
-                                 </div>
-                               ))}
+                            {servicios.length > 0 && (
+                              <div className="space-y-1">
+                                {servicios.map((serv: any) => (
+                                  <div key={serv.id} className="flex items-center justify-between text-[10px]">
+                                    <span className="text-gray-700">{serv.nombre}</span>
+                                    <span className="font-medium text-primary">${serv.precio ? Number(serv.precio).toLocaleString("es-CO") : "0"}</span>
+                                  </div>
+                                ))}
+                              </div>
+                             )}
+
+                             {/* Precio Total */}
+                             <div className="mt-2 flex items-center justify-between">
+                               <div>
+                                 <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Precio Total</p>
+                                 <p className="text-sm font-bold text-primary">${precioTotal.toLocaleString("es-CO")}</p>
+                               </div>
                              </div>
-                            )}
 
                             {/* Observaciones */}
                            {(solicitud as any).observaciones && (
