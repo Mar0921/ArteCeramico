@@ -1881,19 +1881,114 @@ export default function ClientesPage() {
                               <span className="text-gray-500">Trazabilidad:</span>{" "}
                               <span className="text-gray-800">#{(solicitud as any).codigo_trazabilidad || "-"}</span>
                             </div>
-                            <div>
-                              <span className="text-gray-500">Guía:</span>{" "}
-                              <span className="text-gray-800">{(solicitud as any).guia || "-"}</span>
-                            </div>
-                          </div>
+                             <div>
+                               <span className="text-gray-500">Guía:</span>{" "}
+                               <span className="text-gray-800">{(solicitud as any).guia || "-"}</span>
+                             </div>
+                             {(solicitud as any).direccion && (
+                               <div>
+                                 <span className="text-gray-500">Dirección:</span>{" "}
+                                 <span className="text-gray-800">{(solicitud as any).direccion}</span>
+                               </div>
+                             )}
+                           </div>
 
-                          {(solicitud as any).tipos_trabajo?.length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {(solicitud as any).tipos_trabajo.map((tipo: string, i: number) => (
-                                <span key={i} className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700">{tipo}</span>
-                              ))}
-                            </div>
-                          )}
+                           {/* Opciones adicionales */}
+                           {(solicitud as any).chimenea === "Si" || (solicitud as any).prueba === "Si" || (solicitud as any).terminado === "Si" || (solicitud as any).color ? (
+                             <div className="grid grid-cols-2 gap-2 text-xs mt-2 p-2 bg-white rounded border border-gray-200">
+                               {(solicitud as any).chimenea === "Si" && (
+                                 <div>
+                                   <span className="text-gray-500">Chimenea:</span>
+                                   <span className="ml-1 font-medium text-gray-800">{(solicitud as any).chimenea}</span>
+                                 </div>
+                               )}
+                               {(solicitud as any).prueba === "Si" && (
+                                 <div>
+                                   <span className="text-gray-500">Prueba:</span>
+                                   <span className="ml-1 font-medium text-gray-800">{(solicitud as any).prueba}</span>
+                                 </div>
+                               )}
+                               {(solicitud as any).terminado === "Si" && (
+                                 <div>
+                                   <span className="text-gray-500">Terminado:</span>
+                                   <span className="ml-1 font-medium text-gray-800">{(solicitud as any).terminado}</span>
+                                 </div>
+                               )}
+                               {(solicitud as any).color && (
+                                 <div>
+                                   <span className="text-gray-500">Color:</span>
+                                   <span className="ml-1 font-medium text-gray-800">{(solicitud as any).color}</span>
+                                 </div>
+                               )}
+                             </div>
+                           ) : null}
+
+                           {(solicitud as any).dientes_trabajados?.length > 0 && (
+                             <div className="flex flex-wrap gap-1 mt-2">
+                               {(solicitud as any).dientes_detallados?.length > 0
+                                 ? (solicitud as any).dientes_detallados.map((d: any, i: number) => (
+                                     <span key={i} className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700">#{d.numero}{d.servicio ? ` - ${d.servicio}` : ""} - {d.estado}</span>
+                                   ))
+                                 : (solicitud as any).dientes_trabajados.map((diente: string, i: number) => (
+                                     <span key={i} className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700">#{diente}</span>
+                                   ))
+                               }
+                             </div>
+                           )}
+
+                           {/* Dibujo del Odontólogo */}
+                           {(solicitud as any).dibujo_odontologo && (
+                             <div className="mt-2">
+                               <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Dibujo del Odontólogo</p>
+                               <img
+                                 src={(solicitud as any).dibujo_odontologo}
+                                 alt="Dibujo odontólogo"
+                                 className="max-w-full h-auto rounded-lg border border-border"
+                               />
+                             </div>
+                           )}
+
+                           {/* Firma del Odontólogo */}
+                           {(solicitud as any).firma && (
+                             <div className="mt-2">
+                               <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Firma del Odontólogo</p>
+                               {String((solicitud as any).firma).startsWith("data:image") ? (
+                                 <img
+                                   src={(solicitud as any).firma}
+                                   alt="Firma"
+                                   className="h-16 w-auto rounded border border-border bg-white"
+                                 />
+                               ) : (
+                                 <span className="text-xs text-muted-foreground">{(solicitud as any).firma}</span>
+                               )}
+                             </div>
+                           )}
+
+                           {/* Observaciones */}
+                           {(solicitud as any).observaciones && (
+                             <div className="mt-2">
+                               <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Observaciones</p>
+                               <p className="text-xs text-gray-700 bg-white p-2 rounded border border-gray-200 whitespace-pre-wrap">
+                                 {(solicitud as any).observaciones}
+                               </p>
+                             </div>
+                           )}
+
+                           {/* Estado */}
+                           <div className="mt-2">
+                             <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Estado</p>
+                             <span className="inline-flex rounded-full px-2.5 py-1 text-[10px] font-medium bg-primary/10 text-primary capitalize">
+                               {(solicitud as any).estado?.replace("_", " ") || "Pendiente"}
+                             </span>
+                           </div>
+
+                           {/* Precio Total */}
+                           <div className="mt-2 flex items-center justify-between">
+                             <div>
+                               <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Precio Total</p>
+                               <p className="text-sm font-bold text-primary">${precioTotal.toLocaleString("es-CO")}</p>
+                             </div>
+                          </div>
 
                           {(solicitud as any).materiales?.length > 0 && (
                             <div className="flex flex-wrap gap-1">
@@ -1911,32 +2006,53 @@ export default function ClientesPage() {
                             </div>
                           )}
 
-                          {(solicitud as any).dientes_trabajados?.length > 0 && (
-                            <div className="flex flex-wrap gap-1">
-                              {(solicitud as any).dientes_detallados?.length > 0
-                                ? (solicitud as any).dientes_detallados.map((d: any, i: number) => (
-                                    <span key={i} className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700">#{d.numero}{d.servicio ? ` - ${d.servicio}` : ""} - {d.estado}</span>
-                                  ))
-                                : (solicitud as any).dientes_trabajados.map((diente: string, i: number) => (
-                                    <span key={i} className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-[10px] font-medium text-yellow-700">#{diente}</span>
-                                  ))
-                              }
-                            </div>
-                          )}
+                           {servicios.length > 0 && (
+                             <div className="space-y-1">
+                               {servicios.map((serv: any) => (
+                                 <div key={serv.id} className="flex items-center justify-between text-[10px]">
+                                   <span className="text-gray-700">{serv.nombre}</span>
+                                   <span className="font-medium text-primary">${serv.precio ? Number(serv.precio).toLocaleString("es-CO") : "0"}</span>
+                                 </div>
+                               ))}
+                             </div>
+                           )}
 
-                          {servicios.length > 0 && (
-                            <div className="space-y-1">
-                              {servicios.map((serv: any) => (
-                                <div key={serv.id} className="flex items-center justify-between text-[10px]">
-                                  <span className="text-gray-700">{serv.nombre}</span>
-                                  <span className="font-medium text-primary">${serv.precio ? Number(serv.precio).toLocaleString("es-CO") : "0"}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                           {/* Dibujo del Odontólogo */}
+                           {(solicitud as any).dibujo_odontologo && (
+                             <div className="mt-2">
+                               <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Dibujo del Odontólogo</p>
+                               <img
+                                 src={(solicitud as any).dibujo_odontologo}
+                                 alt="Dibujo odontólogo"
+                                 className="max-w-full h-auto rounded-lg border border-border"
+                               />
+                             </div>
+                           )}
 
-                           <div className="pt-2 border-t border-border">
-                             <p className="text-sm font-bold text-primary">Precio: ${precioTotal.toLocaleString("es-CO")}</p>
+                           {/* Observaciones */}
+                           {(solicitud as any).observaciones && (
+                             <div className="mt-2">
+                               <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Observaciones</p>
+                               <p className="text-xs text-gray-700 bg-white p-2 rounded border border-gray-200 whitespace-pre-wrap">
+                                 {(solicitud as any).observaciones}
+                               </p>
+                             </div>
+                           )}
+
+                           {/* Estado */}
+                           <div className="mt-2">
+                             <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Estado</p>
+                             <span className="inline-flex rounded-full px-2.5 py-1 text-[10px] font-medium bg-primary/10 text-primary capitalize">
+                               {(solicitud as any).estado?.replace("_", " ") || "Pendiente"}
+                             </span>
+                           </div>
+
+                           {/* Precio Total */}
+                           <div className="mt-2 flex items-center justify-between">
+                             <div>
+                               <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Precio Total</p>
+                               <p className="text-sm font-bold text-primary">${precioTotal.toLocaleString("es-CO")}</p>
+                             </div>
                            </div>
 
                            <div className="flex items-center gap-2 pt-2">
