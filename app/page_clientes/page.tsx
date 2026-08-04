@@ -2015,21 +2015,9 @@ export default function ClientesPage() {
                                  </div>
                                ))}
                              </div>
-                           )}
+                            )}
 
-                           {/* Dibujo del Odontólogo */}
-                           {(solicitud as any).dibujo_odontologo && (
-                             <div className="mt-2">
-                               <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Dibujo del Odontólogo</p>
-                               <img
-                                 src={(solicitud as any).dibujo_odontologo}
-                                 alt="Dibujo odontólogo"
-                                 className="max-w-full h-auto rounded-lg border border-border"
-                               />
-                             </div>
-                           )}
-
-                           {/* Observaciones */}
+                            {/* Observaciones */}
                            {(solicitud as any).observaciones && (
                              <div className="mt-2">
                                <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Observaciones</p>
