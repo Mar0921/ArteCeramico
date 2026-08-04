@@ -40,6 +40,7 @@ import { Navbar } from "@/components/navbar"
 import { Checkbox } from "@/components/ui/checkbox"
 import { WhatsAppButton } from "@/components/whatsapp-button"
 import { SurveyForm } from "@/components/survey-form"
+import { ComplaintsSurvey } from "@/components/complaints-survey"
 
 interface Servicio {
   id: number
@@ -239,6 +240,17 @@ export default function ClientesPage() {
   }>>({})
   const [submittingSurvey, setSubmittingSurvey] = useState<Record<number, boolean>>({})
   const [surveySuccess, setSurveySuccess] = useState<Record<number, boolean>>({})
+  const [complaintsResponses, setComplaintsResponses] = useState<Record<number, {
+    email: string
+    tipo: string
+    descripcion: string
+    notificacion: string[]
+    nombreCompleto: string
+    correoElectronico: string
+    comentariosAdicionales: string
+  }>>({})
+  const [submittingComplaints, setSubmittingComplaints] = useState<Record<number, boolean>>({})
+  const [complaintsSuccess, setComplaintsSuccess] = useState<Record<number, boolean>>({})
 
   const { toast } = useToast()
 
@@ -2210,21 +2222,34 @@ export default function ClientesPage() {
                                      <p className="text-xs text-muted-foreground mb-3">
                                        Estimado(a) Doctor(a): Agradecemos nos comparta su apreciación sobre la adaptación clínica del dispositivo entregado al paciente.
                                      </p>
-                                      <SurveyForm
-                                        solicitudId={solicitud.id}
-                                        defaultEmail={clientData?.correo ?? ""}
-                                        defaultPaciente={solicitud.paciente ?? ""}
-                                        surveyResponses={surveyResponses}
-                                        setSurveyResponses={setSurveyResponses}
-                                        submittingSurvey={submittingSurvey}
-                                        setSubmittingSurvey={setSubmittingSurvey}
-                                        surveySuccess={surveySuccess}
-                                        setSurveySuccess={setSurveySuccess}
-                                      />
-                                   </div>
-                                 </div>
-                               </div>
-                             )}
+                                       <SurveyForm
+                                         solicitudId={solicitud.id}
+                                         defaultEmail={clientData?.correo ?? ""}
+                                         defaultPaciente={solicitud.paciente ?? ""}
+                                         surveyResponses={surveyResponses}
+                                         setSurveyResponses={setSurveyResponses}
+                                         submittingSurvey={submittingSurvey}
+                                         setSubmittingSurvey={setSubmittingSurvey}
+                                         surveySuccess={surveySuccess}
+                                         setSurveySuccess={setSurveySuccess}
+                                       />
+                                       <div className="mt-4">
+                                         <ComplaintsSurvey
+                                           solicitudId={solicitud.id}
+                                           defaultEmail={clientData?.correo ?? ""}
+                                           defaultPaciente={solicitud.paciente ?? ""}
+                                           surveyResponses={complaintsResponses}
+                                           setSurveyResponses={setComplaintsResponses}
+                                           submittingSurvey={submittingComplaints}
+                                           setSubmittingSurvey={setSubmittingComplaints}
+                                           surveySuccess={complaintsSuccess}
+                                           setSurveySuccess={setComplaintsSuccess}
+                                         />
+                                       </div>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                           </div>
                         )}
                       </div>
