@@ -63,6 +63,7 @@ export function ComplaintsSurvey({
   surveySuccess,
   setSurveySuccess,
 }: ComplaintsSurveyProps) {
+  const [collapsed, setCollapsed] = useState(false)
   const [openDate, setOpenDate] = useState(false)
   const response = surveyResponses[solicitudId] ?? {
     email: defaultEmail,
@@ -115,142 +116,152 @@ export function ComplaintsSurvey({
   }
 
   return (
-    <div className="space-y-3 rounded-lg border border-border bg-white p-4">
-      <p className="text-xs font-semibold text-foreground mb-2">
-        BUZÓN DE QUEJAS, RECLAMOS, SUGERENCIAS Y FELICITACIONES
-      </p>
-      <p className="text-xs text-muted-foreground mb-3">
-        Con el fin de mejorar la calidad en nuestra atención, este formato le permitirá manifestar sus sugerencias, felicitaciones o cualquier tipo de quejas y/o reclamos que tenga hacia los servicios prestados por el Laboratorio dental.
-      </p>
-      <p className="text-xs text-muted-foreground mb-3 italic">
-        La información suministrada en este formato es estrictamente confidencial y sólo será utilizada con el propósito de implementar acciones de mejora continua y permanente en la fabricación de los DMSMB.
-      </p>
+    <div className="rounded-lg border border-border bg-white">
+      <button
+        onClick={() => setCollapsed(!collapsed)}
+        className="w-full flex items-center justify-between p-3 text-xs font-medium text-foreground hover:bg-muted/50 transition-colors"
+      >
+        <span>📋 BUZÓN DE QUEJAS, RECLAMOS, SUGERENCIAS Y FELICITACIONES</span>
+        <span className="text-[10px] text-muted-foreground">
+          {collapsed ? "Ver" : "Ocultar"}
+        </span>
+      </button>
+      {!collapsed && (
+        <div className="space-y-3 p-4 pt-0">
+          <p className="text-xs text-muted-foreground mb-2">
+            Con el fin de mejorar la calidad en nuestra atención, este formato le permitirá manifestar sus sugerencias, felicitaciones o cualquier tipo de quejas y/o reclamos que tenga hacia los servicios prestados por el Laboratorio dental.
+          </p>
+          <p className="text-xs text-muted-foreground mb-3 italic">
+            La información suministrada en este formato es estrictamente confidencial y sólo será utilizada con el propósito de implementar acciones de mejora continua y permanente en la fabricación de los DMSMB.
+          </p>
 
-      <div>
-        <Label className="text-xs font-medium">
-          Email <span className="text-red-500">*</span>
-        </Label>
-        <Input
-          type="email"
-          placeholder="mari28cali@gmail.com"
-          value={response.email}
-          onChange={(e) => update("email", e.target.value)}
-          className="mt-1"
-        />
-      </div>
+          <div>
+            <Label className="text-xs font-medium">
+              Email <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              type="email"
+              placeholder="mari28cali@gmail.com"
+              value={response.email}
+              onChange={(e) => update("email", e.target.value)}
+              className="mt-1"
+            />
+          </div>
 
-      <div>
-        <Label className="text-xs font-medium block mb-2">
-          SEÑALE EL TIPO DE SOLICITUD QUE VA A REALIZAR <span className="text-red-500">*</span>
-        </Label>
-        <div className="space-y-2">
-          {TIPOS.map((tipo) => (
-            <div key={tipo.value} className="flex items-start gap-2">
-              <Checkbox
-                checked={response.tipo === tipo.value}
-                onCheckedChange={() => update("tipo", tipo.value)}
-                className="mt-0.5"
-              />
-              <Label className="text-xs font-normal leading-tight">{tipo.label}</Label>
+          <div>
+            <Label className="text-xs font-medium block mb-2">
+              SEÑALE EL TIPO DE SOLICITUD QUE VA A REALIZAR <span className="text-red-500">*</span>
+            </Label>
+            <div className="space-y-2">
+              {TIPOS.map((tipo) => (
+                <div key={tipo.value} className="flex items-start gap-2">
+                  <Checkbox
+                    checked={response.tipo === tipo.value}
+                    onCheckedChange={() => update("tipo", tipo.value)}
+                    className="mt-0.5"
+                  />
+                  <Label className="text-xs font-normal leading-tight">{tipo.label}</Label>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
 
-      <div>
-        <Label className="text-xs font-medium">
-          DESCRIBA SU QUEJA, RECLAMO, SUGERENCIA O FELICITACIONES <span className="text-red-500">*</span>
-        </Label>
-        <Textarea
-          placeholder="Describa su solicitud..."
-          value={response.descripcion}
-          onChange={(e) => update("descripcion", e.target.value)}
-          className="mt-1"
-          rows={4}
-        />
-      </div>
+          <div>
+            <Label className="text-xs font-medium">
+              DESCRIBA SU QUEJA, RECLAMO, SUGERENCIA O FELICITACIONES <span className="text-red-500">*</span>
+            </Label>
+            <Textarea
+              placeholder="Describa su solicitud..."
+              value={response.descripcion}
+              onChange={(e) => update("descripcion", e.target.value)}
+              className="mt-1"
+              rows={4}
+            />
+          </div>
 
-      <div>
-        <Label className="text-xs font-medium block mb-2">
-          CÓMO DESEA SER NOTIFICADO <span className="text-red-500">*</span>
-        </Label>
-        <div className="space-y-2">
-          {NOTIFICACIONES.map((n) => (
-            <div key={n} className="flex items-center gap-2">
-              <Checkbox
-                checked={(response.notificacion ?? []).includes(n)}
-                onCheckedChange={() => toggleNotificacion(n)}
-              />
-              <Label className="text-xs font-normal">{n}</Label>
+          <div>
+            <Label className="text-xs font-medium block mb-2">
+              CÓMO DESEA SER NOTIFICADO <span className="text-red-500">*</span>
+            </Label>
+            <div className="space-y-2">
+              {NOTIFICACIONES.map((n) => (
+                <div key={n} className="flex items-center gap-2">
+                  <Checkbox
+                    checked={(response.notificacion ?? []).includes(n)}
+                    onCheckedChange={() => toggleNotificacion(n)}
+                  />
+                  <Label className="text-xs font-normal">{n}</Label>
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
 
-      <div>
-        <Label className="text-xs font-medium">
-          NOMBRE Y APELLIDO <span className="text-red-500">*</span>
-        </Label>
-        <Input
-          placeholder="Nombre y apellido"
-          value={response.nombreCompleto}
-          onChange={(e) => update("nombreCompleto", e.target.value)}
-          className="mt-1"
-        />
-      </div>
+          <div>
+            <Label className="text-xs font-medium">
+              NOMBRE Y APELLIDO <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              placeholder="Nombre y apellido"
+              value={response.nombreCompleto}
+              onChange={(e) => update("nombreCompleto", e.target.value)}
+              className="mt-1"
+            />
+          </div>
 
-      <div>
-        <Label className="text-xs font-medium">
-          CORREO ELECTRÓNICO <span className="text-red-500">*</span>
-        </Label>
-        <Input
-          type="email"
-          placeholder="correo@ejemplo.com"
-          value={response.correoElectronico}
-          onChange={(e) => update("correoElectronico", e.target.value)}
-          className="mt-1"
-        />
-      </div>
+          <div>
+            <Label className="text-xs font-medium">
+              CORREO ELECTRÓNICO <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              type="email"
+              placeholder="correo@ejemplo.com"
+              value={response.correoElectronico}
+              onChange={(e) => update("correoElectronico", e.target.value)}
+              className="mt-1"
+            />
+          </div>
 
-      <div>
-        <Label className="text-xs font-medium">COMENTARIOS ADICIONALES</Label>
-        <Textarea
-          placeholder="Comentarios adicionales..."
-          value={response.comentariosAdicionales}
-          onChange={(e) => update("comentariosAdicionales", e.target.value)}
-          className="mt-1"
-          rows={3}
-        />
-      </div>
+          <div>
+            <Label className="text-xs font-medium">COMENTARIOS ADICIONALES</Label>
+            <Textarea
+              placeholder="Comentarios adicionales..."
+              value={response.comentariosAdicionales}
+              onChange={(e) => update("comentariosAdicionales", e.target.value)}
+              className="mt-1"
+              rows={3}
+            />
+          </div>
 
-      {surveySuccess[solicitudId] && (
-        <div className="flex items-center gap-2 text-green-600 text-xs font-medium">
-          <CheckCircle2 size={16} />
-          Buzón enviado correctamente
+          {surveySuccess[solicitudId] && (
+            <div className="flex items-center gap-2 text-green-600 text-xs font-medium">
+              <CheckCircle2 size={16} />
+              Buzón enviado correctamente
+            </div>
+          )}
+
+          <Button
+            onClick={handleSubmit}
+            disabled={
+              submittingSurvey[solicitudId] ||
+              !response.tipo ||
+              !response.descripcion ||
+              !response.nombreCompleto ||
+              !response.correoElectronico
+            }
+            className="w-full"
+            size="sm"
+          >
+            {submittingSurvey[solicitudId] ? (
+              <>
+                <Loader2 size={14} className="mr-2 animate-spin" />
+                Enviando...
+              </>
+            ) : (
+              "Enviar Buzón"
+            )}
+          </Button>
         </div>
       )}
-
-      <Button
-        onClick={handleSubmit}
-        disabled={
-          submittingSurvey[solicitudId] ||
-          !response.tipo ||
-          !response.descripcion ||
-          !response.nombreCompleto ||
-          !response.correoElectronico
-        }
-        className="w-full"
-        size="sm"
-      >
-        {submittingSurvey[solicitudId] ? (
-          <>
-            <Loader2 size={14} className="mr-2 animate-spin" />
-            Enviando...
-          </>
-        ) : (
-          "Enviar Buzón"
-        )}
-      </Button>
     </div>
   )
 }

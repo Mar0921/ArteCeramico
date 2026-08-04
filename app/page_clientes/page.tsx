@@ -2215,37 +2215,31 @@ export default function ClientesPage() {
                                        )}
                                      </div>
                                    )}
-                                   <div className="mt-4 pt-3 border-t border-border">
-                                     <p className="text-sm font-semibold text-foreground mb-3">
-                                       🦷 POS ADAPTACIÓN
-                                     </p>
-                                     <p className="text-xs text-muted-foreground mb-3">
-                                       Estimado(a) Doctor(a): Agradecemos nos comparta su apreciación sobre la adaptación clínica del dispositivo entregado al paciente.
-                                     </p>
-                                       <SurveyForm
-                                         solicitudId={solicitud.id}
-                                         defaultEmail={clientData?.correo ?? ""}
-                                         defaultPaciente={solicitud.paciente ?? ""}
-                                         surveyResponses={surveyResponses}
-                                         setSurveyResponses={setSurveyResponses}
-                                         submittingSurvey={submittingSurvey}
-                                         setSubmittingSurvey={setSubmittingSurvey}
-                                         surveySuccess={surveySuccess}
-                                         setSurveySuccess={setSurveySuccess}
-                                       />
-                                       <div className="mt-4">
-                                         <ComplaintsSurvey
-                                           solicitudId={solicitud.id}
-                                           defaultEmail={clientData?.correo ?? ""}
-                                           defaultPaciente={solicitud.paciente ?? ""}
-                                           surveyResponses={complaintsResponses}
-                                           setSurveyResponses={setComplaintsResponses}
-                                           submittingSurvey={submittingComplaints}
-                                           setSubmittingSurvey={setSubmittingComplaints}
-                                           surveySuccess={complaintsSuccess}
-                                           setSurveySuccess={setComplaintsSuccess}
-                                         />
-                                       </div>
+                                    <div className="mt-4 pt-3 border-t border-border">
+                                      <SurveyForm
+                                        solicitudId={solicitud.id}
+                                        defaultEmail={clientData?.correo ?? ""}
+                                        defaultPaciente={solicitud.paciente ?? ""}
+                                        surveyResponses={surveyResponses}
+                                        setSurveyResponses={setSurveyResponses}
+                                        submittingSurvey={submittingSurvey}
+                                        setSubmittingSurvey={setSubmittingSurvey}
+                                        surveySuccess={surveySuccess}
+                                        setSurveySuccess={setSurveySuccess}
+                                      />
+                                      <div className="mt-4">
+                                        <ComplaintsSurvey
+                                          solicitudId={solicitud.id}
+                                          defaultEmail={clientData?.correo ?? ""}
+                                          defaultPaciente={solicitud.paciente ?? ""}
+                                          surveyResponses={complaintsResponses}
+                                          setSurveyResponses={setComplaintsResponses}
+                                          submittingSurvey={submittingComplaints}
+                                          setSubmittingSurvey={setSubmittingComplaints}
+                                          surveySuccess={complaintsSuccess}
+                                          setSurveySuccess={setComplaintsSuccess}
+                                        />
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
