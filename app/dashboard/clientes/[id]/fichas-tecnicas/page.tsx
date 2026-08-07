@@ -15,6 +15,7 @@ import {
   X,
   Edit3,
 } from "lucide-react"
+import { FichaTecnicaDisilicato } from "./ficha-tecnica-disilicato"
 
 interface FichaTecnica {
   id: number
@@ -24,12 +25,12 @@ interface FichaTecnica {
   url: string
 }
 
-interface CampoEditable {
+export interface CampoEditable {
   label: string
   value: string
 }
 
-interface Seccion {
+export interface Seccion {
   titulo: string
   campos: CampoEditable[]
 }
@@ -77,6 +78,8 @@ export default function FichasTecnicasPage() {
   })
 
   const [fichaActual, setFichaActual] = useState<Seccion[]>([])
+  const [editingFicha, setEditingFicha] = useState(true)
+  const [downloadingFicha, setDownloadingFicha] = useState(false)
 
   useEffect(() => {
     const loadSolicitudes = async () => {
@@ -191,9 +194,9 @@ export default function FichasTecnicasPage() {
         { label: "VERSIÓN", value: "00" },
         { label: "FECHA DE APROBACIÓN", value: "15 de febrero 2024" },
         { label: "DESCRIPCIÓN DEL CAMBIO", value: "Elaboración del documento" },
-        { label: "VERSIÓN", value: "001" },
-        { label: "FECHA DE APROBACIÓN", value: "15 de marzo 2025" },
-        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Revisión y aprobación del documento." },
+        { label: "VERSIÓN", value: "01" },
+        { label: "FECHA DE APROBACIÓN", value: "17 de julio 2026" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Elaboración, revisión y aprobación del documento" },
       ],
     },
     {
@@ -264,6 +267,151 @@ export default function FichasTecnicasPage() {
 
   const handleGuardarFicha = () => {
     setShowFichaModal(false)
+  }
+
+  const handleDownloadPdf = async () => {
+    setDownloadingFicha(true)
+    setEditingFicha(false)
+    await new Promise((r) => setTimeout(r, 50))
+
+    try {
+      const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+        import("jspdf"),
+        import("html2canvas"),
+      ])
+
+      const node = document.getElementById("documento")
+      const headerEl = document.getElementById("doc-header")
+      if (!node || !headerEl) {
+        console.log("[PDF] No se encontraron los elementos del documento")
+        alert("No se encontró el documento para generar el PDF.")
+        setDownloadingFicha(false)
+        setEditingFicha(true)
+        return
+      }
+
+      const modalScroll = node.closest(".overflow-y-auto") as HTMLElement | null
+      const parent = node.parentElement
+      const previousOverflow = parent?.style.overflow || ""
+      const previousMaxHeight = parent?.style.maxHeight || ""
+
+      if (parent) {
+        parent.style.overflow = "visible"
+        parent.style.maxHeight = "none"
+      }
+      if (modalScroll) {
+        modalScroll.scrollTop = 0
+      }
+
+      const replaceLabColors = (root: HTMLElement | Document) => {
+        const walk = (el: HTMLElement | Element) => {
+          if (el instanceof HTMLElement) {
+            const computed = getComputedStyle(el)
+            if ((computed.color || "").includes("lab")) el.style.color = "#000000"
+            if ((computed.backgroundColor || "").includes("lab")) el.style.backgroundColor = "#ffffff"
+            if ((computed.borderColor || "").includes("lab")) el.style.borderColor = "#d4d4d8"
+          }
+          for (const child of Array.from(el.children)) {
+            walk(child)
+          }
+        }
+        walk(root)
+      }
+
+      replaceLabColors(node)
+
+      const shot = (el: HTMLElement) =>
+        html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true, allowTaint: true } as any)
+
+      const headerRect = headerEl.getBoundingClientRect()
+      const indicatorEl = document.getElementById("page-indicator")
+      const indRect = indicatorEl?.getBoundingClientRect()
+      const indicatorRel = indRect
+        ? {
+            left: (indRect.left - headerRect.left) / headerRect.width,
+            top: (indRect.top - headerRect.top) / headerRect.height,
+            height: indRect.height / headerRect.height,
+          }
+        : null
+
+      const headerCanvas = await shot(headerEl)
+      const fullCanvas = await shot(node)
+
+      const pdf = new jsPDF({ unit: "pt", format: "a4" })
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const pageHeight = pdf.internal.pageSize.getHeight()
+
+      const marginX = 40
+      const marginTop = 28
+      const marginBottom = 28
+      const gap = 8
+      const contentWidth = pageWidth - marginX * 2
+      const pageBottom = pageHeight - marginBottom
+
+      const ptHeight = (c: HTMLCanvasElement) => (c.height * contentWidth) / c.width
+      const headerHpt = ptHeight(headerCanvas)
+      const headerData = headerCanvas.toDataURL("image/png")
+
+      const topOfContent = () => marginTop + headerHpt + gap * 2
+      const contentHeightPt = ptHeight(fullCanvas)
+      const contentTop = marginTop + headerHpt + gap * 2
+      const availableContentHeight = pageHeight - marginBottom - contentTop
+
+      const totalPages = Math.max(1, Math.ceil((contentHeightPt + gap) / (availableContentHeight + gap)))
+      const pxPerPt = fullCanvas.width / contentWidth
+
+      for (let i = 0; i < totalPages; i++) {
+        if (i > 0) {
+          pdf.addPage()
+        }
+        pdf.addImage(headerData, "PNG", marginX, marginTop, contentWidth, headerHpt)
+
+        const startY = i * availableContentHeight
+        const sliceH = Math.min(availableContentHeight, contentHeightPt - startY)
+        if (sliceH <= 0) continue
+
+        const tmp = document.createElement("canvas")
+        tmp.width = fullCanvas.width
+        tmp.height = Math.max(1, Math.round(sliceH * pxPerPt))
+        const ctx = tmp.getContext("2d")
+        if (!ctx) continue
+        ctx.fillStyle = "#ffffff"
+        ctx.fillRect(0, 0, tmp.width, tmp.height)
+        ctx.drawImage(fullCanvas, 0, Math.round(startY * pxPerPt), fullCanvas.width, tmp.height, 0, 0, fullCanvas.width, tmp.height)
+
+        pdf.addImage(tmp.toDataURL("image/png"), "PNG", marginX, contentTop, contentWidth, sliceH)
+      }
+
+      if (indicatorRel) {
+        const x = marginX + indicatorRel.left * contentWidth
+        const yTop = marginTop + indicatorRel.top * headerHpt
+        const boxH = indicatorRel.height * headerHpt
+        const fontSize = Math.max(7, Math.min(9, boxH * 0.7))
+        for (let i = 1; i <= totalPages; i++) {
+          pdf.setPage(i)
+          pdf.setFillColor(255, 255, 255)
+          pdf.rect(x, yTop, contentWidth * 0.3, boxH, "F")
+          pdf.setFontSize(fontSize)
+          pdf.setTextColor(0, 0, 0)
+          pdf.text(`Pagina ${i} de ${totalPages}`, x + 2, yTop + boxH * 0.75)
+        }
+      }
+
+      pdf.save("carilla-en-disilicato-estratificada.pdf")
+      console.log("[PDF] Descarga completada")
+    } catch (err) {
+      const message = (err as Error)?.message || String(err)
+      console.log("[PDF] Error generando PDF:", message)
+      alert("Error generando el PDF: " + message)
+    } finally {
+      const parent = document.getElementById("documento")?.parentElement
+      if (parent) {
+        parent.style.overflow = ""
+        parent.style.maxHeight = ""
+      }
+      setDownloadingFicha(false)
+      setEditingFicha(true)
+    }
   }
 
   const handleCampoChange = (seccionIndex: number, campoIndex: number, value: string) => {
@@ -471,7 +619,7 @@ export default function FichasTecnicasPage() {
 
       {showFichaModal && (
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 overflow-y-auto">
-          <div className="rounded-xl bg-card shadow-xl w-full max-w-4xl my-8">
+          <div className="rounded-xl bg-card shadow-xl w-full max-w-[850px] my-8 flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between p-6 border-b border-border">
               <h3 className="text-lg font-semibold text-foreground">
                 Carilla de Disilicato
@@ -483,69 +631,16 @@ export default function FichasTecnicasPage() {
                 <X size={18} />
               </button>
             </div>
-            <div className="px-6 pt-4 pb-2 border-b border-border">
-              <div className="grid grid-cols-4 gap-4 text-xs">
-                <div>
-                  <span className="text-muted-foreground">Versión:</span>
-                  <span className="ml-1 font-medium text-foreground">001</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Fecha de Elaboración:</span>
-                  <span className="ml-1 font-medium text-foreground">23-07-2026</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Página:</span>
-                  <span className="ml-1 font-medium text-foreground">5 de 6</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Código:</span>
-                  <span className="ml-1 font-medium text-foreground">GF-FO-003</span>
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-4 text-xs mt-2">
-                <div>
-                  <span className="text-muted-foreground">PROCESO:</span>
-                  <span className="ml-1 font-medium text-foreground">GESTIÓN FABRICACIÓN</span>
-                </div>
-                <div className="col-span-2">
-                  <span className="text-muted-foreground">FORMATO:</span>
-                  <span className="ml-1 font-medium text-foreground">FICHA TÉCNICA DISPOSITIVO MÉDICO SOBRE MEDIDA BUCAL</span>
-                </div>
-              </div>
-            </div>
-            <div className="p-6 space-y-6 max-h-[60vh] overflow-y-auto">
-              {fichaActual.map((seccion, seccionIndex) => (
-                <div key={seccionIndex}>
-                  <h4 className="text-sm font-semibold text-foreground mb-3 border-b border-border pb-2">
-                    {seccion.titulo}
-                  </h4>
-                  <div className="space-y-3">
-                    {seccion.campos.map((campo, campoIndex) => (
-                      <div key={campoIndex} className="grid grid-cols-12 gap-3 items-start">
-                        <label className="col-span-4 text-xs font-medium text-muted-foreground pt-2">
-                          {campo.label}
-                        </label>
-                        {campo.label === "FIRMA" && campo.value.startsWith("/") ? (
-                          <img
-                            src={campo.value}
-                            alt="Firma"
-                            className="col-span-8 h-20 object-contain"
-                          />
-                        ) : (
-                          <textarea
-                            value={campo.value}
-                            onChange={(e) =>
-                              handleCampoChange(seccionIndex, campoIndex, e.target.value)
-                            }
-                            rows={campo.label.includes("Materiales") || campo.label.includes("Vida Ãºtil") || campo.label.includes("Normas aplicadas") || campo.label.includes("AnÃ¡lisis de riesgos") || campo.label.includes("Advertencias") || campo.label.includes("Instrucciones") || campo.label.includes("GarantÃ­a") || campo.label.includes("DescripciÃ³n tÃ©cnica") || campo.label.includes("Uso previsto") ? 6 : 2}
-                            className="col-span-8 rounded-lg border border-border bg-background px-3 py-2 text-xs text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 resize-y"
-                          />
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
+            <div className="flex-1 overflow-y-auto bg-neutral-200">
+              <FichaTecnicaDisilicato
+                secciones={fichaActual}
+                onCampoChange={handleCampoChange}
+                editing={editingFicha}
+                onToggleEditing={() => setEditingFicha((e) => !e)}
+                onDownload={handleDownloadPdf}
+                downloading={downloadingFicha}
+                showToolbar={true}
+              />
             </div>
             <div className="flex items-center justify-end gap-3 p-6 border-t border-border">
               <button
