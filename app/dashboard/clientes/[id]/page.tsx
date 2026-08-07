@@ -118,6 +118,7 @@ export default function ClientePerfilPage() {
   const { id } = useParams<{ id: string }>()
   const searchParams = useSearchParams()
   const solicitudIdParam = searchParams.get("solicitud")
+  const router = useRouter()
   const { toast } = useToast()
   const [client, setClient] = useState<Cliente | null>(null)
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([])
@@ -1945,8 +1946,8 @@ if (!conv) return
                           {/* Tab: Documentos */}
                           {tabActiva === "documentos" && (
                             <div className="bg-gray-50 p-4">
+                              <p className="text-[10px] text-gray-500 uppercase tracking-wide">Documentos de la Solicitud</p>
                               <div className="space-y-2">
-                                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Documentos de la Solicitud</p>
                                 {(["declaracion_conformidad"] as const).map((campo) => {
                                   const url = solicitud[campo]
                                   const etiqueta = campo === "declaracion_conformidad"
@@ -2052,11 +2053,21 @@ if (!conv) return
                                                   if (file) handleUploadDocSolicitud(solicitud.id, campo, file)
                                                 }}
                                               />
-                                              <label htmlFor={`solicitud-${solicitud.id}-${campo}`} className="cursor-pointer">
-                                                <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted">
-                                                  {uploadingSolicitudDoc[campo] ? "Subiendo..." : "Subir"}
-                                                </span>
-                                              </label>
+                                              {campo === "guia_fabricacion" ? (
+                                                <button
+                                                  onClick={() => router.push(`/dashboard/clientes/${client.id}/fichas-tecnicas`)}
+                                                  className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted"
+                                                >
+                                                  <Upload size={12} />
+                                                  Subir
+                                                </button>
+                                              ) : (
+                                                <label htmlFor={`solicitud-${solicitud.id}-${campo}`} className="cursor-pointer">
+                                                  <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted">
+                                                    {uploadingSolicitudDoc[campo] ? "Subiendo..." : "Subir"}
+                                                  </span>
+                                                </label>
+                                              )}
                                               {(solicitudDocs[campo] || solicitud[campo]) && (
                                                 <button
                                                   onClick={() => handleUploadDocSolicitud(solicitud.id, campo)}
