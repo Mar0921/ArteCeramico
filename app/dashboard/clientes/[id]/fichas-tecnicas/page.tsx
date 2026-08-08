@@ -18,6 +18,11 @@ import {
 import { FichaTecnicaDisilicato } from "./ficha-tecnica-disilicato"
 import { FichaTecnicaMonolitica } from "./ficha-tecnica-monolitica"
 import { FichaTecnicaResina } from "./ficha-tecnica-resina"
+import { FichaTecnicaCeramicaEncia } from "./ficha-tecnica-ceramica-encia"
+import { FichaTecnicaColadoUcla } from "./ficha-tecnica-colado-ucla"
+import { FichaTecnicaCoronaDisilicatoEstratificada } from "./ficha-tecnica-corona-disilicato-estratificada"
+import { FichaTecnicaCoronaDisilicatoMonolitica } from "./ficha-tecnica-corona-disilicato-monolitica"
+import { FichaTecnicaCoronaDisilicatoImplante } from "./ficha-tecnica-corona-disilicato-implante"
 
 interface FichaTecnica {
   id: number
@@ -456,6 +461,576 @@ export default function FichasTecnicasPage() {
     },
   ]
 
+  const crearFichaCeramicaEnciaVacia = (): Seccion[] => [
+    {
+      titulo: "1. Información de Identificación y Trazabilidad",
+      campos: [
+        { label: "Nombre del paciente", value: "" },
+        { label: "Prescriptor", value: "" },
+        { label: "Clasificación de DMSMB", value: "Línea de prótesis fija / cerámica de encía" },
+        { label: "Número de Serie o identificación del dispositivo", value: "" },
+      ],
+    },
+    {
+      titulo: "2. Identificación del producto",
+      campos: [
+        {
+          label: "Descripción técnica del dispositivo médico",
+          value: "Restauración protésica sobre medida bucal elaborada en cerámica dental de grado médico, diseñada para reemplazar o simular el tejido gingival perdido alrededor de dientes naturales, implantes o prótesis. Su fabricación es personalizada de acuerdo con las características anatómicas, funcionales y estéticas de cada paciente, permitiendo recuperar la apariencia natural de la encía y mejorar la armonía de la sonrisa.",
+        },
+        {
+          label: "Uso previsto",
+          value: "Dispositivo destinado a restaurar o compensar pérdidas de tejido gingival ocasionadas por reabsorciones óseas, enfermedades periodontales, traumatismos, defectos anatómicos o tratamientos de rehabilitación oral. Su finalidad es mejorar la estética, el soporte de tejidos blandos y la integración visual de restauraciones dentales o implantosoportadas.",
+        },
+        {
+          label: "Materiales Empleados",
+          value: "Cerámica dental de grado médico (feldespática, prensada o estratificada según el caso clínico), pigmentos y maquillajes cerámicos biocompatibles para caracterización estética, materiales de glaseado y acabado superficial. Se debe registrar la marca comercial, referencia y número de lote de los materiales utilizados en la fabricación del dispositivo.",
+        },
+        {
+          label: "Vida útil estimada",
+          value: "Entre 10 y 15 años, dependiendo de las condiciones de uso, higiene oral, controles odontológicos periódicos, estabilidad de los tejidos orales y ausencia de traumatismos o hábitos que puedan comprometer la integridad del dispositivo. Durante este período pueden requerirse ajustes, mantenimiento o reacondicionamiento profesional para conservar sus características estéticas y funcionales.",
+        },
+      ],
+    },
+    {
+      titulo: "3. Proceso de diseño y fabricación",
+      campos: [
+        { label: "Especificaciones de diseño", value: "Prescripción odontológica, Diseño personalizado mediante CAD/CAM o modelos de yeso basados en la anatomía del paciente" },
+        {
+          label: "Normas aplicadas",
+          value: "Resolución 214 de 2022 “Por la cual se establecen los requisitos sanitarios que deben cumplir los dispositivos médicos sobre medida bucal”\n\nOtras normas técnicas nacionales o internacionales aplicadas para materias primas utilizadas, procesos de fabricación y control de calidad. Ejemplo:\nISO 10139-1 / ISO 10139-2: Materiales de revestimiento blando para prótesis.\nISO 10477: Materiales poliméricos para coronas y recubrimientos (prótesis fija).\nISO 10873: Adhesivos para prótesis dentales.\nISO 13017: Anclajes magnéticos para prótesis.\nISO 7405 y ISO 10993: Evaluación biológica de materiales dentales y médicos.\nISO 13116: Método de ensayo para determinar la radiopacidad de los materiales\nISO 10271: Métodos de ensayo de corrosión para materiales metálicos\nISO 12836: Dispositivos de digitalización para sistemas CAD/CAM para restauraciones dentales indirectas: métodos de ensayo para evaluar la precisión\nNTC-ISO 10993: Evaluación biológica de dispositivos médicos\nISO 15841: alambres para uso en ortodoncia",
+        },
+      ],
+    },
+    {
+      titulo: "4. Requisitos de seguridad y funcionamiento",
+      campos: [
+        {
+          label: "Análisis de riesgos",
+          value: "Posibles riesgos asociados al dispositivo: fractura o desprendimiento de la cerámica por traumatismos o fuerzas excesivas, irritación de los tejidos blandos por acumulación de placa bacteriana, molestias derivadas de una adaptación inadecuada, dificultad en la higiene oral si no se siguen las recomendaciones de limpieza y alteraciones estéticas por desgaste o cambios en los tejidos de soporte.",
+        },
+        {
+          label: "Advertencias y contraindicaciones",
+          value: "No manipular ni realizar ajustes sobre el dispositivo sin supervisión profesional. Mantener una adecuada higiene oral para evitar inflamación de los tejidos circundantes. Evitar morder objetos duros o someter la restauración a fuerzas excesivas. En caso de fractura, desprendimiento, incomodidad persistente o inflamación, acudir inmediatamente al odontólogo. Contraindicado en pacientes con alergia conocida a alguno de los materiales utilizados en la restauración (casos excepcionales).",
+        },
+        {
+          label: "Instrucciones de uso",
+          value: "Mantener una higiene oral adecuada mediante cepillado y uso de elementos de higiene interdental recomendados por el odontólogo. Asistir periódicamente a controles clínicos para evaluar el estado de la restauración y de los tejidos de soporte. Evitar hábitos parafuncionales y el contacto con objetos que puedan ocasionar fracturas.",
+        },
+        {
+          label: "Instrucciones de mantenimiento",
+          value: "La durabilidad y apariencia de la cerámica de encía dependen del mantenimiento adecuado, la higiene oral diaria y las revisiones periódicas realizadas por el profesional tratante.",
+        },
+      ],
+    },
+    {
+      titulo: "5. Garantía",
+      campos: [
+        {
+          label: "Garantía",
+          value: "El dispositivo médico sobre medida bucal cumple con los requisitos esenciales de seguridad y se ajusta estrictamente a la prescripción y a los requisitos establecidos en el capítulo VI, artículos 9, 10 y 11 de la resolución 214 de 2022.\n\nLa garantía del dispositivo médico será como mínimo por un (1) año a partir de la fecha de adaptación del dispositivo médico, periodo durante el cual se realiza reparación o reposición del dispositivo médico, si aplica.",
+        },
+      ],
+    },
+    {
+      titulo: "6. Firma",
+      campos: [
+        { label: "Firma autorizada (nombre y firma del director técnico / perfil profesional)", value: "" },
+      ],
+    },
+    {
+      titulo: "CONTROL DE CAMBIOS",
+      campos: [
+        { label: "VERSIÓN", value: "00" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de febrero 2024" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Elaboración del documento" },
+        { label: "VERSIÓN", value: "001" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de marzo 2025" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Revisión y aprobación del documento." },
+      ],
+    },
+    {
+      titulo: "ELABORÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+    {
+      titulo: "REVISÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "María del Pilar Jiménez B" },
+        { label: "CARGO", value: "Asistente técnico" },
+        { label: "FIRMA", value: "/firma-pilar.jpeg" },
+      ],
+    },
+    {
+      titulo: "APROBÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+  ]
+
+  const crearFichaColadoUclaVacia = (): Seccion[] => [
+    {
+      titulo: "1. Información de Identificación y Trazabilidad",
+      campos: [
+        { label: "Nombre del paciente", value: "" },
+        { label: "Prescriptor", value: "" },
+        { label: "Clasificación de DMSMB", value: "Línea de protesis fija / colado de ucla" },
+        { label: "Número de Serie o identificación del dispositivo", value: "" },
+      ],
+    },
+    {
+      titulo: "2. Identificación del producto",
+      campos: [
+        {
+          label: "Descripción técnica del dispositivo médico",
+          value: "Dispositivo médico sobre medida bucal elaborado a partir de una base UCLA prefabricada para implantes dentales, diseñado para servir como estructura de soporte y conexión entre el implante osteointegrado y la restauración protésica definitiva. El componente es personalizado mediante técnicas de colado dental para obtener la anatomía, ajuste y funcionalidad requeridos según la prescripción del odontólogo tratante y las características clínicas del paciente.",
+        },
+        {
+          label: "Uso previsto",
+          value: "Proporcionar soporte, retención y estabilidad a restauraciones protésicas sobre implantes dentales, permitiendo la rehabilitación funcional y estética de dientes ausentes. Está indicado para la fabricación de coronas unitarias, puentes o estructuras implantosoportadas personalizadas.",
+        },
+        {
+          label: "Materiales Empleados",
+          value: "Base UCLA prefabricada compatible con el sistema de implante indicado por el odontólogo tratante. Aleación metálica de grado médico para colado (cromo-cobalto, metal noble u otra autorizada para uso odontológico), materiales de revestimiento, acabado y pulido biocompatibles. Debe registrarse la marca comercial, referencia y número de lote de todos los materiales utilizados en la fabricación del dispositivo.",
+        },
+        {
+          label: "Vida útil estimada",
+          value: "Entre 10 y 15 años o más, dependiendo de las condiciones clínicas del paciente, la estabilidad del implante, la higiene oral, el mantenimiento profesional periódico, la calidad de la rehabilitación protésica y la ausencia de sobrecargas funcionales o hábitos parafuncionales. Durante este período pueden requerirse ajustes, mantenimiento o reemplazo de componentes protésicos asociados.",
+        },
+      ],
+    },
+    {
+      titulo: "3. Proceso de diseño y fabricación",
+      campos: [
+        { label: "Especificaciones de diseño", value: "Prescripción odontológica, Diseño personalizado mediante CAD/CAM o modelos de yeso basados en la anatomía del paciente" },
+        {
+          label: "Normas aplicadas",
+          value: "Resolución 214 de 2022 “Por la cual se establecen los requisitos sanitarios que deben cumplir los dispositivos médicos sobre medida bucal”\n\nOtras normas técnicas nacionales o internacionales aplicadas para materias primas utilizadas, procesos de fabricación y control de calidad. Ejemplo:\nISO 10139-1 / ISO 10139-2: Materiales de revestimiento blando para prótesis.\nISO 10477: Materiales poliméricos para coronas y recubrimientos (prótesis fija).\nISO 10873: Adhesivos para prótesis dentales.\nISO 13017: Anclajes magnéticos para prótesis.\nISO 7405 y ISO 10993: Evaluación biológica de materiales dentales y médicos.\nISO 13116: Método de ensayo para determinar la radiopacidad de los materiales\nISO 10271: Métodos de ensayo de corrosión para materiales metálicos\nISO 12836: Dispositivos de digitalización para sistemas CAD/CAM para restauraciones dentales indirectas: métodos de ensayo para evaluar la precisión\nNTC-ISO 10993: Evaluación biológica de dispositivos médicos\nISO 15841: alambres para uso en ortodoncia",
+        },
+      ],
+    },
+    {
+      titulo: "4. Requisitos de seguridad y funcionamiento",
+      campos: [
+        {
+          label: "Análisis de riesgos",
+          value: "Posibles riesgos asociados al uso de la restauración: aflojamiento de tornillos protésicos, fractura o desgaste de componentes protésicos, inflamación de los tejidos blandos por deficiente higiene oral, acumulación de placa bacteriana alrededor del implante, molestias durante la masticación por sobrecarga oclusal y pérdida de estabilidad de la restauración por falta de mantenimiento profesional periódico.",
+        },
+        {
+          label: "Advertencias y contraindicaciones",
+          value: "Mantener una adecuada higiene oral y asistir a los controles periódicos programados por el odontólogo. Evitar morder objetos duros o utilizar los dientes como herramienta. Informar al odontólogo ante cualquier sensación de movilidad, dolor, inflamación, sangrado o cambio en el ajuste de la restauración. No manipular ni intentar ajustar la prótesis por cuenta propia. Contraindicado en pacientes con alergia conocida a alguno de los materiales utilizados en la rehabilitación (casos excepcionales).",
+        },
+        {
+          label: "Instrucciones de uso",
+          value: "Realizar cepillado dental después de cada comida y utilizar los elementos de higiene recomendados por el odontólogo para la limpieza alrededor de implantes y prótesis. Asistir a controles periódicos para evaluación, mantenimiento y limpieza profesional de la restauración. Evitar hábitos parafuncionales como apretar o rechinar los dientes sin tratamiento adecuado.",
+        },
+        {
+          label: "Instrucciones de mantenimiento",
+          value: "Seguir las indicaciones de higiene y mantenimiento suministradas por el profesional tratante.",
+        },
+      ],
+    },
+    {
+      titulo: "5. Garantía",
+      campos: [
+        {
+          label: "Garantía",
+          value: "El dispositivo médico sobre medida bucal cumple con los requisitos esenciales de seguridad y se ajusta estrictamente a la prescripción y a los requisitos establecidos en el capítulo VI, artículos 9, 10 y 11 de la resolución 214 de 2022.\n\nLa garantía del dispositivo médico será como mínimo por un (1) año a partir de la fecha de adaptación del dispositivo médico, periodo durante el cual se realiza reparación o reposición del dispositivo médico, si aplica.",
+        },
+      ],
+    },
+    {
+      titulo: "6. Firma",
+      campos: [
+        { label: "Firma autorizada (nombre y firma del director técnico / perfil profesional)", value: "" },
+      ],
+    },
+    {
+      titulo: "CONTROL DE CAMBIOS",
+      campos: [
+        { label: "VERSIÓN", value: "00" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de febrero 2024" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Elaboración del documento" },
+        { label: "VERSIÓN", value: "001" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de marzo 2025" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Revisión y aprobación del documento." },
+      ],
+    },
+    {
+      titulo: "ELABORÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+    {
+      titulo: "REVISÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "María del Pilar Jiménez B" },
+        { label: "CARGO", value: "Asistente técnico" },
+        { label: "FIRMA", value: "/firma-pilar.jpeg" },
+      ],
+    },
+    {
+      titulo: "APROBÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+  ]
+
+  const crearFichaCoronaDisilicatoEstratificadaVacia = (): Seccion[] => [
+    {
+      titulo: "1. Información de Identificación y Trazabilidad",
+      campos: [
+        { label: "Nombre del paciente", value: "" },
+        { label: "Prescriptor", value: "" },
+        { label: "Clasificación de DMSMB", value: "Línea de protesis fija / corona en Disilicato de litio estratificada" },
+        { label: "Número de Serie o identificación del dispositivo", value: "" },
+      ],
+    },
+    {
+      titulo: "2. Identificación del producto",
+      campos: [
+        {
+          label: "Descripción técnica del dispositivo médico",
+          value: "Restauración protésica fija sobre medida bucal, elaborada con una estructura de disilicato de litio de grado médico recubierta mediante técnica de estratificación con cerámica feldespática para lograr una óptima caracterización estética. Diseñada para restaurar la anatomía, función masticatoria, fonética y estética de dientes naturales. Fabricada de forma individualizada según la prescripción del odontólogo tratante y las características clínicas del paciente.",
+        },
+        {
+          label: "Uso previsto",
+          value: "Restaurar dientes con pérdida parcial o total de estructura coronaria, devolviendo la función masticatoria, estabilidad oclusal, fonética y estética dental. Indicada para rehabilitaciones protésicas unitarias definitivas en dientes naturales que requieren una restauración de alta resistencia y excelente integración estética.",
+        },
+        {
+          label: "Materiales Empleados",
+          value: "Cerámica de disilicato de litio de grado médico como estructura base, cerámica feldespática de estratificación para caracterización estética, pigmentos y maquillajes cerámicos biocompatibles, materiales de glaseado y acabado superficial. Se debe registrar la marca comercial, referencia y número de lote de todos los materiales utilizados en la fabricación del dispositivo médico sobre medida bucal.",
+        },
+        {
+          label: "Vida útil estimada",
+          value: "Entre 10 y 15 años, dependiendo de las condiciones clínicas del paciente, la higiene oral, los controles odontológicos periódicos, la correcta función oclusal y el cumplimiento de las recomendaciones del odontólogo tratante. Durante este período pueden requerirse procedimientos de mantenimiento, ajuste o pulido para conservar sus características funcionales y estéticas.",
+        },
+      ],
+    },
+    {
+      titulo: "3. Proceso de diseño y fabricación",
+      campos: [
+        { label: "Especificaciones de diseño", value: "Prescripción odontológica, Diseño personalizado mediante CAD/CAM o modelos de yeso basados en la anatomía del paciente" },
+        {
+          label: "Normas aplicadas",
+          value: "Resolución 214 de 2022 “Por la cual se establecen los requisitos sanitarios que deben cumplir los dispositivos médicos sobre medida bucal”\n\nOtras normas técnicas nacionales o internacionales aplicadas para materias primas utilizadas, procesos de fabricación y control de calidad. Ejemplo:\nISO 10139-1 / ISO 10139-2: Materiales de revestimiento blando para prótesis.\nISO 10477: Materiales poliméricos para coronas y recubrimientos (prótesis fija).\nISO 10873: Adhesivos para prótesis dentales.\nISO 13017: Anclajes magnéticos para prótesis.\nISO 7405 y ISO 10993: Evaluación biológica de materiales dentales y médicos.\nISO 13116: Método de ensayo para determinar la radiopacidad de los materiales\nISO 10271: Métodos de ensayo de corrosión para materiales metálicos\nISO 12836: Dispositivos de digitalización para sistemas CAD/CAM para restauraciones dentales indirectas: métodos de ensayo para evaluar la precisión\nNTC-ISO 10993: Evaluación biológica de dispositivos médicos\nISO 15841: alambres para uso en ortodoncia",
+        },
+      ],
+    },
+    {
+      titulo: "4. Requisitos de seguridad y funcionamiento",
+      campos: [
+        {
+          label: "Análisis de riesgos",
+          value: "Posibles riesgos asociados al uso de la restauración incluyen fractura o desprendimiento de la corona debido a traumatismos o fuerzas masticatorias excesivas, sensibilidad dental, desgaste de la restauración o de los dientes antagonistas, acumulación de placa bacteriana por higiene inadecuada, inflamación de las encías y alteraciones funcionales o estéticas derivadas del uso prolongado o de hábitos parafuncionales como el bruxismo.",
+        },
+        {
+          label: "Advertencias y contraindicaciones",
+          value: "Mantenga una adecuada higiene oral para preservar la salud del diente restaurado y de los tejidos circundantes. Evite morder objetos duros como hielo, huesos, lápices o utilizar los dientes para abrir envases. No manipule ni intente reparar la restauración por cuenta propia. Consulte inmediatamente a su odontólogo si presenta dolor, movilidad, fractura, desprendimiento, sensibilidad persistente o cualquier cambio en la restauración. Los pacientes con bruxismo deben utilizar los dispositivos de protección recomendados por el profesional tratante.",
+        },
+        {
+          label: "Instrucciones de uso",
+          value: "Cepille sus dientes después de cada comida utilizando un cepillo de cerdas suaves y crema dental de baja abrasividad. Utilice diariamente seda dental y siga las recomendaciones de higiene indicadas por su odontólogo. Asista a controles odontológicos periódicos para verificar el estado de la restauración.",
+        },
+        {
+          label: "Instrucciones de mantenimiento",
+          value: "Evite hábitos que puedan generar sobrecargas sobre la corona. Mantenga una adecuada higiene oral y realice limpiezas profesionales periódicas. En caso de fractura, desprendimiento o cualquier anomalía, solicite atención odontológica de manera oportuna.\nRevisiones periódicas recomendadas cada 6–12 meses.",
+        },
+      ],
+    },
+    {
+      titulo: "5. Garantía",
+      campos: [
+        {
+          label: "Garantía",
+          value: "El dispositivo médico sobre medida bucal cumple con los requisitos esenciales de seguridad y se ajusta estrictamente a la prescripción y a los requisitos establecidos en el capítulo VI, artículos 9, 10 y 11 de la resolución 214 de 2022.\n\nLa garantía del dispositivo médico será como mínimo por un (1) año a partir de la fecha de adaptación del dispositivo médico, periodo durante el cual se realiza reparación o reposición del dispositivo médico, si aplica.",
+        },
+      ],
+    },
+    {
+      titulo: "6. Firma",
+      campos: [
+        { label: "Firma autorizada (nombre y firma del director técnico / perfil profesional)", value: "" },
+      ],
+    },
+    {
+      titulo: "CONTROL DE CAMBIOS",
+      campos: [
+        { label: "VERSIÓN", value: "00" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de febrero 2024" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Elaboración del documento" },
+        { label: "VERSIÓN", value: "001" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de marzo 2025" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Revisión y aprobación del documento." },
+      ],
+    },
+    {
+      titulo: "ELABORÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+    {
+      titulo: "REVISÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "María del Pilar Jiménez B" },
+        { label: "CARGO", value: "Asistente técnico" },
+        { label: "FIRMA", value: "/firma-pilar.jpeg" },
+      ],
+    },
+    {
+      titulo: "APROBÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+  ]
+
+  const crearFichaCoronaDisilicatoMonoliticaVacia = (): Seccion[] => [
+    {
+      titulo: "1. Información de Identificación y Trazabilidad",
+      campos: [
+        { label: "Nombre del paciente", value: "" },
+        { label: "Prescriptor", value: "" },
+        { label: "Clasificación de DMSMB", value: "Línea de protesis fija / Corona en Disilicato de litio monolitica" },
+        { label: "Número de Serie o identificación del dispositivo", value: "" },
+      ],
+    },
+    {
+      titulo: "2. Identificación del producto",
+      campos: [
+        {
+          label: "Descripción técnica del dispositivo médico",
+          value: "Restauración protésica fija sobre medida bucal, elaborada completamente en cerámica de Disilicato de litio de grado médico en una sola estructura (monolítica), diseñada para restaurar la anatomía, función masticatoria, fonética y estética de dientes naturales. Fabricada de forma personalizada de acuerdo con la prescripción del odontólogo tratante y las características anatómicas y funcionales del paciente, ofreciendo alta resistencia mecánica, biocompatibilidad y estabilidad estética.",
+        },
+        {
+          label: "Uso previsto",
+          value: "Restaurar dientes con pérdida parcial o total de estructura coronaria, devolviendo la función masticatoria, la estabilidad oclusal, la fonética y la estética dental. Indicada para rehabilitaciones protésicas unitarias definitivas en dientes naturales, tanto en el sector anterior como posterior, cuando se requiere una restauración de alta resistencia y excelente comportamiento estético.",
+        },
+        {
+          label: "Materiales Empleados",
+          value: "Cerámica de Disilicato de litio de grado médico como material principal de la restauración, pigmentos y maquillajes cerámicos biocompatibles para caracterización estética cuando sea necesario, materiales de glaseado y acabado superficial. Se debe registrar la marca comercial, referencia y número de lote de todos los materiales utilizados en la fabricación del dispositivo médico sobre medida bucal.",
+        },
+        {
+          label: "Vida útil estimada",
+          value: "Entre 10 y 15 años, dependiendo de las condiciones clínicas del paciente, la higiene oral, los controles odontológicos periódicos, la correcta función oclusal y el cumplimiento de las recomendaciones del odontólogo tratante. Durante este período pueden requerirse procedimientos de mantenimiento, ajuste o reacondicionamiento superficial para conservar sus propiedades funcionales y estéticas.",
+        },
+      ],
+    },
+    {
+      titulo: "3. Proceso de diseño y fabricación",
+      campos: [
+        { label: "Especificaciones de diseño", value: "Prescripción odontológica, Diseño personalizado mediante CAD/CAM o modelos de yeso basados en la anatomía del paciente" },
+        {
+          label: "Normas aplicadas",
+          value: "Resolución 214 de 2022 “Por la cual se establecen los requisitos sanitarios que deben cumplir los dispositivos médicos sobre medida bucal”\n\nOtras normas técnicas nacionales o internacionales aplicadas para materias primas utilizadas, procesos de fabricación y control de calidad. Ejemplo:\nISO 10139-1 / ISO 10139-2: Materiales de revestimiento blando para prótesis.\nISO 10477: Materiales poliméricos para coronas y recubrimientos (prótesis fija).\nISO 10873: Adhesivos para prótesis dentales.\nISO 13017: Anclajes magnéticos para prótesis.\nISO 7405 y ISO 10993: Evaluación biológica de materiales dentales y médicos.\nISO 13116: Método de ensayo para determinar la radiopacidad de los materiales\nISO 10271: Métodos de ensayo de corrosión para materiales metálicos\nISO 12836: Dispositivos de digitalización para sistemas CAD/CAM para restauraciones dentales indirectas: métodos de ensayo para evaluar la precisión\nNTC-ISO 10993: Evaluación biológica de dispositivos médicos\nISO 15841: alambres para uso en ortodoncia",
+        },
+      ],
+    },
+    {
+      titulo: "4. Requisitos de seguridad y funcionamiento",
+      campos: [
+        {
+          label: "Análisis de riesgos",
+          value: "Posibles riesgos asociados al uso de la restauración incluyen fractura o desprendimiento de la corona debido a traumatismos o fuerzas masticatorias excesivas, sensibilidad dental transitoria, desgaste de dientes antagonistas en caso de alteraciones oclusales, acumulación de placa bacteriana por higiene oral deficiente, inflamación de la encía y disminución de la vida útil de la restauración por hábitos parafuncionales como el bruxismo.",
+        },
+        {
+          label: "Advertencias y contraindicaciones",
+          value: "Mantenga una adecuada higiene oral para preservar la salud del diente restaurado y los tejidos circundantes. Evite morder alimentos u objetos extremadamente duros, como hielo, huesos, semillas o utilizar los dientes para abrir envases. No intente ajustar, pulir o reparar la restauración por cuenta propia. Consulte a su odontólogo si presenta dolor, sensibilidad persistente, fractura, movilidad o desprendimiento de la corona. Los pacientes con bruxismo o apretamiento dental deben seguir las recomendaciones de protección indicadas por el profesional tratante.",
+        },
+        {
+          label: "Instrucciones de uso",
+          value: "Cepille sus dientes después de cada comida utilizando un cepillo de cerdas suaves y crema dental de baja abrasividad. Utilice diariamente seda dental o los elementos de higiene recomendados por su odontólogo. Mantenga hábitos adecuados de cuidado oral y asista a los controles periódicos programados.",
+        },
+        {
+          label: "Instrucciones de mantenimiento",
+          value: "Realice limpiezas profesionales periódicas según indicación odontológica. Evite hábitos que generen sobrecargas sobre la restauración. En caso de notar cambios en la mordida, molestias, fracturas o cualquier alteración de la corona, solicite valoración odontológica de manera inmediata.\nRevisiones periódicas recomendadas cada 6–12 meses.",
+        },
+      ],
+    },
+    {
+      titulo: "5. Garantía",
+      campos: [
+        {
+          label: "Garantía",
+          value: "El dispositivo médico sobre medida bucal cumple con los requisitos esenciales de seguridad y se ajusta estrictamente a la prescripción y a los requisitos establecidos en el capítulo VI, artículos 9, 10 y 11 de la resolución 214 de 2022.\n\nLa garantía del dispositivo médico será como mínimo por un (1) año a partir de la fecha de adaptación del dispositivo médico, periodo durante el cual se realiza reparación o reposición del dispositivo médico, si aplica.",
+        },
+      ],
+    },
+    {
+      titulo: "6. Firma",
+      campos: [
+        { label: "Firma autorizada (nombre y firma del director técnico / perfil profesional)", value: "" },
+      ],
+    },
+    {
+      titulo: "CONTROL DE CAMBIOS",
+      campos: [
+        { label: "VERSIÓN", value: "00" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de febrero 2024" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Elaboración del documento" },
+        { label: "VERSIÓN", value: "001" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de marzo 2025" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Revisión y aprobación del documento." },
+      ],
+    },
+    {
+      titulo: "ELABORÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+    {
+      titulo: "REVISÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "María del Pilar Jiménez B" },
+        { label: "CARGO", value: "Asistente técnico" },
+        { label: "FIRMA", value: "/firma-pilar.jpeg" },
+      ],
+    },
+    {
+      titulo: "APROBÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+  ]
+
+  const crearFichaCoronaDisilicatoImplanteVacia = (): Seccion[] => [
+    {
+      titulo: "1. Información de Identificación y Trazabilidad",
+      campos: [
+        { label: "Nombre del paciente", value: "" },
+        { label: "Prescriptor", value: "" },
+        { label: "Clasificación de DMSMB", value: "Línea de protesis fija / corona en Disilicato de litio sobre implante" },
+        { label: "Número de Serie o identificación del dispositivo", value: "" },
+      ],
+    },
+    {
+      titulo: "2. Identificación del producto",
+      campos: [
+        {
+          label: "Descripción técnica del dispositivo médico",
+          value: "Restauración protésica fija sobre medida bucal, elaborada completamente en cerámica de Disilicato de litio de grado médico en una sola estructura (monolítica), diseñada para restaurar la anatomía, función masticatoria, fonética y estética de dientes naturales. Fabricada de forma personalizada de acuerdo con la prescripción del odontólogo tratante y las características anatómicas y funcionales del paciente, ofreciendo alta resistencia mecánica, biocompatibilidad y estabilidad estética.",
+        },
+        {
+          label: "Uso previsto",
+          value: "Restaurar dientes con pérdida parcial o total de estructura coronaria, devolviendo la función masticatoria, la estabilidad oclusal, la fonética y la estética dental. Indicada para rehabilitaciones protésicas unitarias definitivas en dientes naturales, tanto en el sector anterior como posterior, cuando se requiere una restauración de alta resistencia y excelente comportamiento estético.",
+        },
+        {
+          label: "Materiales Empleados",
+          value: "Cerámica de Disilicato de litio de grado médico como material principal de la restauración, pigmentos y maquillajes cerámicos biocompatibles para caracterización estética cuando sea necesario, materiales de glaseado y acabado superficial. Se debe registrar la marca comercial, referencia y número de lote de todos los materiales utilizados en la fabricación del dispositivo médico sobre medida bucal.",
+        },
+        {
+          label: "Vida útil estimada",
+          value: "Entre 10 y 15 años, dependiendo de las condiciones clínicas del paciente, la higiene oral, los controles odontológicos periódicos, la correcta función oclusal y el cumplimiento de las recomendaciones del odontólogo tratante. Durante este período pueden requerirse procedimientos de mantenimiento, ajuste o reacondicionamiento superficial para conservar sus propiedades funcionales y estéticas.",
+        },
+      ],
+    },
+    {
+      titulo: "3. Proceso de diseño y fabricación",
+      campos: [
+        { label: "Especificaciones de diseño", value: "Prescripción odontológica, Diseño personalizado mediante CAD/CAM o modelos de yeso basados en la anatomía del paciente" },
+        {
+          label: "Normas aplicadas",
+          value: "Resolución 214 de 2022 “Por la cual se establecen los requisitos sanitarios que deben cumplir los dispositivos médicos sobre medida bucal”\n\nOtras normas técnicas nacionales o internacionales aplicadas para materias primas utilizadas, procesos de fabricación y control de calidad. Ejemplo:\nISO 10139-1 / ISO 10139-2: Materiales de revestimiento blando para prótesis.\nISO 10477: Materiales poliméricos para coronas y recubrimientos (prótesis fija).\nISO 10873: Adhesivos para prótesis dentales.\nISO 13017: Anclajes magnéticos para prótesis.\nISO 7405 y ISO 10993: Evaluación biológica de materiales dentales y médicos.\nISO 13116: Método de ensayo para determinar la radiopacidad de los materiales\nISO 10271: Métodos de ensayo de corrosión para materiales metálicos\nISO 12836: Dispositivos de digitalización para sistemas CAD/CAM para restauraciones dentales indirectas: métodos de ensayo para evaluar la precisión\nNTC-ISO 10993: Evaluación biológica de dispositivos médicos\nISO 15841: alambres para uso en ortodoncia",
+        },
+      ],
+    },
+    {
+      titulo: "4. Requisitos de seguridad y funcionamiento",
+      campos: [
+        {
+          label: "Análisis de riesgos",
+          value: "Posibles riesgos asociados al uso de la restauración incluyen fractura o desprendimiento de la corona debido a traumatismos o fuerzas masticatorias excesivas, sensibilidad dental transitoria, desgaste de dientes antagonistas en caso de alteraciones oclusales, acumulación de placa bacteriana por higiene oral deficiente, inflamación de la encía y disminución de la vida útil de la restauración por hábitos parafuncionales como el bruxismo.",
+        },
+        {
+          label: "Advertencias y contraindicaciones",
+          value: "Mantenga una adecuada higiene oral para preservar la salud del diente restaurado y los tejidos circundantes. Evite morder alimentos u objetos extremadamente duros, como hielo, huesos, semillas o utilizar los dientes para abrir envases. No intente ajustar, pulir o reparar la restauración por cuenta propia. Consulte a su odontólogo si presenta dolor, sensibilidad persistente, fractura, movilidad o desprendimiento de la corona. Los pacientes con bruxismo o apretamiento dental deben seguir las recomendaciones de protección indicadas por el profesional tratante.",
+        },
+        {
+          label: "Instrucciones de uso",
+          value: "Cepille sus dientes después de cada comida utilizando un cepillo de cerdas suaves y crema dental de baja abrasividad. Utilice diariamente seda dental o los elementos de higiene recomendados por su odontólogo. Mantenga hábitos adecuados de cuidado oral y asista a los controles periódicos programados.",
+        },
+        {
+          label: "Instrucciones de mantenimiento",
+          value: "Realice limpiezas profesionales periódicas según indicación odontológica. Evite hábitos que generen sobrecargas sobre la restauración. En caso de notar cambios en la mordida, molestias, fracturas o cualquier alteración de la corona, solicite valoración odontológica de manera inmediata.\nRevisiones periódicas recomendadas cada 6–12 meses.",
+        },
+      ],
+    },
+    {
+      titulo: "5. Garantía",
+      campos: [
+        {
+          label: "Garantía",
+          value: "El dispositivo médico sobre medida bucal cumple con los requisitos esenciales de seguridad y se ajusta estrictamente a la prescripción y a los requisitos establecidos en el capítulo VI, artículos 9, 10 y 11 de la resolución 214 de 2022.\n\nLa garantía del dispositivo médico será como mínimo por un (1) año a partir de la fecha de adaptación del dispositivo médico, periodo durante el cual se realiza reparación o reposición del dispositivo médico, si aplica.",
+        },
+      ],
+    },
+    {
+      titulo: "6. Firma",
+      campos: [
+        { label: "Firma autorizada (nombre y firma del director técnico / perfil profesional)", value: "" },
+      ],
+    },
+    {
+      titulo: "CONTROL DE CAMBIOS",
+      campos: [
+        { label: "VERSIÓN", value: "00" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de febrero 2024" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Elaboración del documento" },
+        { label: "VERSIÓN", value: "001" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de marzo 2025" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Revisión y aprobación del documento." },
+      ],
+    },
+    {
+      titulo: "ELABORÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+    {
+      titulo: "REVISÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "María del Pilar Jiménez B" },
+        { label: "CARGO", value: "Asistente técnico" },
+        { label: "FIRMA", value: "/firma-pilar.jpeg" },
+      ],
+    },
+    {
+      titulo: "APROBÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+  ]
+
   const handleCrearFicha = () => {
     if (!nuevaFicha.nombre.trim()) return
     const ficha: FichaTecnica = {
@@ -477,6 +1052,21 @@ export default function FichasTecnicasPage() {
       setTipoFichaActual(tipo)
     } else if (tipo === "Carilla de Disilicato Impresa en Resina") {
       ficha = crearFichaResinaVacia()
+      setTipoFichaActual(tipo)
+    } else if (tipo === "Ceramica de Encia") {
+      ficha = crearFichaCeramicaEnciaVacia()
+      setTipoFichaActual(tipo)
+    } else if (tipo === "Colado de UCLA") {
+      ficha = crearFichaColadoUclaVacia()
+      setTipoFichaActual(tipo)
+    } else if (tipo === "Corona Disilicato Estratificada") {
+      ficha = crearFichaCoronaDisilicatoEstratificadaVacia()
+      setTipoFichaActual(tipo)
+    } else if (tipo === "Corona Disilicato Monolitica") {
+      ficha = crearFichaCoronaDisilicatoMonoliticaVacia()
+      setTipoFichaActual(tipo)
+    } else if (tipo === "Corona Disilicato Sobre Implante") {
+      ficha = crearFichaCoronaDisilicatoImplanteVacia()
       setTipoFichaActual(tipo)
     } else {
       ficha = crearFichaVacia()
@@ -818,6 +1408,146 @@ export default function FichasTecnicasPage() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="rounded-xl bg-card p-6 shadow-sm border border-border cursor-pointer hover:border-primary/50 transition-colors"
+        onClick={() => handleAbrirFicha("Ceramica de Encia")}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <FileText size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Ficha rápida de Cerámica de Encía
+              </p>
+              <p className="text-lg font-semibold text-foreground">
+                Cerámica de Encía
+              </p>
+            </div>
+          </div>
+          <button className="inline-flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/20">
+            <Edit3 size={16} />
+            Editar
+          </button>
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="rounded-xl bg-card p-6 shadow-sm border border-border cursor-pointer hover:border-primary/50 transition-colors"
+        onClick={() => handleAbrirFicha("Colado de UCLA")}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <FileText size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Ficha rápida de Colado de UCLA
+              </p>
+              <p className="text-lg font-semibold text-foreground">
+                Colado de UCLA
+              </p>
+            </div>
+          </div>
+          <button className="inline-flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/20">
+            <Edit3 size={16} />
+            Editar
+          </button>
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="rounded-xl bg-card p-6 shadow-sm border border-border cursor-pointer hover:border-primary/50 transition-colors"
+        onClick={() => handleAbrirFicha("Corona Disilicato Estratificada")}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <FileText size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Ficha rápida de Corona en Disilicato de litio estratificada
+              </p>
+              <p className="text-lg font-semibold text-foreground">
+                Corona en Disilicato de litio estratificada
+              </p>
+            </div>
+          </div>
+          <button className="inline-flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/20">
+            <Edit3 size={16} />
+            Editar
+          </button>
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="rounded-xl bg-card p-6 shadow-sm border border-border cursor-pointer hover:border-primary/50 transition-colors"
+        onClick={() => handleAbrirFicha("Corona Disilicato Monolitica")}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <FileText size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Ficha rápida de Corona en Disilicato de litio monolítica
+              </p>
+              <p className="text-lg font-semibold text-foreground">
+                Corona en Disilicato de litio monolítica
+              </p>
+            </div>
+          </div>
+          <button className="inline-flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/20">
+            <Edit3 size={16} />
+            Editar
+          </button>
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="rounded-xl bg-card p-6 shadow-sm border border-border cursor-pointer hover:border-primary/50 transition-colors"
+        onClick={() => handleAbrirFicha("Corona Disilicato Sobre Implante")}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <FileText size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Ficha rápida de Corona en Disilicato de litio sobre implante
+              </p>
+              <p className="text-lg font-semibold text-foreground">
+                Corona en Disilicato de litio sobre implante
+              </p>
+            </div>
+          </div>
+          <button className="inline-flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/20">
+            <Edit3 size={16} />
+            Editar
+          </button>
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.2 }}
         className="rounded-xl bg-card shadow-sm"
       >
@@ -917,6 +1647,21 @@ export default function FichasTecnicasPage() {
                   <option value="Carilla de Disilicato Impresa en Resina">
                     Carilla de Disilicato Impresa en Resina
                   </option>
+                  <option value="Ceramica de Encia">
+                    Cerámica de Encía
+                  </option>
+                  <option value="Colado de UCLA">
+                    Colado de UCLA
+                  </option>
+                  <option value="Corona Disilicato Estratificada">
+                    Corona en Disilicato de litio estratificada
+                  </option>
+                  <option value="Corona Disilicato Monolitica">
+                    Corona en Disilicato de litio monolítica
+                  </option>
+                  <option value="Corona Disilicato Sobre Implante">
+                    Corona en Disilicato de litio sobre implante
+                  </option>
                   <option value="Corona Zirconio">Corona Zirconio</option>
                   <option value="Corona Disilicato">Corona Disilicato</option>
                   <option value="Incrustación">Incrustación</option>
@@ -960,7 +1705,7 @@ export default function FichasTecnicasPage() {
           <div className="rounded-xl bg-card shadow-xl w-full max-w-[850px] my-8 flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between p-6 border-b border-border">
               <h3 className="text-lg font-semibold text-foreground">
-                {tipoFichaActual === "Carilla de Disilicato Monolitica" ? "Carilla de Disilicato Monolítica" : tipoFichaActual === "Carilla de Disilicato Impresa en Resina" ? "Carilla de Disilicato Impresa en Resina" : "Carilla de Disilicato Estratificada"}
+                {tipoFichaActual === "Carilla de Disilicato Monolitica" ? "Carilla de Disilicato Monolítica" : tipoFichaActual === "Carilla de Disilicato Impresa en Resina" ? "Carilla de Disilicato Impresa en Resina" : tipoFichaActual === "Ceramica de Encia" ? "Cerámica de Encía" : tipoFichaActual === "Colado de UCLA" ? "Colado de UCLA" : tipoFichaActual === "Corona Disilicato Estratificada" ? "Corona en Disilicato de litio estratificada" : tipoFichaActual === "Corona Disilicato Monolitica" ? "Corona en Disilicato de litio monolítica" : tipoFichaActual === "Corona Disilicato Sobre Implante" ? "Corona en Disilicato de litio sobre implante" : "Carilla de Disilicato Estratificada"}
               </h3>
               <button
                 onClick={() => setShowFichaModal(false)}
@@ -982,6 +1727,56 @@ export default function FichasTecnicasPage() {
                 />
               ) : tipoFichaActual === "Carilla de Disilicato Impresa en Resina" ? (
                 <FichaTecnicaResina
+                  secciones={fichaActual}
+                  onCampoChange={handleCampoChange}
+                  editing={editingFicha}
+                  onToggleEditing={() => setEditingFicha((e) => !e)}
+                  onDownload={handleDownloadPdf}
+                  downloading={downloadingFicha}
+                  showToolbar={true}
+                />
+              ) : tipoFichaActual === "Ceramica de Encia" ? (
+                <FichaTecnicaCeramicaEncia
+                  secciones={fichaActual}
+                  onCampoChange={handleCampoChange}
+                  editing={editingFicha}
+                  onToggleEditing={() => setEditingFicha((e) => !e)}
+                  onDownload={handleDownloadPdf}
+                  downloading={downloadingFicha}
+                  showToolbar={true}
+                />
+              ) : tipoFichaActual === "Colado de UCLA" ? (
+                <FichaTecnicaColadoUcla
+                  secciones={fichaActual}
+                  onCampoChange={handleCampoChange}
+                  editing={editingFicha}
+                  onToggleEditing={() => setEditingFicha((e) => !e)}
+                  onDownload={handleDownloadPdf}
+                  downloading={downloadingFicha}
+                  showToolbar={true}
+                />
+              ) : tipoFichaActual === "Corona Disilicato Estratificada" ? (
+                <FichaTecnicaCoronaDisilicatoEstratificada
+                  secciones={fichaActual}
+                  onCampoChange={handleCampoChange}
+                  editing={editingFicha}
+                  onToggleEditing={() => setEditingFicha((e) => !e)}
+                  onDownload={handleDownloadPdf}
+                  downloading={downloadingFicha}
+                  showToolbar={true}
+                />
+              ) : tipoFichaActual === "Corona Disilicato Monolitica" ? (
+                <FichaTecnicaCoronaDisilicatoMonolitica
+                  secciones={fichaActual}
+                  onCampoChange={handleCampoChange}
+                  editing={editingFicha}
+                  onToggleEditing={() => setEditingFicha((e) => !e)}
+                  onDownload={handleDownloadPdf}
+                  downloading={downloadingFicha}
+                  showToolbar={true}
+                />
+              ) : tipoFichaActual === "Corona Disilicato Sobre Implante" ? (
+                <FichaTecnicaCoronaDisilicatoImplante
                   secciones={fichaActual}
                   onCampoChange={handleCampoChange}
                   editing={editingFicha}
