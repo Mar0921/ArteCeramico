@@ -16,6 +16,8 @@ import {
   Edit3,
 } from "lucide-react"
 import { FichaTecnicaDisilicato } from "./ficha-tecnica-disilicato"
+import { FichaTecnicaMonolitica } from "./ficha-tecnica-monolitica"
+import { FichaTecnicaResina } from "./ficha-tecnica-resina"
 
 interface FichaTecnica {
   id: number
@@ -73,11 +75,12 @@ export default function FichasTecnicasPage() {
   const [showFichaModal, setShowFichaModal] = useState(false)
   const [nuevaFicha, setNuevaFicha] = useState({
     nombre: "",
-    tipo: "Carilla de Disilicato",
+    tipo: "Carilla de Disilicato Estratificada",
     fecha: new Date().toISOString().split("T")[0],
   })
 
   const [fichaActual, setFichaActual] = useState<Seccion[]>([])
+  const [tipoFichaActual, setTipoFichaActual] = useState<string>("")
   const [editingFicha, setEditingFicha] = useState(true)
   const [downloadingFicha, setDownloadingFicha] = useState(false)
 
@@ -225,6 +228,234 @@ export default function FichasTecnicasPage() {
     },
   ]
 
+  const crearFichaMonoliticaVacia = (): Seccion[] => [
+    {
+      titulo: "1. Información de Identificación y Trazabilidad",
+      campos: [
+        { label: "Nombre del paciente", value: "" },
+        { label: "Prescriptor", value: "" },
+        { label: "Clasificación de DMSMB", value: "Línea de prótesis fija / carilla en Disilicato monolítica" },
+        { label: "Número de Serie o identificación del dispositivo", value: "" },
+      ],
+    },
+    {
+      titulo: "2. Identificación del producto",
+      campos: [
+        {
+          label: "Descripción técnica del dispositivo médico",
+          value: "Restauración dental fija sobre medida bucal, tipo carilla monolítica, elaborada en cerámica de Disilicato de litio. Diseñada para adherirse a la superficie vestibular de dientes naturales con fines estéticos y funcionales.",
+        },
+        {
+          label: "Uso previsto",
+          value: "Restaurar la estética y función dental mediante la corrección de alteraciones de forma, tamaño, color, desgaste, fracturas menores o espacios interdentales. Indicada para rehabilitaciones estéticas conservadoras en dientes anteriores y premolares, según prescripción del profesional tratante.",
+        },
+        {
+          label: "Materiales Empleados",
+          value: "Cerámica de Disilicato de litio de grado médico, utilizada como material principal de la restauración monolítica.\nPigmentos, tintes o maquillajes cerámicos biocompatibles para caracterización estética individualizada, cuando aplique.\nMateriales de glaseado y acabado superficial biocompatibles para proporcionar brillo, textura y protección de la superficie.\nSe debe registrar la marca comercial, referencia y número de lote de los materiales utilizados en la fabricación del dispositivo.",
+        },
+        {
+          label: "Vida útil estimada",
+          value: "Período durante el cual se espera que la carilla en Disilicato de litio monolítica mantenga de forma segura y efectiva sus características funcionales y estéticas. La vida útil estimada es de 5 a 10 años, siempre que se mantengan adecuadas condiciones de uso, higiene oral, controles odontológicos periódicos y ausencia de factores que comprometan la integridad del dispositivo.",
+        },
+      ],
+    },
+    {
+      titulo: "3. Proceso de diseño y fabricación",
+      campos: [
+        { label: "Especificaciones de diseño", value: "Prescripción odontológica, Diseño personalizado mediante CAD/CAM o modelos de yeso basados en la anatomía del paciente" },
+        {
+          label: "Normas aplicadas",
+          value: "Resolución 214 de 2022 “Por la cual se establecen los requisitos sanitarios que deben cumplir los dispositivos médicos sobre medida bucal”\n\nOtras normas técnicas nacionales o internacionales aplicadas para materias primas utilizadas, procesos de fabricación y control de calidad. Ejemplo:\nISO 10139-1 / ISO 10139-2: Materiales de revestimiento blando para prótesis.\nISO 10477: Materiales poliméricos para coronas y recubrimientos (prótesis fija).\nISO 10873: Adhesivos para prótesis dentales.\nISO 13017: Anclajes magnéticos para prótesis.\nISO 7405 y ISO 10993: Evaluación biológica de materiales dentales y médicos.\nISO 13116: Método de ensayo para determinar la radiopacidad de los materiales\nISO 10271: Métodos de ensayo de corrosión para materiales metálicos\nISO 12836: Dispositivos de digitalización para sistemas CAD/CAM para restauraciones dentales indirectas: métodos de ensayo para evaluar la precisión\nNTC-ISO 10993: Evaluación biológica de dispositivos médicos\nISO 15841: alambres para uso en ortodoncia",
+        },
+      ],
+    },
+    {
+      titulo: "4. Requisitos de seguridad y funcionamiento",
+      campos: [
+        {
+          label: "Análisis de riesgos",
+          value: "Posibles riesgos asociados al dispositivo: desprendimiento o fractura de la carilla por trauma o sobrecarga oclusal, sensibilidad dental transitoria posterior a la cementación, irritación de tejidos blandos por desajustes marginales, reacción alérgica a materiales complementarios utilizados en la cementación (casos excepcionales) y desgaste del diente antagonista en presencia de ajustes oclusales inadecuados.\nMitigación de riesgos como por ejemplo ajustes, control dimensional, pruebas de resistencia.",
+        },
+        {
+          label: "Advertencias y contraindicaciones",
+          value: "No utilizar en pacientes con higiene oral deficiente, enfermedad periodontal activa no controlada o estructura dental insuficiente para la adhesión. Contraindicado en casos de bruxismo severo no tratado, hábitos parafuncionales sin control, movilidad dental avanzada o alergia conocida a alguno de los materiales empleados. Evitar impactos directos sobre la restauración y el uso de los dientes para abrir o cortar objetos.",
+        },
+        {
+          label: "Instrucciones de uso",
+          value: "Mantener una adecuada higiene oral mediante cepillado dental mínimo tres veces al día y uso diario de seda dental, asistir a los controles odontológicos periódicos programados por su odontólogo para evaluar el estado de la restauración y de los tejidos orales, evitar morder o abrir objetos con los dientes, como tapas, empaques, uñas, bolígrafos u otros elementos duros, limitar el consumo de alimentos extremadamente duros que puedan generar fracturas o desprendimiento de la restauración. No realizar ajustes, pulidos o reparaciones por cuenta propia; cualquier intervención debe ser realizada por un profesional de la odontología.",
+        },
+        {
+          label: "Instrucciones de mantenimiento",
+          value: "Realice una higiene oral adecuada mediante cepillado después de cada comida utilizando un cepillo de cerdas suaves y crema dental de baja abrasividad.\nUtilice seda dental diariamente para remover la placa bacteriana y los residuos de alimentos entre los dientes y alrededor de la restauración.\nAsista a controles odontológicos periódicos, al menos cada seis meses o según indicación de su odontólogo, para evaluar el estado de la carilla y realizar mantenimiento preventivo.\nEvite masticar alimentos excesivamente duros (hielo, huesos, caramelos duros, entre otros) que puedan ocasionar fracturas o desprendimiento de la restauración.\nNo utilice los dientes como herramienta para abrir envases, cortar hilos o sujetar objetos.\nSi presenta bruxismo (rechinamiento o apretamiento dental), utilice la férula o protector nocturno recomendado por su odontólogo.\nLimite el consumo frecuente de sustancias que puedan afectar la salud oral, como bebidas azucaradas o altamente ácidas.",
+        },
+      ],
+    },
+    {
+      titulo: "5. Garantía",
+      campos: [
+        {
+          label: "Garantía",
+          value: "El dispositivo médico sobre medida bucal cumple con los requisitos esenciales de seguridad y se ajusta estrictamente a la prescripción y a los requisitos establecidos en el capítulo VI, artículos 9, 10 y 11 de la resolución 214 de 2022.\n\nLa garantía del dispositivo médico será como mínimo por un (1) año a partir de la fecha de adaptación del dispositivo médico, periodo durante el cual se realiza reparación o reposición del dispositivo médico, si aplica.",
+        },
+      ],
+    },
+    {
+      titulo: "6. Firma",
+      campos: [
+        { label: "Firma autorizada (nombre y firma del director técnico / perfil profesional)", value: "" },
+      ],
+    },
+    {
+      titulo: "CONTROL DE CAMBIOS",
+      campos: [
+        { label: "VERSIÓN", value: "00" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de febrero 2024" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Elaboración del documento" },
+        { label: "VERSIÓN", value: "001" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de marzo 2025" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Revisión y aprobación del documento." },
+      ],
+    },
+    {
+      titulo: "ELABORÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+    {
+      titulo: "REVISÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "María del Pilar Jiménez B" },
+        { label: "CARGO", value: "Asistente técnico" },
+        { label: "FIRMA", value: "/firma-pilar.jpeg" },
+      ],
+    },
+    {
+      titulo: "APROBÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+  ]
+
+  const crearFichaResinaVacia = (): Seccion[] => [
+    {
+      titulo: "1. Información de Identificación y Trazabilidad",
+      campos: [
+        { label: "Nombre del paciente", value: "" },
+        { label: "Prescriptor", value: "" },
+        { label: "Clasificación de DMSMB", value: "Línea de prótesis fija / provisional en termo curado" },
+        { label: "Número de Serie o identificación del dispositivo", value: "" },
+      ],
+    },
+    {
+      titulo: "2. Identificación del producto",
+      campos: [
+        {
+          label: "Descripción técnica del dispositivo médico",
+          value: "Restauración dental provisional fabricada a medida para cada paciente mediante resina acrílica termocurada de uso odontológico. Elaborada en laboratorio dental mediante procesos de polimerización por calor, diseñada para reemplazar temporalmente dientes o estructuras dentales ausentes o preparadas, proporcionando protección, función masticatoria, estabilidad oclusal y estética durante el período previo a la instalación de la restauración definitiva.",
+        },
+        {
+          label: "Uso previsto",
+          value: "Mantener la función, estética y protección de dientes preparados o espacios edéntulos durante tratamientos protésicos, restauradores o de rehabilitación oral. Su finalidad es preservar la posición de los dientes, proteger los tejidos orales, favorecer la adaptación funcional y estética del paciente y servir como restauración temporal mientras se fabrica el dispositivo definitivo.",
+        },
+        {
+          label: "Materiales Empleados",
+          value: "Resina acrílica termocurada de grado odontológico.\nPigmentos y caracterizadores dentales biocompatibles (cuando aplique).\nMateriales para acabado, ajuste y pulido.\nDebe registrarse la marca comercial, referencia y número de lote de todos los materiales utilizados en la fabricación del dispositivo.",
+        },
+        {
+          label: "Vida útil estimada",
+          value: "Dispositivo de carácter temporal con una vida útil estimada entre 3 y 12 meses, dependiendo de las condiciones clínicas, ubicación de la restauración, hábitos del paciente, fuerzas masticatorias y cumplimiento de las recomendaciones profesionales. Durante este período pueden requerirse ajustes, reparaciones, rebasados o recementaciones para mantener su correcta adaptación, funcionalidad y comodidad hasta la colocación de la restauración definitiva.",
+        },
+      ],
+    },
+    {
+      titulo: "3. Proceso de diseño y fabricación",
+      campos: [
+        { label: "Especificaciones de diseño", value: "Prescripción odontológica, Diseño personalizado mediante CAD/CAM o modelos de yeso basados en la anatomía del paciente" },
+        {
+          label: "Normas aplicadas",
+          value: "Resolución 214 de 2022 “Por la cual se establecen los requisitos sanitarios que deben cumplir los dispositivos médicos sobre medida bucal”\n\nOtras normas técnicas nacionales o internacionales aplicadas para materias primas utilizadas, procesos de fabricación y control de calidad. Ejemplo:\nISO 10139-1 / ISO 10139-2: Materiales de revestimiento blando para prótesis.\nISO 10477: Materiales poliméricos para coronas y recubrimientos (prótesis fija).\nISO 10873: Adhesivos para prótesis dentales.\nISO 13017: Anclajes magnéticos para prótesis.\nISO 7405 y ISO 10993: Evaluación biológica de materiales dentales y médicos.\nISO 13116: Método de ensayo para determinar la radiopacidad de los materiales\nISO 10271: Métodos de ensayo de corrosión para materiales metálicos\nISO 12836: Dispositivos de digitalización para sistemas CAD/CAM para restauraciones dentales indirectas: métodos de ensayo para evaluar la precisión\nNTC-ISO 10993: Evaluación biológica de dispositivos médicos\nISO 15841: alambres para uso en ortodoncia",
+        },
+      ],
+    },
+    {
+      titulo: "4. Requisitos de seguridad y funcionamiento",
+      campos: [
+        {
+          label: "Análisis de riesgos",
+          value: "El provisional en resina acrílica termocurada es una restauración temporal utilizada para proteger dientes preparados o reemplazar temporalmente dientes ausentes durante un tratamiento odontológico. Aunque es un dispositivo de bajo riesgo, pueden presentarse molestias leves durante el período de adaptación, sensibilidad dental temporal, desgaste del material, fractura o desprendimiento de la restauración. También puede producirse acumulación de placa bacteriana o irritación gingival si no se mantiene una adecuada higiene oral. En casos poco frecuentes, pueden presentarse reacciones de hipersensibilidad a los materiales empleados.",
+        },
+        {
+          label: "Advertencias y contraindicaciones",
+          value: "Advertencias:\nEste dispositivo es de carácter temporal y no sustituye la restauración definitiva.\nEvite consumir alimentos muy duros, pegajosos o que requieran una fuerza excesiva de masticación.\nMantenga una adecuada higiene oral para prevenir inflamación de las encías y problemas periodontales.\nNo manipule, ajuste ni intente reparar la restauración por su cuenta.\nAcuda a los controles odontológicos programados para verificar su adaptación y estado.\nContraindicaciones:\nPacientes con alergia conocida a alguno de los componentes de la resina acrílica utilizada.\nCasos clínicos en los que el profesional determine que otro tipo de restauración provisional es más apropiado.\nPacientes con hábitos parafuncionales severos no controlados (bruxismo intenso), salvo indicación profesional.",
+        },
+        {
+          label: "Instrucciones de uso",
+          value: "Cepille sus dientes después de cada comida utilizando un cepillo de cerdas suaves y crema dental.\nUtilice seda dental de acuerdo con las recomendaciones de su odontólogo.\nEvite masticar alimentos extremadamente duros o pegajosos que puedan fracturar o desprender la restauración.\nMantenga las citas de control programadas por el profesional tratante.\nSi presenta molestias persistentes, fractura, aflojamiento o desprendimiento del provisional, contacte a su odontólogo de manera inmediata.\nSiga todas las recomendaciones específicas proporcionadas por el profesional responsable de su tratamiento.",
+        },
+        {
+          label: "Instrucciones de mantenimiento",
+          value: "Revisiones periódicas recomendadas cada 6–12 meses.",
+        },
+      ],
+    },
+    {
+      titulo: "5. Garantía",
+      campos: [
+        {
+          label: "Garantía",
+          value: "El dispositivo médico sobre medida bucal cumple con los requisitos esenciales de seguridad y se ajusta estrictamente a la prescripción y a los requisitos establecidos en el capítulo VI, artículos 9, 10 y 11 de la resolución 214 de 2022.\n\nNo aplica.",
+        },
+      ],
+    },
+    {
+      titulo: "6. Firma",
+      campos: [
+        { label: "Firma autorizada (nombre y firma del director técnico / perfil profesional)", value: "" },
+      ],
+    },
+    {
+      titulo: "CONTROL DE CAMBIOS",
+      campos: [
+        { label: "VERSIÓN", value: "00" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de febrero 2024" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Elaboración del documento" },
+        { label: "VERSIÓN", value: "001" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de marzo 2025" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Revisión y aprobación del documento." },
+      ],
+    },
+    {
+      titulo: "ELABORÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+    {
+      titulo: "REVISÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "María del Pilar Jiménez B" },
+        { label: "CARGO", value: "Asistente técnico" },
+        { label: "FIRMA", value: "/firma-pilar.jpeg" },
+      ],
+    },
+    {
+      titulo: "APROBÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+  ]
+
   const handleCrearFicha = () => {
     if (!nuevaFicha.nombre.trim()) return
     const ficha: FichaTecnica = {
@@ -235,12 +466,22 @@ export default function FichasTecnicasPage() {
       url: "#",
     }
     setFichas([ficha, ...fichas])
-    setNuevaFicha({ nombre: "", tipo: "Carilla de Disilicato", fecha: new Date().toISOString().split("T")[0] })
+    setNuevaFicha({ nombre: "", tipo: "Carilla de Disilicato Estratificada", fecha: new Date().toISOString().split("T")[0] })
     setShowModal(false)
   }
 
-  const handleAbrirFicha = () => {
-    const ficha = crearFichaVacia()
+  const handleAbrirFicha = (tipo: string = "Carilla de Disilicato Estratificada") => {
+    let ficha: Seccion[] = []
+    if (tipo === "Carilla de Disilicato Monolitica") {
+      ficha = crearFichaMonoliticaVacia()
+      setTipoFichaActual(tipo)
+    } else if (tipo === "Carilla de Disilicato Impresa en Resina") {
+      ficha = crearFichaResinaVacia()
+      setTipoFichaActual(tipo)
+    } else {
+      ficha = crearFichaVacia()
+      setTipoFichaActual(tipo)
+    }
     const ultimaSolicitud = solicitudes.find((s) => s.paciente || s.odontologo) || solicitudes[0]
     if (ultimaSolicitud) {
       ficha.forEach((seccion) => {
@@ -370,8 +611,9 @@ export default function FichasTecnicasPage() {
       const contentTop = marginTop + headerHpt + gap * 2
       const availableContentHeight = pageHeight - marginBottom - contentTop
 
-      const totalPages = Math.max(1, Math.ceil((contentHeightPt + gap) / (availableContentHeight + gap)))
       const pxPerPt = fullCanvas.width / contentWidth
+
+      const totalPages = Math.max(1, Math.ceil((contentHeightPt + gap) / (availableContentHeight + gap)))
 
       for (let i = 0; i < totalPages; i++) {
         if (i > 0) {
@@ -494,7 +736,7 @@ export default function FichasTecnicasPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
         className="rounded-xl bg-card p-6 shadow-sm border border-border cursor-pointer hover:border-primary/50 transition-colors"
-        onClick={handleAbrirFicha}
+        onClick={() => handleAbrirFicha("Carilla de Disilicato Estratificada")}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -503,10 +745,66 @@ export default function FichasTecnicasPage() {
             </div>
             <div>
               <p className="text-sm text-muted-foreground">
-                Ficha rápida de Carilla de Disilicato
+                Ficha rápida de Carilla de Disilicato Estratificada
               </p>
               <p className="text-lg font-semibold text-foreground">
-                Carilla de Disilicato
+                Carilla de Disilicato Estratificada
+              </p>
+            </div>
+          </div>
+          <button className="inline-flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/20">
+            <Edit3 size={16} />
+            Editar
+          </button>
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="rounded-xl bg-card p-6 shadow-sm border border-border cursor-pointer hover:border-primary/50 transition-colors"
+        onClick={() => handleAbrirFicha("Carilla de Disilicato Monolitica")}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <FileText size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Ficha rápida de Carilla de Disilicato Monolítica
+              </p>
+              <p className="text-lg font-semibold text-foreground">
+                Carilla de Disilicato Monolítica
+              </p>
+            </div>
+          </div>
+          <button className="inline-flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/20">
+            <Edit3 size={16} />
+            Editar
+          </button>
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="rounded-xl bg-card p-6 shadow-sm border border-border cursor-pointer hover:border-primary/50 transition-colors"
+        onClick={() => handleAbrirFicha("Carilla de Disilicato Impresa en Resina")}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <FileText size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Ficha rápida de Carilla de Disilicato Impresa en Resina
+              </p>
+              <p className="text-lg font-semibold text-foreground">
+                Carilla de Disilicato Impresa en Resina
               </p>
             </div>
           </div>
@@ -610,8 +908,14 @@ export default function FichasTecnicasPage() {
                   }
                   className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                 >
-                  <option value="Carilla de Disilicato">
-                    Carilla de Disilicato
+                  <option value="Carilla de Disilicato Estratificada">
+                    Carilla de Disilicato Estratificada
+                  </option>
+                  <option value="Carilla de Disilicato Monolitica">
+                    Carilla de Disilicato Monolítica
+                  </option>
+                  <option value="Carilla de Disilicato Impresa en Resina">
+                    Carilla de Disilicato Impresa en Resina
                   </option>
                   <option value="Corona Zirconio">Corona Zirconio</option>
                   <option value="Corona Disilicato">Corona Disilicato</option>
@@ -656,7 +960,7 @@ export default function FichasTecnicasPage() {
           <div className="rounded-xl bg-card shadow-xl w-full max-w-[850px] my-8 flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between p-6 border-b border-border">
               <h3 className="text-lg font-semibold text-foreground">
-                Carilla de Disilicato
+                {tipoFichaActual === "Carilla de Disilicato Monolitica" ? "Carilla de Disilicato Monolítica" : tipoFichaActual === "Carilla de Disilicato Impresa en Resina" ? "Carilla de Disilicato Impresa en Resina" : "Carilla de Disilicato Estratificada"}
               </h3>
               <button
                 onClick={() => setShowFichaModal(false)}
@@ -666,15 +970,37 @@ export default function FichasTecnicasPage() {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto bg-neutral-200">
-              <FichaTecnicaDisilicato
-                secciones={fichaActual}
-                onCampoChange={handleCampoChange}
-                editing={editingFicha}
-                onToggleEditing={() => setEditingFicha((e) => !e)}
-                onDownload={handleDownloadPdf}
-                downloading={downloadingFicha}
-                showToolbar={true}
-              />
+              {tipoFichaActual === "Carilla de Disilicato Monolitica" ? (
+                <FichaTecnicaMonolitica
+                  secciones={fichaActual}
+                  onCampoChange={handleCampoChange}
+                  editing={editingFicha}
+                  onToggleEditing={() => setEditingFicha((e) => !e)}
+                  onDownload={handleDownloadPdf}
+                  downloading={downloadingFicha}
+                  showToolbar={true}
+                />
+              ) : tipoFichaActual === "Carilla de Disilicato Impresa en Resina" ? (
+                <FichaTecnicaResina
+                  secciones={fichaActual}
+                  onCampoChange={handleCampoChange}
+                  editing={editingFicha}
+                  onToggleEditing={() => setEditingFicha((e) => !e)}
+                  onDownload={handleDownloadPdf}
+                  downloading={downloadingFicha}
+                  showToolbar={true}
+                />
+              ) : (
+                <FichaTecnicaDisilicato
+                  secciones={fichaActual}
+                  onCampoChange={handleCampoChange}
+                  editing={editingFicha}
+                  onToggleEditing={() => setEditingFicha((e) => !e)}
+                  onDownload={handleDownloadPdf}
+                  downloading={downloadingFicha}
+                  showToolbar={true}
+                />
+              )}
             </div>
             <div className="flex items-center justify-end gap-3 p-6 border-t border-border">
               <button

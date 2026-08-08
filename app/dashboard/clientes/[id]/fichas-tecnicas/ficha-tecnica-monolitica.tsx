@@ -43,7 +43,7 @@ function EditableField({
       value={value}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
-       className={`w-full rounded border border-amber-300 bg-amber-50 p-2 text-[11px] text-neutral-900 placeholder:text-neutral-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200 ${className}`}
+      className={`w-full rounded border border-amber-300 bg-amber-50 p-2 text-[11px] text-neutral-900 placeholder:text-neutral-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200 ${className}`}
       rows={rows}
     />
   )
@@ -172,7 +172,7 @@ function DocumentHeader() {
   )
 }
 
-export function FichaTecnicaDisilicato({
+export function FichaTecnicaMonolitica({
   secciones,
   onCampoChange,
   editing,
@@ -206,7 +206,6 @@ export function FichaTecnicaDisilicato({
     })
   }
 
-  // Identificar secciones especiales
   const seccionControlCambios = secciones.find(s => s.titulo === "CONTROL DE CAMBIOS")
   const seccionElaboro = secciones.find(s => s.titulo === "ELABORÓ")
   const seccionReviso = secciones.find(s => s.titulo === "REVISÓ")
@@ -214,7 +213,6 @@ export function FichaTecnicaDisilicato({
 
   return (
     <div>
-      {/* Toolbar */}
       {showToolbar && (
         <div className="mx-auto mb-6 flex max-w-[794px] flex-wrap items-center justify-between gap-3 px-4">
           <div className="text-sm text-neutral-600">
@@ -253,13 +251,11 @@ export function FichaTecnicaDisilicato({
         </div>
       )}
 
-      {/* Document */}
       <article
         id="documento"
-         className="mx-auto max-w-[794px] bg-white px-8 py-10 text-[11px] leading-relaxed text-neutral-900 shadow-lg"
+        className="mx-auto max-w-[794px] bg-white px-8 py-10 text-[11px] leading-relaxed text-neutral-900 shadow-lg"
         style={{ fontFamily: "Arial, Helvetica, sans-serif" }}
       >
-        {/* Encabezado */}
         <DocumentHeader />
 
         {secciones.slice(0, 5).map((seccion, seccionIndex) => {
@@ -312,7 +308,6 @@ export function FichaTecnicaDisilicato({
           )
         })}
 
-        {/* Sección de Firma */}
         {secciones.find(s => s.titulo === "6. Firma" || s.titulo === "Firma") && (
           <div>
             <p data-block className="mb-6 mt-8 font-bold">
@@ -321,7 +316,6 @@ export function FichaTecnicaDisilicato({
           </div>
         )}
 
-        {/* Control de cambios */}
         {seccionControlCambios && (
           <div>
             <h3 data-block className="mb-2 mt-8 text-[11px] font-bold">
@@ -348,9 +342,8 @@ export function FichaTecnicaDisilicato({
           </div>
         )}
 
-        {/* Responsables */}
         {[seccionElaboro, seccionReviso, seccionAprobo].filter(Boolean).length > 0 && (
-            <table data-block className="w-full border-collapse text-[11px]">
+          <table data-block className="w-full border-collapse text-[11px]">
             <thead>
               <tr>
                 <Th className="w-32" />
