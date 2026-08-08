@@ -114,7 +114,7 @@ function Td({ children, className = "", seccionIndex, campoIndex, editing, onCam
   const isEditable = seccionIndex !== undefined && campoIndex !== undefined && editing && onCampoChange
 
   return (
-    <td className={`border border-neutral-300 p-2 align-top ${className}`}>
+    <td className={`border border-neutral-300 p-2 align-middle ${className}`}>
       {isEditable ? (
         <EditableField
           value={value}
@@ -349,40 +349,52 @@ export function FichaTecnicaDisilicato({
         )}
 
         {/* Responsables */}
-        {[seccionElaboro, seccionReviso, seccionAprobo].filter(Boolean).map((seccion) => {
-          if (!seccion) return null
-          const seccionIndex = secciones.indexOf(seccion)
-          return (
-            <table key={seccion.titulo} data-block className="w-full border-collapse text-[12px]">
-              <thead>
-                <tr>
-                  <Th className="w-24" />
-                  <Th>NOMBRES Y APELLIDOS</Th>
-                  <Th>CARGO</Th>
-                  <Th>FIRMA</Th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <Td className="font-bold">{seccion.titulo}</Td>
-                  <Td>{seccion.campos[0]?.value}</Td>
-                  <Td>{seccion.campos[1]?.value}</Td>
-                  <Td>
-                    {seccion.campos[2]?.value && seccion.campos[2].value.startsWith("/") ? (
-                      <img
-                        src={seccion.campos[2].value}
-                        alt="Firma"
-                        className="h-20 object-contain"
-                      />
-                    ) : (
-                      seccion.campos[2]?.value
-                    )}
-                  </Td>
-                </tr>
-              </tbody>
-            </table>
-          )
-        })}
+        {[seccionElaboro, seccionReviso, seccionAprobo].filter(Boolean).length > 0 && (
+          <table data-block className="w-full border-collapse text-[12px]">
+            <thead>
+              <tr>
+                <Th className="w-32" />
+                <Th className="w-[40%]">NOMBRES Y APELLIDOS</Th>
+                <Th className="w-[30%]">CARGO</Th>
+                <Th className="w-[30%]">FIRMA</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {[seccionElaboro, seccionReviso, seccionAprobo].filter(Boolean).map((seccion) => {
+                if (!seccion) return null
+                const seccionIndex = secciones.indexOf(seccion)
+                return (
+                  <tr key={seccion.titulo}>
+                    <Td className="font-bold h-20 align-middle">{seccion.titulo}</Td>
+                    <Td className="h-20 align-middle">
+                      <div className="min-h-[1.5rem] overflow-hidden">
+                        {seccion.campos[0]?.value || <span className="text-neutral-400">Sin información</span>}
+                      </div>
+                    </Td>
+                    <Td className="h-20 align-middle">
+                      <div className="min-h-[1.5rem] overflow-hidden">
+                        {seccion.campos[1]?.value || <span className="text-neutral-400">Sin información</span>}
+                      </div>
+                    </Td>
+                    <Td className="h-20 align-middle">
+                      <div className="min-h-[1.5rem] overflow-hidden">
+                        {seccion.campos[2]?.value && seccion.campos[2].value.startsWith("/") ? (
+                          <img
+                            src={seccion.campos[2].value}
+                            alt="Firma"
+                            className="h-20 object-contain"
+                          />
+                        ) : (
+                          seccion.campos[2]?.value || <span className="text-neutral-400">Sin información</span>
+                        )}
+                      </div>
+                    </Td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        )}
       </article>
     </div>
   )
