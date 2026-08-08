@@ -25,6 +25,7 @@ import { FichaTecnicaCoronaDisilicatoMonolitica } from "./ficha-tecnica-corona-d
 import { FichaTecnicaCoronaDisilicatoImplante } from "./ficha-tecnica-corona-disilicato-implante"
 import { FichaTecnicaCoronaZirconioEstratificada } from "./ficha-tecnica-corona-zirconio-estratificada"
 import { FichaTecnicaCoronaZirconioMonolitica } from "./ficha-tecnica-corona-zirconio-monolitica"
+import { FichaTecnicaCoronaZirconioImplante } from "./ficha-tecnica-corona-zirconio-implante"
 
 interface FichaTecnica {
   id: number
@@ -1261,6 +1262,120 @@ export default function FichasTecnicasPage() {
     },
   ]
 
+  const crearFichaCoronaZirconioImplanteVacia = (): Seccion[] => [
+    {
+      titulo: "1. Información de Identificación y Trazabilidad",
+      campos: [
+        { label: "Nombre del paciente", value: "" },
+        { label: "Prescriptor", value: "" },
+        { label: "Clasificación de DMSMB", value: "Línea de prótesis fija / corona en zirconio monolítica" },
+        { label: "Número de Serie o identificación del dispositivo", value: "" },
+      ],
+    },
+    {
+      titulo: "2. Identificación del producto",
+      campos: [
+        {
+          label: "Descripción técnica del dispositivo médico",
+          value: "Corona dental fija elaborada completamente en dióxido de zirconio (ZrO₂) de grado médico mediante tecnología CAD/CAM. Restauración protésica personalizada, diseñada de acuerdo con la anatomía y requerimientos funcionales del paciente. Se caracteriza por su alta resistencia mecánica, biocompatibilidad y estabilidad estética, sin recubrimientos cerámicos estratificados.",
+        },
+        {
+          label: "Uso previsto",
+          value: "Restauración protésica fija destinada a reemplazar la estructura coronaria de un diente natural que ha sufrido pérdida parcial o total de tejido por caries, fracturas, desgaste o tratamiento endodóntico. Su finalidad es restablecer la función masticatoria, la anatomía dental, la oclusión y la estética del paciente.",
+        },
+        {
+          label: "Materiales Empleados",
+          value: "Dióxido de zirconio (ZrO₂) policristalino estabilizado con itrio (Y-TZP) de grado médico para uso odontológico. Pigmentos y maquillajes cerámicos biocompatibles para caracterización estética cuando aplique. Materiales compatibles con tejidos orales y de comprobada biocompatibilidad. Se debe registrar la marca comercial, referencia y número de lote de todos los materiales utilizados en la fabricación del dispositivo médico sobre medida bucal.",
+        },
+        {
+          label: "Vida útil estimada",
+          value: "Entre 10 y 15 años o más, dependiendo de las condiciones clínicas del paciente, hábitos de higiene oral, controles odontológicos periódicos, estado periodontal y ausencia de hábitos parafuncionales no controlados.",
+        },
+      ],
+    },
+    {
+      titulo: "3. Proceso de diseño y fabricación",
+      campos: [
+        { label: "Especificaciones de diseño", value: "Prescripción odontológica, Diseño personalizado mediante CAD/CAM o modelos de yeso basados en la anatomía del paciente" },
+        {
+          label: "Normas aplicadas",
+          value: "Resolución 214 de 2022 “Por la cual se establecen los requisitos sanitarios que deben cumplir los dispositivos médicos sobre medida bucal”\n\nOtras normas técnicas nacionales o internacionales aplicadas para materias primas utilizadas, procesos de fabricación y control de calidad. Ejemplo:\nISO 10139-1 / ISO 10139-2: Materiales de revestimiento blando para prótesis.\nISO 10477: Materiales poliméricos para coronas y recubrimientos (prótesis fija).\nISO 10873: Adhesivos para prótesis dentales.\nISO 13017: Anclajes magnéticos para prótesis.\nISO 7405 y ISO 10993: Evaluación biológica de materiales dentales y médicos.\nISO 13116: Método de ensayo para determinar la radiopacidad de los materiales\nISO 10271: Métodos de ensayo de corrosión para materiales metálicos\nISO 12836: Dispositivos de digitalización para sistemas CAD/CAM para restauraciones dentales indirectas: métodos de ensayo para evaluar la precisión\nNTC-ISO 10993: Evaluación biológica de dispositivos médicos\nISO 15841: alambres para uso en ortodoncia",
+        },
+      ],
+    },
+    {
+      titulo: "4. Requisitos de seguridad y funcionamiento",
+      campos: [
+        {
+          label: "Análisis de riesgos",
+          value: "La corona en zirconio monolítica está fabricada con materiales biocompatibles y seguros para uso odontológico. Los riesgos asociados son poco frecuentes e incluyen sensibilidad dental temporal después de la instalación, molestias oclusales (incompatibilidad oclusal) que pueden requerir ajuste profesional, descementación de la corona, desgaste de dientes antagonistas en casos específicos y fractura de la restauración debido a traumatismos severos o uso inadecuado.",
+        },
+        {
+          label: "Advertencias y contraindicaciones",
+          value: "Evite morder objetos duros como hielo, huesos, semillas, bolígrafos o abrir empaques con los dientes, ya que esto puede comprometer la integridad de la restauración. Informe a su odontólogo si presenta dolor persistente, movilidad, fractura o desprendimiento de la corona. Los pacientes con bruxismo o apretamiento dental deben seguir las recomendaciones profesionales y utilizar férulas de protección cuando sean indicadas. Contraindicada en pacientes con hipersensibilidad conocida a cualquiera de los materiales empleados en la restauración o cementación.",
+        },
+        {
+          label: "Instrucciones de uso",
+          value: "La corona debe utilizarse como un diente natural para las funciones normales de masticación. Mantenga una adecuada higiene oral mediante cepillado después de cada comida, uso diario de seda dental y enjuagues bucales cuando sean recomendados por el odontólogo. Asista a controles odontológicos periódicos para evaluar el estado de la restauración y los tejidos de soporte. En caso de fractura, desgaste excesivo, movilidad o desprendimiento de la corona, consulte inmediatamente a su odontólogo y evite intentar repararla por cuenta propia.",
+        },
+        {
+          label: "Instrucciones de mantenimiento",
+          value: "Mantenga una adecuada higiene oral mediante cepillado dental después de cada comida utilizando un cepillo de cerdas suaves y crema dental con flúor.\nUtilice diariamente seda dental o cepillos interproximales para limpiar las zonas alrededor de la corona y prevenir la acumulación de placa bacteriana.\nAcuda a controles odontológicos periódicos, al menos cada seis meses o según la frecuencia indicada por su odontólogo, para evaluar el estado de la corona y los tejidos de soporte.\nInforme a su odontólogo si presenta dolor, sensibilidad persistente, movilidad de la corona, cambios en la mordida, fracturas, desgaste inusual o cualquier otra alteración.\nNo intente ajustar, reparar o cementar nuevamente la corona por cuenta propia; cualquier procedimiento debe ser realizado por un profesional odontológico.",
+        },
+      ],
+    },
+    {
+      titulo: "5. Garantía",
+      campos: [
+        {
+          label: "Garantía",
+          value: "El dispositivo médico sobre medida bucal cumple con los requisitos esenciales de seguridad y se ajusta estrictamente a la prescripción y a los requisitos establecidos en el capítulo VI, artículos 9, 10 y 11 de la resolución 214 de 2022.\n\nLa garantía del dispositivo médico será como mínimo por un (1) año a partir de la fecha de adaptación del dispositivo médico, periodo durante el cual se realiza reparación o reposición del dispositivo médico, si aplica.",
+        },
+      ],
+    },
+    {
+      titulo: "6. Firma",
+      campos: [
+        { label: "Firma autorizada (nombre y firma del director técnico / perfil profesional)", value: "" },
+      ],
+    },
+    {
+      titulo: "CONTROL DE CAMBIOS",
+      campos: [
+        { label: "VERSIÓN", value: "00" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de febrero 2024" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Elaboración del documento" },
+        { label: "VERSIÓN", value: "001" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de marzo 2025" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Revisión y aprobación del documento." },
+      ],
+    },
+    {
+      titulo: "ELABORÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+    {
+      titulo: "REVISÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "María del Pilar Jiménez B" },
+        { label: "CARGO", value: "Asistente técnico" },
+        { label: "FIRMA", value: "/firma-pilar.jpeg" },
+      ],
+    },
+    {
+      titulo: "APROBÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+  ]
+
   const handleCrearFicha = () => {
     if (!nuevaFicha.nombre.trim()) return
     const ficha: FichaTecnica = {
@@ -1303,6 +1418,9 @@ export default function FichasTecnicasPage() {
       setTipoFichaActual(tipo)
     } else if (tipo === "Corona Zirconio Monolitica") {
       ficha = crearFichaCoronaZirconioMonoliticaVacia()
+      setTipoFichaActual(tipo)
+    } else if (tipo === "Corona Zirconio Sobre Implante") {
+      ficha = crearFichaCoronaZirconioImplanteVacia()
       setTipoFichaActual(tipo)
     } else {
       ficha = crearFichaVacia()
@@ -1827,6 +1945,34 @@ export default function FichasTecnicasPage() {
               </p>
               <p className="text-lg font-semibold text-foreground">
                 Corona en zirconio estratificada
+              </p>
+            </div>
+          </div>
+          <button className="inline-flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/20">
+            <Edit3 size={16} />
+            Editar
+          </button>
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="rounded-xl bg-card p-6 shadow-sm border border-border cursor-pointer hover:border-primary/50 transition-colors"
+        onClick={() => handleAbrirFicha("Corona Zirconio Sobre Implante")}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <FileText size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Ficha rápida de Corona en zirconio sobre implante
+              </p>
+              <p className="text-lg font-semibold text-foreground">
+                Corona en zirconio sobre implante
               </p>
             </div>
           </div>
