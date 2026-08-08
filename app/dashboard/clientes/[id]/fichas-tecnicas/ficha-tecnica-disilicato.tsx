@@ -43,7 +43,7 @@ function EditableField({
       value={value}
       placeholder={placeholder}
       onChange={(e) => onChange(e.target.value)}
-      className={`w-full rounded border border-amber-300 bg-amber-50 p-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200 ${className}`}
+       className={`w-full rounded border border-amber-300 bg-amber-50 p-2 text-[11px] text-neutral-900 placeholder:text-neutral-400 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200 ${className}`}
       rows={rows}
     />
   )
@@ -51,11 +51,11 @@ function EditableField({
 
 function Section({ title, level = 1 }: { title: string; level?: 1 | 2 }) {
   return level === 1 ? (
-    <h1 className="mb-4 border-b-2 border-neutral-800 pb-2 text-xl font-bold">
+    <h1 className="mb-4 border-b-2 border-neutral-800 pb-2 text-[11px] font-bold">
       {title}
     </h1>
   ) : (
-    <h2 className="mb-3 mt-8 text-lg font-bold">
+    <h2 className="mb-3 mt-8 text-[11px] font-bold">
       {title}
     </h2>
   )
@@ -256,7 +256,7 @@ export function FichaTecnicaDisilicato({
       {/* Document */}
       <article
         id="documento"
-        className="mx-auto max-w-[794px] bg-white px-8 py-10 text-[13px] leading-relaxed text-neutral-900 shadow-lg"
+         className="mx-auto max-w-[794px] bg-white px-8 py-10 text-[11px] leading-relaxed text-neutral-900 shadow-lg"
         style={{ fontFamily: "Arial, Helvetica, sans-serif" }}
       >
         {/* Encabezado */}
@@ -324,10 +324,10 @@ export function FichaTecnicaDisilicato({
         {/* Control de cambios */}
         {seccionControlCambios && (
           <div>
-            <h3 data-block className="mb-2 mt-8 font-bold">
+            <h3 data-block className="mb-2 mt-8 text-[11px] font-bold">
               CONTROL DE CAMBIOS
             </h3>
-            <table data-block className="mb-8 w-full border-collapse text-[12px]">
+            <table data-block className="mb-8 w-full border-collapse text-[11px]">
               <thead>
                 <tr>
                   <Th>VERSIÓN</Th>
@@ -350,7 +350,7 @@ export function FichaTecnicaDisilicato({
 
         {/* Responsables */}
         {[seccionElaboro, seccionReviso, seccionAprobo].filter(Boolean).length > 0 && (
-          <table data-block className="w-full border-collapse text-[12px]">
+            <table data-block className="w-full border-collapse text-[11px]">
             <thead>
               <tr>
                 <Th className="w-32" />
