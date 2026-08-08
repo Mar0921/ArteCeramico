@@ -323,7 +323,7 @@ export default function FichasTecnicasPage() {
       const shot = (el: HTMLElement) =>
         html2canvas(el, { scale: 2, backgroundColor: "#ffffff", useCORS: true, allowTaint: true } as any)
 
-      const headerRect = headerEl.getBoundingClientRect()
+      let headerRect = headerEl.getBoundingClientRect()
       const indicatorEl = document.getElementById("page-indicator")
       const indRect = indicatorEl?.getBoundingClientRect()
       const indicatorRel = indRect
@@ -335,6 +335,16 @@ export default function FichasTecnicasPage() {
         : null
 
       const headerCanvas = await shot(headerEl)
+      const logoEl = document.getElementById("doc-header-logo")
+      let logoRect = null
+      const logoDataUrl = logoEl ? await shot(logoEl).then(c => c.toDataURL("image/png")) : null
+      if (logoEl && headerEl) {
+        headerRect = headerEl.getBoundingClientRect()
+        logoRect = logoEl.getBoundingClientRect()
+        logoEl.style.display = "none"
+      }
+      const headerCanvasNoLogo = await shot(headerEl)
+      headerEl.style.display = "none"
       const fullCanvas = await shot(node)
 
       const pdf = new jsPDF({ unit: "pt", format: "a4" })
@@ -349,8 +359,11 @@ export default function FichasTecnicasPage() {
       const pageBottom = pageHeight - marginBottom
 
       const ptHeight = (c: HTMLCanvasElement) => (c.height * contentWidth) / c.width
-      const headerHpt = ptHeight(headerCanvas)
-      const headerData = headerCanvas.toDataURL("image/png")
+      const headerHpt = ptHeight(headerCanvasNoLogo)
+      const headerData = headerCanvasNoLogo.toDataURL("image/png")
+
+      const scaleX = headerRect ? contentWidth / headerRect.width : 0
+      const scaleY = headerRect ? headerHpt / headerRect.height : 0
 
       const topOfContent = () => marginTop + headerHpt + gap * 2
       const contentHeightPt = ptHeight(fullCanvas)
@@ -365,6 +378,19 @@ export default function FichasTecnicasPage() {
           pdf.addPage()
         }
         pdf.addImage(headerData, "PNG", marginX, marginTop, contentWidth, headerHpt)
+
+        if (logoDataUrl && logoRect && headerRect) {
+          const logoH = 14
+          const aspect = logoRect.width / logoRect.height
+          const logoW = logoH * aspect
+          const logoX = marginX + (logoRect.left - headerRect.left) / headerRect.width * contentWidth
+          const logoY = marginTop + (logoRect.top - headerRect.top) / headerRect.height * headerHpt
+          if (logoW > 0 && logoH > 0 && logoX >= marginX && logoY >= marginTop) {
+            try {
+              pdf.addImage(logoDataUrl, "PNG", logoX, logoY, logoW, logoH)
+            } catch {}
+          }
+        }
 
         const startY = i * availableContentHeight
         const sliceH = Math.min(availableContentHeight, contentHeightPt - startY)
@@ -408,6 +434,14 @@ export default function FichasTecnicasPage() {
       if (parent) {
         parent.style.overflow = ""
         parent.style.maxHeight = ""
+      }
+      const headerElFinally = document.getElementById("doc-header")
+      if (headerElFinally) {
+        headerElFinally.style.display = ""
+      }
+      const logoElFinally = document.getElementById("doc-header-logo")
+      if (logoElFinally) {
+        logoElFinally.style.display = ""
       }
       setDownloadingFicha(false)
       setEditingFicha(true)

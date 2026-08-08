@@ -135,7 +135,7 @@ function DocumentHeader() {
       <tbody>
         <tr>
           <td rowSpan={2} className="w-[36%] border border-neutral-400 p-2 align-middle">
-            <div className="relative h-12 w-full">
+            <div id="doc-header-logo" className="relative h-12 w-full">
               <Image
                 src="/Arte_Ceramico_Logo.svg"
                 alt="Arte Cerámico - Laboratorio Dental"
