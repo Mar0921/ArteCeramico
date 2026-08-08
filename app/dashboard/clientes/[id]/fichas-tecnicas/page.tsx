@@ -26,6 +26,13 @@ import { FichaTecnicaCoronaDisilicatoImplante } from "./ficha-tecnica-corona-dis
 import { FichaTecnicaCoronaZirconioEstratificada } from "./ficha-tecnica-corona-zirconio-estratificada"
 import { FichaTecnicaCoronaZirconioMonolitica } from "./ficha-tecnica-corona-zirconio-monolitica"
 import { FichaTecnicaCoronaZirconioImplante } from "./ficha-tecnica-corona-zirconio-implante"
+import { FichaTecnicaIncrustacionDisilicato } from "./ficha-tecnica-incrustacion-disilicato"
+import { FichaTecnicaIncrustacionMetal } from "./ficha-tecnica-incrustacion-metal"
+import { FichaTecnicaNucleoNPG } from "./ficha-tecnica-nucleo-npg"
+import { FichaTecnicaProtesisHibridaAllOnFour } from "./ficha-tecnica-protesis-hibrida-all-on-four"
+import { FichaTecnicaProvisionalPmmaImplante } from "./ficha-tecnica-provisional-pmma-implante"
+import { FichaTecnicaProvisionalPmma } from "./ficha-tecnica-provisional-pmma"
+import { FichaTecnicaProvisionalResinaImpresa } from "./ficha-tecnica-provisional-resina-impresa"
 
 interface FichaTecnica {
   id: number
@@ -1376,6 +1383,816 @@ export default function FichasTecnicasPage() {
     },
   ]
 
+  const crearFichaIncrustacionDisilicatoVacia = (): Seccion[] => [
+    {
+      titulo: "1. Información de Identificación y Trazabilidad",
+      campos: [
+        { label: "Nombre del paciente", value: "" },
+        { label: "Prescriptor", value: "" },
+        { label: "Clasificación de DMSMB", value: "Línea de prótesis fija / Incrustación en Disilicato de litio" },
+        { label: "Número de Serie o identificación del dispositivo", value: "" },
+      ],
+    },
+    {
+      titulo: "2. Identificación del producto",
+      campos: [
+        {
+          label: "Descripción técnica del dispositivo médico",
+          value: "Restauración dental indirecta sobre medida elaborada en cerámica de disilicato de litio de grado médico, diseñada para reconstruir parcial o totalmente la estructura coronaria de un diente afectado. Fabricada mediante tecnología CAD/CAM o técnicas de laboratorio convencionales, ofreciendo alta resistencia mecánica, excelente estética y biocompatibilidad. La restauración se adapta de manera individual a las características anatómicas y funcionales del paciente.",
+        },
+        {
+          label: "Uso previsto",
+          value: "Restaurar dientes con pérdida moderada de estructura dental ocasionada por caries, fracturas, desgaste o reemplazo de restauraciones defectuosas, preservando la mayor cantidad posible de tejido dental sano. Su finalidad es recuperar la función masticatoria, la anatomía dental, la estabilidad oclusal y la estética.",
+        },
+        {
+          label: "Materiales Empleados",
+          value: "Cerámica de disilicato de litio de grado médico para uso odontológico, materiales de caracterización y pigmentación cerámica cuando sean requeridos, y materiales biocompatibles compatibles con los procedimientos adhesivos odontológicos. Se debe registrar la marca comercial, referencia y número de lote de todos los materiales utilizados en la fabricación del dispositivo médico sobre medida bucal.",
+        },
+        {
+          label: "Vida útil estimada",
+          value: "Entre 10 y 15 años o más, dependiendo de las condiciones clínicas del paciente, la higiene oral, los controles odontológicos periódicos, las cargas oclusales y la ausencia de hábitos parafuncionales no controlados. Durante su vida útil pueden requerirse mantenimiento o reparación según criterio clínico profesional.",
+        },
+      ],
+    },
+    {
+      titulo: "3. Proceso de diseño y fabricación",
+      campos: [
+        { label: "Especificaciones de diseño", value: "Prescripción odontológica, Diseño personalizado mediante CAD/CAM o modelos de yeso basados en la anatomía del paciente" },
+        {
+          label: "Normas aplicadas",
+          value: "Resolución 214 de 2022 “Por la cual se establecen los requisitos sanitarios que deben cumplir los dispositivos médicos sobre medida bucal)”\n\nOtras normas técnicas nacionales o internacionales aplicadas para materias primas utilizadas, procesos de fabricación y control de calidad. Ejemplo:\nISO 10139-1 / ISO 10139-2: Materiales de revestimiento blando para prótesis.\nISO 10477: Materiales poliméricos para coronas y recubrimientos (prótesis fija).\nISO 10873: Adhesivos para prótesis dentales.\nISO 13017: Anclajes magnéticos para prótesis.\nISO 7405 y ISO 10993: Evaluación biológica de materiales dentales y médicos.\nISO 13116: Método de ensayo para determinar la radiopacidad de los materiales\nISO 10271: Métodos de ensayo de corrosión para materiales metálicos\nISO 12836: Dispositivos de digitalización para sistemas CAD/CAM para restauraciones dentales indirectas: métodos de ensayo para evaluar la precisión\nNTC-ISO 10993: Evaluación biológica de dispositivos médicos\nISO 15841: alambres para uso en ortodoncia",
+        },
+      ],
+    },
+    {
+      titulo: "4. Requisitos de seguridad y funcionamiento",
+      campos: [
+        {
+          label: "Análisis de riesgos",
+          value: "La incrustación en disilicato de litio está fabricada con materiales biocompatibles destinados al uso odontológico. Los riesgos potenciales son poco frecuentes e incluyen sensibilidad dental temporal posterior a la cementación, molestias durante el período de adaptación a la mordida, fractura de la restauración por traumatismos o fuerzas excesivas, descementación, desgaste de la restauración con el tiempo y posibles filtraciones marginales en caso de deterioro de la unión adhesiva.",
+        },
+        {
+          label: "Advertencias y contraindicaciones",
+          value: "Evite masticar objetos duros como hielo, huesos, semillas, caramelos duros o utilizar los dientes para abrir envases. Informe a su odontólogo si presenta dolor persistente, sensibilidad prolongada, fractura, movilidad o desprendimiento de la restauración. Los pacientes con bruxismo o hábitos de apretamiento dental deben seguir las recomendaciones profesionales y utilizar férulas de protección cuando sean indicadas. Contraindicada en pacientes con hipersensibilidad conocida a cualquiera de los materiales utilizados en la restauración o cementación.",
+        },
+        {
+          label: "Instrucciones de uso",
+          value: "Mantenga una adecuada higiene oral mediante cepillado después de cada comida, uso diario de seda dental y controles odontológicos periódicos. Evite hábitos que generen cargas excesivas sobre la restauración, como morder objetos duros o utilizar los dientes como herramientas. Acuda regularmente a revisiones odontológicas para evaluar el estado de la incrustación y de los tejidos dentales adyacentes. En caso de fractura, desgaste significativo o desprendimiento de la restauración, consulte inmediatamente a su odontólogo. No intente reparar o recolocar la incrustación por cuenta propia.",
+        },
+        {
+          label: "Instrucciones de mantenimiento",
+          value: "Mantenga una adecuada higiene oral mediante cepillado dental después de cada comida utilizando un cepillo de cerdas suaves y crema dental.\nUtilice diariamente seda dental o elementos de higiene interdental para eliminar la placa bacteriana y los residuos alimenticios alrededor de la restauración.\nAcuda a controles odontológicos periódicos, al menos cada seis meses o según las indicaciones de su odontólogo, para evaluar el estado de la incrustación y de los tejidos dentales circundantes.\nNo intente reparar, ajustar o recolocar la restauración por cuenta propia; cualquier intervención debe ser realizada por un profesional.",
+        },
+      ],
+    },
+    {
+      titulo: "5. Garantía",
+      campos: [
+        {
+          label: "Garantía",
+          value: "El dispositivo médico sobre medida bucal cumple con los requisitos esenciales de seguridad y se ajusta estrictamente a la prescripción y a los requisitos establecidos en el capítulo VI, artículos 9, 10 y 11 de la resolución 214 de 2022.\n\nLa garantía del dispositivo médico será como mínimo por un (1) año a partir de la fecha de adaptación del dispositivo médico, periodo durante el cual se realiza reparación o reposición del dispositivo médico, si aplica.",
+        },
+      ],
+    },
+    {
+      titulo: "6. Firma",
+      campos: [
+        { label: "Firma autorizada (nombre y firma del director técnico / perfil profesional)", value: "" },
+      ],
+    },
+    {
+      titulo: "CONTROL DE CAMBIOS",
+      campos: [
+        { label: "VERSIÓN", value: "00" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de febrero 2024" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Elaboración del documento" },
+        { label: "VERSIÓN", value: "001" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de marzo 2025" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Revisión y aprobación del documento." },
+      ],
+    },
+    {
+      titulo: "ELABORÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+    {
+      titulo: "REVISÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "María del Pilar Jiménez B" },
+        { label: "CARGO", value: "Asistente técnico" },
+        { label: "FIRMA", value: "/firma-pilar.jpeg" },
+      ],
+    },
+    {
+      titulo: "APROBÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+  ]
+
+  const crearFichaIncrustacionMetalVacia = (): Seccion[] => [
+    {
+      titulo: "1. Información de Identificación y Trazabilidad",
+      campos: [
+        { label: "Nombre del paciente", value: "" },
+        { label: "Prescriptor", value: "" },
+        { label: "Clasificación de DMSMB", value: "Línea de prótesis fija / incrustación en metal" },
+        { label: "Número de Serie o identificación del dispositivo", value: "" },
+      ],
+    },
+    {
+      titulo: "2. Identificación del producto",
+      campos: [
+        {
+          label: "Descripción técnica del dispositivo médico",
+          value: "Restauración dental indirecta tipo incrustación metálica (inlay), fabricada a medida para cada paciente. Diseñada para rehabilitar pérdidas parciales de estructura dentaria en dientes posteriores, ajustándose anatómicamente a la cavidad preparada, con aleación metálica biocompatible y cementada de forma definitiva al diente.",
+        },
+        {
+          label: "Uso previsto",
+          value: "Restablecer la forma, función y resistencia mecánica de dientes con pérdida moderada de tejido dental causada por caries, fracturas o restauraciones extensas. La incrustación metálica permite recuperar la anatomía oclusal, la función masticatoria y la integridad estructural del diente, contribuyendo a la conservación de la pieza dental remanente.",
+        },
+        {
+          label: "Materiales Empleados",
+          value: "Aleación metálica odontológica biocompatible (Níquel-Cromo, Cobalto-Cromo o aleación noble, según prescripción clínica).\nMateriales para modelado y colado. Se debe registrar la marca comercial, referencia y número de lote de todos los materiales utilizados en la fabricación del dispositivo médico sobre medida bucal.",
+        },
+        {
+          label: "Vida útil estimada",
+          value: "Entre 10 y 15 años, dependiendo de las condiciones de uso, higiene oral del paciente, controles odontológicos periódicos y ausencia de hábitos parafuncionales. Durante este período pueden requerirse procedimientos de mantenimiento.",
+        },
+      ],
+    },
+    {
+      titulo: "3. Proceso de diseño y fabricación",
+      campos: [
+        { label: "Especificaciones de diseño", value: "Prescripción odontológica, Diseño personalizado mediante CAD/CAM o modelos de yeso basados en la anatomía del paciente" },
+        {
+          label: "Normas aplicadas",
+          value: "Resolución 214 de 2022 “Por la cual se establecen los requisitos sanitarios que deben cumplir los dispositivos médicos sobre medida bucal)”\n\nOtras normas técnicas nacionales o internacionales aplicadas para materias primas utilizadas, procesos de fabricación y control de calidad. Ejemplo:\nISO 10139-1 / ISO 10139-2: Materiales de revestimiento blando para prótesis.\nISO 10477: Materiales poliméricos para coronas y recubrimientos (prótesis fija).\nISO 10873: Adhesivos para prótesis dentales.\nISO 13017: Anclajes magnéticos para prótesis.\nISO 7405 y ISO 10993: Evaluación biológica de materiales dentales y médicos.\nISO 13116: Método de ensayo para determinar la radiopacidad de los materiales\nISO 10271: Métodos de ensayo de corrosión para materiales metálicos\nISO 12836: Dispositivos de digitalización para sistemas CAD/CAM para restauraciones dentales indirectas: métodos de ensayo para evaluar la precisión\nNTC-ISO 10993: Evaluación biológica de dispositivos médicos\nISO 15841: alambres para uso en ortodoncia",
+        },
+      ],
+    },
+    {
+      titulo: "4. Requisitos de seguridad y funcionamiento",
+      campos: [
+        {
+          label: "Análisis de riesgos",
+          value: "El uso de la incrustación metálica dental presenta riesgos mínimos cuando es instalada y supervisada por un profesional odontológico. En algunos casos pueden presentarse sensibilidad dental temporal, molestias durante el período de adaptación, reacciones alérgicas a componentes metálicos en pacientes susceptibles, o desprendimiento de la restauración debido a traumatismos o desgaste del cemento de fijación.",
+        },
+        {
+          label: "Advertencias y contraindicaciones",
+          value: "Advertencias:\nMantenga una adecuada higiene oral para prolongar la vida útil de la restauración.\nAcuda a controles odontológicos periódicos para verificar el estado de la incrustación.\nEvite masticar objetos extremadamente duros que puedan afectar la restauración o el diente.\nContraindicaciones:\nPacientes con alergia conocida a alguno de los componentes de la aleación metálica utilizada.",
+        },
+        {
+          label: "Instrucciones de uso",
+          value: "Mantenga una correcta higiene bucal mediante cepillado dental y uso de seda dental diariamente.\nSiga las recomendaciones indicadas por su odontólogo.\nAsista a controles periódicos para evaluar el estado de la restauración.\nEn caso de presentar dolor persistente, movilidad de la incrustación o cualquier anomalía, consulte inmediatamente a su odontólogo.\nNo requiere procedimientos especiales de limpieza diferentes a los recomendados para la higiene oral habitual.",
+        },
+        {
+          label: "Instrucciones de mantenimiento",
+          value: "Revisiones periódicas recomendadas cada 6–12 meses.",
+        },
+      ],
+    },
+    {
+      titulo: "5. Garantía",
+      campos: [
+        {
+          label: "Garantía",
+          value: "El dispositivo médico sobre medida bucal cumple con los requisitos esenciales de seguridad y se ajusta estrictamente a la prescripción y a los requisitos establecidos en el capítulo VI, artículos 9, 10 y 11 de la resolución 214 de 2022.\n\nLa garantía del dispositivo médico será como mínimo por un (1) año a partir de la fecha de adaptación del dispositivo médico, periodo durante el cual se realiza reparación o reposición del dispositivo médico, si aplica.",
+        },
+      ],
+    },
+    {
+      titulo: "6. Firma",
+      campos: [
+        { label: "Firma autorizada (nombre y firma del director técnico / perfil profesional)", value: "" },
+      ],
+    },
+    {
+      titulo: "CONTROL DE CAMBIOS",
+      campos: [
+        { label: "VERSIÓN", value: "00" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de febrero 2024" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Elaboración del documento" },
+        { label: "VERSIÓN", value: "001" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de marzo 2025" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Revisión y aprobación del documento." },
+      ],
+    },
+    {
+      titulo: "ELABORÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+    {
+      titulo: "REVISÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "María del Pilar Jiménez B" },
+        { label: "CARGO", value: "Asistente técnico" },
+        { label: "FIRMA", value: "/firma-pilar.jpeg" },
+      ],
+    },
+    {
+      titulo: "APROBÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+  ]
+
+  const crearFichaNucleoNpgVacia = (): Seccion[] => [
+    {
+      titulo: "1. Información de Identificación y Trazabilidad",
+      campos: [
+        { label: "Nombre del paciente", value: "" },
+        { label: "Prescriptor", value: "" },
+        { label: "Clasificación de DMSMB", value: "Línea de producción fija / Núcleo NPG" },
+        { label: "Número de Serie o identificación del dispositivo", value: "" },
+      ],
+    },
+    {
+      titulo: "2. Identificación del producto",
+      campos: [
+        {
+          label: "Descripción técnica del dispositivo médico",
+          value: "Núcleo colado intrarradicular fabricado a medida para cada paciente en aleación NPG (aleación metálica de alta resistencia y biocompatibilidad para uso odontológico). Diseñado para adaptarse al conducto radicular previamente tratado endodónticamente y proporcionar soporte, retención y estabilidad a una restauración coronaria definitiva. Su elaboración se realiza mediante técnicas de laboratorio dental a partir de impresiones o modelos suministrados por el profesional tratante.",
+        },
+        {
+          label: "Uso previsto",
+          value: "Restaurar dientes con pérdida extensa de estructura coronaria que han sido sometidos a tratamiento endodóntico, proporcionando una base sólida para la colocación de coronas u otras restauraciones protésicas definitivas. Su función es mejorar la retención, distribución de cargas masticatorias y estabilidad de la rehabilitación dental.",
+        },
+        {
+          label: "Materiales Empleados",
+          value: "Aleación NPG (Non-Precious Gold) para uso odontológico.\nResinas de patrón o materiales para modelado del núcleo.\nMateriales de revestimiento y colado utilizados en laboratorio dental.\nSe deberá registrar la marca comercial, referencia y número de lote de cada material utilizado en la fabricación del dispositivo médico sobre medida bucal.",
+        },
+        {
+          label: "Vida útil estimada",
+          value: "La vida útil estimada del núcleo colado en NPG es de 10 a 15 años o más, dependiendo de factores como la salud periodontal, la calidad de la restauración definitiva, las condiciones oclusales, los hábitos del paciente y el cumplimiento de los controles odontológicos periódicos. Durante este período pueden requerirse procedimientos sustitución de la restauración cuando sea clínicamente necesario.",
+        },
+      ],
+    },
+    {
+      titulo: "3. Proceso de diseño y fabricación",
+      campos: [
+        { label: "Especificaciones de diseño", value: "Prescripción odontológica, Diseño personalizado mediante CAD/CAM o modelos de yeso basados en la anatomía del paciente" },
+        {
+          label: "Normas aplicadas",
+          value: "Resolución 214 de 2022 “Por la cual se establecen los requisitos sanitarios que deben cumplir los dispositivos médicos sobre medida bucal)”\n\nOtras normas técnicas nacionales o internacionales aplicadas para materias primas utilizadas, procesos de fabricación y control de calidad. Ejemplo:\nISO 10139-1 / ISO 10139-2: Materiales de revestimiento blando para prótesis.\nISO 10477: Materiales poliméricos para coronas y recubrimientos (prótesis fija).\nISO 10873: Adhesivos para prótesis dentales.\nISO 13017: Anclajes magnéticos para prótesis.\nISO 7405 y ISO 10993: Evaluación biológica de materiales dentales y médicos.\nISO 13116: Método de ensayo para determinar la radiopacidad de los materiales\nISO 10271: Métodos de ensayo de corrosión para materiales metálicos\nISO 12836: Dispositivos de digitalización para sistemas CAD/CAM para restauraciones dentales indirectas: métodos de ensayo para evaluar la precisión\nNTC-ISO 10993: Evaluación biológica de dispositivos médicos\nISO 15841: alambres para uso en ortodoncia",
+        },
+      ],
+    },
+    {
+      titulo: "4. Requisitos de seguridad y funcionamiento",
+      campos: [
+        {
+          label: "Análisis de riesgos",
+          value: "El núcleo colado en NPG es un dispositivo dental utilizado para reforzar dientes tratados endodónticamente y servir de soporte para una corona definitiva. Cuando es instalado correctamente por un profesional odontólogo, los riesgos son mínimos. Sin embargo, pueden presentarse sensibilidad temporal, molestias durante la adaptación, descementación del núcleo o de la corona, fractura del diente remanente debido a sobrecargas oclusales o, en casos poco frecuentes, reacciones de hipersensibilidad a los materiales utilizados.",
+        },
+        {
+          label: "Advertencias y contraindicaciones",
+          value: "Advertencias:\nMantenga una adecuada higiene oral para preservar la salud del diente y los tejidos circundantes.\nAsista a controles odontológicos periódicos para evaluar el estado de la restauración.\nEvite morder objetos duros o utilizar los dientes como herramienta para prevenir fracturas o desprendimientos.\nConsulte a su odontólogo si presenta dolor persistente, movilidad de la restauración o cambios en la mordida.\nContraindicaciones:\nPacientes con alergia conocida a alguno de los componentes de la aleación NPG.\nDientes con estructura remanente insuficiente o condiciones clínicas que, según criterio profesional, no permitan la instalación segura del dispositivo.\nCasos en los que existan infecciones activas o enfermedad periodontal no controlada que requieran tratamiento previo.",
+        },
+        {
+          label: "Instrucciones de uso",
+          value: "Mantenga una higiene oral adecuada mediante cepillado dental después de cada comida y uso diario de seda dental.\nCumpla con las recomendaciones específicas indicadas por su odontólogo.\nAcuda a los controles periódicos para verificar el estado del núcleo, la corona y los tejidos de soporte.\nEvite hábitos como morder hielo, abrir envases con los dientes o consumir frecuentemente alimentos extremadamente duros.\nEn caso de presentar dolor, inflamación, movilidad o desprendimiento de la restauración, solicite atención odontológica de inmediato.",
+        },
+        {
+          label: "Instrucciones de mantenimiento",
+          value: "Revisiones periódicas recomendadas cada 6–12 meses.",
+        },
+      ],
+    },
+    {
+      titulo: "5. Garantía",
+      campos: [
+        {
+          label: "Garantía",
+          value: "El dispositivo médico sobre medida bucal cumple con los requisitos esenciales de seguridad y se ajusta estrictamente a la prescripción y a los requisitos establecidos en el capítulo VI, artículos 9, 10 y 11 de la resolución 214 de 2022.\n\nLa garantía del dispositivo médico será como mínimo por un (1) año a partir de la fecha de adaptación del dispositivo médico, periodo durante el cual se realiza reparación o reposición del dispositivo médico, si aplica.",
+        },
+      ],
+    },
+    {
+      titulo: "6. Firma",
+      campos: [
+        { label: "Firma autorizada (nombre y firma del director técnico / perfil profesional)", value: "" },
+      ],
+    },
+    {
+      titulo: "CONTROL DE CAMBIOS",
+      campos: [
+        { label: "VERSIÓN", value: "00" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de febrero 2024" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Elaboración del documento" },
+        { label: "VERSIÓN", value: "001" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de marzo 2025" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Revisión y aprobación del documento." },
+      ],
+    },
+    {
+      titulo: "ELABORÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+    {
+      titulo: "REVISÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "María del Pilar Jiménez B" },
+        { label: "CARGO", value: "Asistente técnico" },
+        { label: "FIRMA", value: "/firma-pilar.jpeg" },
+      ],
+    },
+    {
+      titulo: "APROBÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+  ]
+
+  const crearFichaProtesisHibridaAllOnFourVacia = (): Seccion[] => [
+    {
+      titulo: "1. Información de Identificación y Trazabilidad",
+      campos: [
+        { label: "Nombre del paciente", value: "" },
+        { label: "Prescriptor", value: "" },
+        { label: "Clasificación de DMSMB", value: "Línea de prótesis total / prótesis hibrida all on four" },
+        { label: "Número de Serie o identificación del dispositivo", value: "" },
+      ],
+    },
+    {
+      titulo: "2. Identificación del producto",
+      campos: [
+        {
+          label: "Descripción técnica del dispositivo médico",
+          value: "Prótesis fija implantosoportada fabricada individualmente para cada paciente a partir de registros clínicos y digitales. Está compuesta por una estructura rígida de soporte, dientes artificiales y encía protésica, unida a dos o más implantes dentales mediante componentes protésicos atornillados. Diseñada para proporcionar estabilidad, retención, distribución adecuada de cargas masticatorias y una rehabilitación funcional y estética de arco completo.",
+        },
+        {
+          label: "Uso previsto",
+          value: "Dispositivo médico odontológico sobre medida diseñado para rehabilitar pacientes total o parcialmente edéntulos mediante una prótesis fija implantosoportada. Su función es restablecer la estética, la función masticatoria, la fonación y la calidad de vida del paciente, apoyándose sobre dos o más implantes dentales estratégicamente ubicados en el maxilar o la mandíbula según el protocolo All-on-Four.",
+        },
+        {
+          label: "Materiales Empleados",
+          value: "Estructura protésica elaborada en titanio grado médico, cobalto-cromo o zirconia según diseño clínico.\nEncía artificial y base protésica confeccionadas en resina acrílica de grado médico.\nDientes protésicos en resina acrílica multicapa o cerámica. Componentes protésicos implantables (cilindros, tornillos y aditamentos) fabricados en titanio grado médico.\nTodos los materiales utilizados son biocompatibles y aptos para uso intraoral prolongado.\nDebe registrarse la marca comercial, referencia y número de lote de todos los materiales utilizados en la fabricación del dispositivo.",
+        },
+        {
+          label: "Vida útil estimada",
+          value: "La vida útil estimada de la prótesis híbrida All-on-Four es de 5 a 15 años, dependiendo de los materiales utilizados, hábitos del paciente, higiene oral, condiciones funcionales y controles periódicos de mantenimiento. Durante este período pueden requerirse ajustes, recambio de tornillos, reparaciones de la resina acrílica o sustitución de dientes protésicos debido al desgaste normal.",
+        },
+      ],
+    },
+    {
+      titulo: "3. Proceso de diseño y fabricación",
+      campos: [
+        { label: "Especificaciones de diseño", value: "Prescripción odontológica, Diseño personalizado mediante CAD/CAM o modelos de yeso basados en la anatomía del paciente" },
+        {
+          label: "Normas aplicadas",
+          value: "Resolución 214 de 2022 “Por la cual se establecen los requisitos sanitarios que deben cumplir los dispositivos médicos sobre medida bucal)”\n\nOtras normas técnicas nacionales o internacionales aplicadas para materias primas utilizadas, procesos de fabricación y control de calidad. Ejemplo:\nISO 10139-1 / ISO 10139-2: Materiales de revestimiento blando para prótesis.\nISO 10477: Materiales poliméricos para coronas y recubrimientos (prótesis fija).\nISO 10873: Adhesivos para prótesis dentales.\nISO 13017: Anclajes magnéticos para prótesis.\nISO 7405 y ISO 10993: Evaluación biológica de materiales dentales y médicos.\nISO 13116: Método de ensayo para determinar la radiopacidad de los materiales\nISO 10271: Métodos de ensayo de corrosión para materiales metálicos\nISO 12836: Dispositivos de digitalización para sistemas CAD/CAM para restauraciones dentales indirectas: métodos de ensayo para evaluar la precisión\nNTC-ISO 10993: Evaluación biológica de dispositivos médicos\nISO 15841: alambres para uso en ortodoncia",
+        },
+      ],
+    },
+    {
+      titulo: "4. Requisitos de seguridad y funcionamiento",
+      campos: [
+        {
+          label: "Análisis de riesgos",
+          value: "El uso de la prótesis híbrida All-on-Four puede estar asociado a riesgos como irritación o inflamación de los tejidos periimplantarios, incompatibilidad oclusal, acumulación de placa bacteriana alrededor de los implantes, aflojamiento o fractura de tornillos protésicos, desgaste o fractura de los dientes protésicos, dificultades en la higiene oral y molestias durante el período de adaptación. Estos riesgos pueden minimizarse mediante una adecuada higiene oral, el cumplimiento de las recomendaciones del odontólogo y la asistencia periódica a controles de mantenimiento.",
+        },
+        {
+          label: "Advertencias y contraindicaciones",
+          value: "No manipule ni intente ajustar los tornillos o componentes de la prótesis por cuenta propia.\nSi percibe movilidad de la prótesis, dolor, inflamación, sangrado, mal olor persistente o cualquier cambio en su ajuste o funcionamiento, consulte inmediatamente a su odontólogo.\nMantenga una higiene oral rigurosa y asista a los controles programados.\nEl uso de la prótesis puede estar contraindicado en pacientes con alergia conocida a alguno de sus materiales constitutivos o en aquellos que no puedan mantener una adecuada higiene oral y seguimiento clínico.",
+        },
+        {
+          label: "Instrucciones de uso",
+          value: "La prótesis híbrida All-on-Four es una rehabilitación fija que debe permanecer instalada en boca y únicamente puede ser retirada por el profesional en odontología.\nMantenga una higiene diaria cuidadosa utilizando cepillos especiales, seda dental con enhebradores, cepillos interproximales o irrigadores orales según las indicaciones recibidas.\nEvite morder objetos duros o utilizar los dientes protésicos para actividades diferentes a la masticación de alimentos.\nAsista a los controles periódicos establecidos por su odontólogo para verificar la estabilidad de los implantes, el estado de la prótesis y realizar los mantenimientos preventivos necesarios.",
+        },
+        {
+          label: "Instrucciones de mantenimiento",
+          value: "Realice una higiene oral exhaustiva después de cada comida, limpiando cuidadosamente la prótesis y los tejidos circundantes mediante cepillos de cerdas suaves, cepillos interproximales, seda dental para con enhedradores o usar irrigadores orales, según las recomendaciones de su odontólogo.\nUtilice únicamente productos de higiene oral recomendados por el profesional tratante.\nEvite el uso de elementos abrasivos que puedan rayar o deteriorar los componentes de la prótesis.\nEvite morder alimentos extremadamente duros, hielo, huesos, semillas o cualquier objeto que pueda generar sobrecarga mecánica, fracturas o aflojamiento de los componentes protésicos.\nNo intente desmontar, ajustar o reparar la prótesis por cuenta propia. Cualquier procedimiento de mantenimiento o reparación debe ser realizado exclusivamente por un profesional en odontología calificado.\nAcuda a controles periódicos cada seis meses o con la frecuencia indicada por su odontólogo para evaluar el estado de los implantes, la estabilidad de los tornillos, la integridad de la prótesis y la salud de los tejidos periimplantarios.\nInforme inmediatamente a su odontólogo si presenta movilidad de la prótesis, aflojamiento de tornillos, fracturas, molestias al masticar, inflamación, sangrado, mal olor persistente o cualquier cambio en su funcionamiento habitual.\nEvite hábitos que puedan comprometer la durabilidad de la rehabilitación, como bruxismo no controlado, morder objetos duros, abrir envases con los dientes o consumir sustancias que puedan afectar la salud oral.\nMantenga una adecuada salud general y periodontal, siguiendo las recomendaciones médicas y odontológicas para favorecer la estabilidad y longevidad de los implantes y de la prótesis.",
+        },
+      ],
+    },
+    {
+      titulo: "5. Garantía",
+      campos: [
+        {
+          label: "Garantía",
+          value: "El dispositivo médico sobre medida bucal cumple con los requisitos esenciales de seguridad y se ajusta estrictamente a la prescripción y a los requisitos establecidos en el capítulo VI, artículos 9, 10 y 11 de la resolución 214 de 2022.\n\nLa garantía del dispositivo médico será como mínimo por un (1) año a partir de la fecha de adaptación del dispositivo médico, periodo durante el cual se realiza reparación o reposición del dispositivo médico, si aplica.",
+        },
+      ],
+    },
+    {
+      titulo: "6. Firma",
+      campos: [
+        { label: "Firma autorizada (nombre y firma del director técnico / perfil profesional)", value: "" },
+      ],
+    },
+    {
+      titulo: "CONTROL DE CAMBIOS",
+      campos: [
+        { label: "VERSIÓN", value: "00" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de febrero 2024" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Elaboración del documento" },
+        { label: "VERSIÓN", value: "001" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de marzo 2025" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Revisión y aprobación del documento." },
+      ],
+    },
+    {
+      titulo: "ELABORÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+    {
+      titulo: "REVISÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "María del Pilar Jiménez B" },
+        { label: "CARGO", value: "Asistente técnico" },
+        { label: "FIRMA", value: "/firma-pilar.jpeg" },
+      ],
+    },
+    {
+      titulo: "APROBÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+  ]
+
+  const crearFichaProvisionalPmmaImplanteVacia = (): Seccion[] => [
+    {
+      titulo: "1. Información de Identificación y Trazabilidad",
+      campos: [
+        { label: "Nombre del paciente", value: "" },
+        { label: "Prescriptor", value: "" },
+        { label: "Clasificación de DMSMB", value: "Línea de prótesis fija / Provisional en PMMA sobre implante" },
+        { label: "Número de Serie o identificación del dispositivo", value: "" },
+      ],
+    },
+    {
+      titulo: "2. Identificación del producto",
+      campos: [
+        {
+          label: "Descripción técnica del dispositivo médico",
+          value: "Restauración provisional sobre implante fabricada a medida para cada paciente en PMMA (Polimetilmetacrilato) de grado odontológico, mediante tecnología CAD/CAM. Diseñada para ser instalada sobre un implante dental mediante un pilar protésico, permitiendo la rehabilitación temporal de uno o varios dientes ausentes mientras se completa el proceso de oseointegración o se fabrica la restauración definitiva. Proporciona función, estética y soporte de los tejidos blandos periimplantarios.",
+        },
+        {
+          label: "Uso previsto",
+          value: "Restaurar temporalmente la función masticatoria, fonética y estética en pacientes portadores de implantes dentales. Su finalidad es proteger el implante y los tejidos circundantes, favorecer el acondicionamiento gingival, mantener los espacios protésicos y permitir la evaluación clínica de aspectos funcionales y estéticos antes de la colocación de la restauración definitiva.",
+        },
+        {
+          label: "Materiales Empleados",
+          value: "PMMA (Polimetilmetacrilato) de grado odontológico.\nDiscos o bloques de PMMA para sistemas CAD/CAM (cuando aplique).\nPilar provisional o componente protésico compatible con el sistema de implantes utilizado.\nTornillo protésico para fijación temporal (cuando aplique).\nMateriales para acabado, ajuste y pulido.\nDebe registrarse la marca comercial, referencia y número de lote de todos los materiales utilizados en la fabricación del dispositivo.",
+        },
+        {
+          label: "Vida útil estimada",
+          value: "Dispositivo de uso temporal con una vida útil estimada entre 6 meses y 2 años, dependiendo de las condiciones clínicas, el proceso de oseointegración, las cargas oclusales, los hábitos del paciente y el plan de tratamiento establecido por el profesional tratante. Durante este período pueden requerirse ajustes, reparaciones, pulidos o reemplazos para garantizar su correcto funcionamiento y adaptación hasta la colocación de la restauración definitiva.",
+        },
+      ],
+    },
+    {
+      titulo: "3. Proceso de diseño y fabricación",
+      campos: [
+        { label: "Especificaciones de diseño", value: "Prescripción odontológica, Diseño personalizado mediante CAD/CAM o modelos de yeso basados en la anatomía del paciente" },
+        {
+          label: "Normas aplicadas",
+          value: "Resolución 214 de 2022 “Por la cual se establecen los requisitos sanitarios que deben cumplir los dispositivos médicos sobre medida bucal)”\n\nOtras normas técnicas nacionales o internacionales aplicadas para materias primas utilizadas, procesos de fabricación y control de calidad. Ejemplo:\nISO 10139-1 / ISO 10139-2: Materiales de revestimiento blando para prótesis.\nISO 10477: Materiales poliméricos para coronas y recubrimientos (prótesis fija).\nISO 10873: Adhesivos para prótesis dentales.\nISO 13017: Anclajes magnéticos para prótesis.\nISO 7405 y ISO 10993: Evaluación biológica de materiales dentales y médicos.\nISO 13116: Método de ensayo para determinar la radiopacidad de los materiales\nISO 10271: Métodos de ensayo de corrosión para materiales metálicos\nISO 12836: Dispositivos de digitalización para sistemas CAD/CAM para restauraciones dentales indirectas: métodos de ensayo para evaluar la precisión\nNTC-ISO 10993: Evaluación biológica de dispositivos médicos\nISO 15841: alambres para uso en ortodoncia",
+        },
+      ],
+    },
+    {
+      titulo: "4. Requisitos de seguridad y funcionamiento",
+      campos: [
+        {
+          label: "Análisis de riesgos",
+          value: "El uso de un Provisional en PMMA sobre Implante puede presentar riesgos como sensibilidad o molestias temporales durante el período de adaptación, irritación de los tejidos blandos periimplantarios, inflamación gingival por higiene deficiente, aflojamiento de tornillos protésicos, desgaste o fractura de la restauración provisional debido a cargas excesivas o traumatismos. También pueden presentarse alteraciones funcionales o estéticas si el dispositivo sufre deformaciones o daños. Ante cualquier molestia persistente, movilidad o fractura, se debe consultar inmediatamente al profesional tratante.",
+        },
+        {
+          label: "Advertencias y contraindicaciones",
+          value: "Utilizar únicamente bajo supervisión de un odontólogo o implantólogo.\nEvitar masticar alimentos muy duros, pegajosos o de alta resistencia que puedan fracturar el provisional.\nNo manipular, ajustar ni intentar retirar la restauración por cuenta propia.\nMantener una adecuada higiene oral para prevenir inflamación de los tejidos periimplantarios.\nNo utilizar el dispositivo si presenta fracturas, fisuras, desprendimientos o movilidad.\nAcudir inmediatamente al profesional tratante si observa aflojamiento, fractura o cambios en la adaptación de la prótesis provisional.\nEstá contraindicado en pacientes con alergia conocida a alguno de los materiales empleados en su fabricación o cuando el profesional determine que su uso no es clínicamente adecuado.",
+        },
+        {
+          label: "Instrucciones de uso",
+          value: "Durante los primeros días es normal experimentar una ligera sensación de presión, sensibilidad o cambios temporales en la mordida.\nSiga estrictamente las recomendaciones proporcionadas por el odontólogo o implantólogo.\nCepille cuidadosamente los dientes y la restauración provisional después de cada comida utilizando un cepillo de cerdas suaves.\nLimpie cuidadosamente la zona alrededor del implante siguiendo las indicaciones del profesional tratante.\nUtilice los elementos de higiene recomendados, como seda dental especial, cepillos interproximales o irrigadores bucales, cuando estén indicados.",
+        },
+        {
+          label: "Instrucciones de mantenimiento",
+          value: "Cepille cuidadosamente la restauración provisional y los dientes adyacentes después de cada comida utilizando un cepillo de cerdas suaves.\nLimpie cuidadosamente la zona alrededor del implante para evitar la acumulación de placa bacteriana.\nUtilice los implementos de higiene recomendados por el profesional tratante, como seda dental, cepillos interproximales o irrigadores bucales.. Revisiones periódicas recomendadas cada 6–12 meses.",
+        },
+      ],
+    },
+    {
+      titulo: "5. Garantía",
+      campos: [
+        {
+          label: "Garantía",
+          value: "El dispositivo médico sobre medida bucal cumple con los requisitos esenciales de seguridad y se ajusta estrictamente a la prescripción y a los requisitos establecidos en el capítulo VI, artículos 9, 10 y 11 de la resolución 214 de 2022.\n\nNo aplica.",
+        },
+      ],
+    },
+    {
+      titulo: "6. Firma",
+      campos: [
+        { label: "Firma autorizada (nombre y firma del director técnico / perfil profesional)", value: "" },
+      ],
+    },
+    {
+      titulo: "CONTROL DE CAMBIOS",
+      campos: [
+        { label: "VERSIÓN", value: "00" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de febrero 2024" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Elaboración del documento" },
+        { label: "VERSIÓN", value: "001" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de marzo 2025" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Revisión y aprobación del documento." },
+      ],
+    },
+    {
+      titulo: "ELABORÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+    {
+      titulo: "REVISÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "María del Pilar Jiménez B" },
+        { label: "CARGO", value: "Asistente técnico" },
+        { label: "FIRMA", value: "/firma-pilar.jpeg" },
+      ],
+    },
+    {
+      titulo: "APROBÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+  ]
+
+  const crearFichaProvisionalPmmaVacia = (): Seccion[] => [
+    {
+      titulo: "1. Información de Identificación y Trazabilidad",
+      campos: [
+        { label: "Nombre del paciente", value: "" },
+        { label: "Prescriptor", value: "" },
+        { label: "Clasificación de DMSMB", value: "Línea de prótesis fija / provisional en PMMA" },
+        { label: "Número de Serie o identificación del dispositivo", value: "" },
+      ],
+    },
+    {
+      titulo: "2. Identificación del producto",
+      campos: [
+        {
+          label: "Descripción técnica del dispositivo médico",
+          value: "Restauración dental provisional fabricada a medida para cada paciente en PMMA (Polimetilmetacrilato) de grado odontológico, mediante técnicas CAD/CAM. Diseñada para reemplazar temporalmente dientes ausentes o proteger dientes preparados, proporcionando función masticatoria, estabilidad oclusal, protección de tejidos dentales y estética durante el período previo a la colocación de la restauración definitiva.",
+        },
+        {
+          label: "Uso previsto",
+          value: "Mantener la función, estética y comodidad del paciente durante tratamientos protésicos, implantológicos o rehabilitadores. Su finalidad es proteger los dientes preparados y tejidos orales, preservar la posición dental, evaluar aspectos funcionales y estéticos del tratamiento y servir como restauración temporal mientras se fabrica o instala la restauración definitiva.",
+        },
+        {
+          label: "Materiales Empleados",
+          value: "PMMA (Polimetilmetacrilato) de grado médico/odontológico.\nDiscos o bloques de PMMA para sistemas CAD/CAM (cuando aplique).\nMateriales para acabado, ajuste y pulido de restauraciones dentales.\nCemento provisional o sistema de fijación temporal indicado por el profesional tratante.\nDebe registrarse la marca comercial, referencia y número de lote de todos los materiales utilizados en la fabricación del dispositivo.",
+        },
+        {
+          label: "Vida útil estimada",
+          value: "Dispositivo de uso temporal con una vida útil estimada entre 6 meses y 2 años, dependiendo de la indicación clínica, ubicación de la restauración, hábitos del paciente, condiciones oclusales y cumplimiento de los controles odontológicos. Durante este período pueden requerirse ajustes, pulidos, reparaciones o recementaciones para mantener su adecuada funcionalidad, estética y adaptación.",
+        },
+      ],
+    },
+    {
+      titulo: "3. Proceso de diseño y fabricación",
+      campos: [
+        { label: "Especificaciones de diseño", value: "Prescripción odontológica, Diseño personalizado mediante CAD/CAM o modelos de yeso basados en la anatomía del paciente" },
+        {
+          label: "Normas aplicadas",
+          value: "Resolución 214 de 2022 “Por la cual se establecen los requisitos sanitarios que deben cumplir los dispositivos médicos sobre medida bucal)”\n\nOtras normas técnicas nacionales o internacionales aplicadas para materias primas utilizadas, procesos de fabricación y control de calidad. Ejemplo:\nISO 10139-1 / ISO 10139-2: Materiales de revestimiento blando para prótesis.\nISO 10477: Materiales poliméricos para coronas y recubrimientos (prótesis fija).\nISO 10873: Adhesivos para prótesis dentales.\nISO 13017: Anclajes magnéticos para prótesis.\nISO 7405 y ISO 10993: Evaluación biológica de materiales dentales y médicos.\nISO 13116: Método de ensayo para determinar la radiopacidad de los materiales\nISO 10271: Métodos de ensayo de corrosión para materiales metálicos\nISO 12836: Dispositivos de digitalización para sistemas CAD/CAM para restauraciones dentales indirectas: métodos de ensayo para evaluar la precisión\nNTC-ISO 10993: Evaluación biológica de dispositivos médicos\nISO 15841: alambres para uso en ortodoncia",
+        },
+      ],
+    },
+    {
+      titulo: "4. Requisitos de seguridad y funcionamiento",
+      campos: [
+        {
+          label: "Análisis de riesgos",
+          value: "El provisional en PMMA es una restauración temporal utilizada para proteger dientes preparados o reemplazar temporalmente dientes ausentes durante tratamientos odontológicos. Su uso presenta un bajo nivel de riesgo; sin embargo, pueden presentarse molestias leves durante el período de adaptación, sensibilidad temporal, desgaste o fractura del material, aflojamiento o desprendimiento de la restauración y acumulación de placa bacteriana si no se mantiene una adecuada higiene oral. En casos poco frecuentes, pueden presentarse reacciones de hipersensibilidad a los materiales utilizados.",
+        },
+        {
+          label: "Advertencias y contraindicaciones",
+          value: "Advertencias:\nEste dispositivo está diseñado para uso temporal y no reemplaza la restauración definitiva.\nEvite morder alimentos extremadamente duros o pegajosos que puedan fracturar o desprender la restauración.\nMantenga una adecuada higiene oral para prevenir inflamación de la encía y acumulación de placa bacteriana.\nNo intente modificar, ajustar o reparar el dispositivo por cuenta propia.\nAsista a los controles periódicos indicados por su odontólogo.\nContraindicaciones:\nPacientes con alergia o sensibilidad conocida al PMMA o a cualquiera de los materiales utilizados en la fabricación del dispositivo.\nCasos clínicos en los que el profesional tratante determine que otro tipo de restauración provisional es más adecuado.\nPacientes con hábitos parafuncionales severos no controlados, salvo indicación profesional específica.",
+        },
+        {
+          label: "Instrucciones de uso",
+          value: "Mantenga una adecuada higiene oral mediante cepillado después de cada comida y uso diario de seda dental.\nEvite alimentos muy duros, pegajosos o que requieran una fuerza excesiva de masticación.\nSiga las recomendaciones específicas dadas por su odontólogo respecto al cuidado del provisional.\nAcuda a las citas de control programadas para verificar la adaptación, funcionalidad y estado de la restauración.\nEn caso de fractura, movilidad, desprendimiento o molestias persistentes, consulte inmediatamente a su odontólogo.\nSi utiliza férula o protector nocturno, úselo de acuerdo con las indicaciones profesionales.",
+        },
+        {
+          label: "Instrucciones de mantenimiento",
+          value: "Revisiones periódicas recomendadas cada 3–6 meses.",
+        },
+      ],
+    },
+    {
+      titulo: "5. Garantía",
+      campos: [
+        {
+          label: "Garantía",
+          value: "El dispositivo médico sobre medida bucal cumple con los requisitos esenciales de seguridad y se ajusta estrictamente a la prescripción y a los requisitos establecidos en el capítulo VI, artículos 9, 10 y 11 de la resolución 214 de 2022.\n\nNo aplica.",
+        },
+      ],
+    },
+    {
+      titulo: "6. Firma",
+      campos: [
+        { label: "Firma autorizada (nombre y firma del director técnico / perfil profesional)", value: "" },
+      ],
+    },
+    {
+      titulo: "CONTROL DE CAMBIOS",
+      campos: [
+        { label: "VERSIÓN", value: "00" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de febrero 2024" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Elaboración del documento" },
+        { label: "VERSIÓN", value: "001" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de marzo 2025" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Revisión y aprobación del documento." },
+      ],
+    },
+    {
+      titulo: "ELABORÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+    {
+      titulo: "REVISÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "María del Pilar Jiménez B" },
+        { label: "CARGO", value: "Asistente técnico" },
+        { label: "FIRMA", value: "/firma-pilar.jpeg" },
+      ],
+    },
+    {
+      titulo: "APROBÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+  ]
+
+  const crearFichaProvisionalResinaImpresaVacia = (): Seccion[] => [
+    {
+      titulo: "1. Información de Identificación y Trazabilidad",
+      campos: [
+        { label: "Nombre del paciente", value: "" },
+        { label: "Prescriptor", value: "" },
+        { label: "Clasificación de DMSMB", value: "Línea de prótesis fija / provisional en termocurado" },
+        { label: "Número de Serie o identificación del dispositivo", value: "" },
+      ],
+    },
+    {
+      titulo: "2. Identificación del producto",
+      campos: [
+        {
+          label: "Descripción técnica del dispositivo médico",
+          value: "Restauración dental provisional fabricada a medida para cada paciente mediante resina acrílica termocurada de uso odontológico. Elaborada en laboratorio dental mediante procesos de polimerización por calor, diseñada para reemplazar temporalmente dientes o estructuras dentales ausentes o preparadas, proporcionando protección, función masticatoria, estabilidad oclusal y estética durante el período previo a la instalación de la restauración definitiva.",
+        },
+        {
+          label: "Uso previsto",
+          value: "Mantener la función, estética y protección de dientes preparados o espacios edéntulos durante tratamientos protésicos, restauradores o de rehabilitación oral. Su finalidad es preservar la posición de los dientes, proteger los tejidos orales, favorecer la adaptación funcional y estética del paciente y servir como restauración temporal mientras se fabrica el dispositivo definitivo.",
+        },
+        {
+          label: "Materiales Empleados",
+          value: "Resina acrílica termocurada de grado odontológico.\nPigmentos y caracterizadores dentales biocompatibles (cuando aplique).\nMateriales para acabado, ajuste y pulido.\nDebe registrarse la marca comercial, referencia y número de lote de todos los materiales utilizados en la fabricación del dispositivo.",
+        },
+        {
+          label: "Vida útil estimada",
+          value: "Dispositivo de carácter temporal con una vida útil estimada entre 3 y 12 meses, dependiendo de las condiciones clínicas, ubicación de la restauración, hábitos del paciente, fuerzas masticatorias y cumplimiento de las recomendaciones profesionales. Durante este período pueden requerirse ajustes, reparaciones, rebasados o recementaciones para mantener su correcta adaptación, funcionalidad y comodidad hasta la colocación de la restauración definitiva.",
+        },
+      ],
+    },
+    {
+      titulo: "3. Proceso de diseño y fabricación",
+      campos: [
+        { label: "Especificaciones de diseño", value: "Prescripción odontológica, Diseño personalizado mediante CAD/CAM o modelos de yeso basados en la anatomía del paciente" },
+        {
+          label: "Normas aplicadas",
+          value: `Resolución 214 de 2022 "Por la cual se establecen los requisitos sanitarios que deben cumplir los dispositivos médicos sobre medida bucal)"
+
+Otras normas técnicas nacionales o internacionales aplicadas para materias primas utilizadas, procesos de fabricación y control de calidad. Ejemplo: 
+ISO 10139-1 / ISO 10139-2: Materiales de revestimiento blando para prótesis. 
+ISO 10477: Materiales poliméricos para coronas y recubrimientos (prótesis fija). 
+ISO 10873: Adhesivos para prótesis dentales. 
+ISO 13017: Anclajes magnéticos para prótesis. 
+ISO 7405 y ISO 10993: Evaluación biológica de materiales dentales y médicos. 
+ISO 13116: Método de ensayo para determinar la radiopacidad de los materiales
+ISO 10271: Métodos de ensayo de corrosión para materiales metálicos
+ISO 12836: Dispositivos de digitalización para sistemas CAD/CAM para restauraciones dentales indirectas: métodos de ensayo para evaluar la precisión
+NTC-ISO 10993: Evaluación biológica de dispositivos médicos
+ISO 15841: alambres para uso en ortodoncia`,
+        },
+      ],
+    },
+    {
+      titulo: "4. Requisitos de seguridad y funcionamiento",
+      campos: [
+        {
+          label: "Análisis de riesgos",
+          value: "El provisional en resina acrílica termocurada es una restauración temporal utilizada para proteger dientes preparados o reemplazar temporalmente dientes ausentes durante un tratamiento odontológico. Aunque es un dispositivo de bajo riesgo, pueden presentarse molestias leves durante el período de adaptación, sensibilidad dental temporal, desgaste del material, fractura o desprendimiento de la restauración. También puede producirse acumulación de placa bacteriana o irritación gingival si no se mantiene una adecuada higiene oral. En casos poco frecuentes, pueden presentarse reacciones de hipersensibilidad a los materiales empleados.",
+        },
+        {
+          label: "Advertencias y contraindicaciones",
+          value: "Advertencias:\nEste dispositivo es de carácter temporal y no sustituye la restauración definitiva.\nEvite consumir alimentos muy duros, pegajosos o que requieran una fuerza excesiva de masticación.\nMantenga una adecuada higiene oral para prevenir inflamación de las encías y problemas periodontales.\nNo manipule, ajuste ni intente reparar la restauración por su cuenta.\nAcuda a los controles odontológicos programados para verificar su adaptación y estado.\nContraindicaciones:\nPacientes con alergia conocida a alguno de los componentes de la resina acrílica utilizada.\nCasos clínicos en los que el profesional determine que otro tipo de restauración provisional es más apropiado.\nPacientes con hábitos parafuncionales severos no controlados (bruxismo intenso), salvo indicación profesional.",
+        },
+        {
+          label: "Instrucciones de uso",
+          value: "Cepille sus dientes después de cada comida utilizando un cepillo de cerdas suaves y crema dental.\nUtilice seda dental de acuerdo con las recomendaciones de su odontólogo.\nEvite masticar alimentos extremadamente duros o pegajosos que puedan fracturar o desprender la restauración.\nMantenga las citas de control programadas por el profesional tratante.\nSi presenta molestias persistentes, fractura, aflojamiento o desprendimiento del provisional, contacte a su odontólogo de manera inmediata.\nSiga todas las recomendaciones específicas proporcionadas por el profesional responsable de su tratamiento.",
+        },
+        {
+          label: "Instrucciones de mantenimiento",
+          value: "Revisiones periódicas recomendadas cada 6–12 meses.",
+        },
+      ],
+    },
+    {
+      titulo: "5. Garantía",
+      campos: [
+        {
+          label: "Garantía",
+          value: "El dispositivo médico sobre medida bucal cumple con los requisitos esenciales de seguridad y se ajusta estrictamente a la prescripción y a los requisitos establecidos en el capítulo VI, artículos 9, 10 y 11 de la resolución 214 de 2022.\n\nNo aplica.",
+        },
+      ],
+    },
+    {
+      titulo: "6. Firma",
+      campos: [
+        { label: "Firma autorizada (nombre y firma del director técnico / perfil profesional)", value: "" },
+      ],
+    },
+    {
+      titulo: "CONTROL DE CAMBIOS",
+      campos: [
+        { label: "VERSIÓN", value: "00" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de febrero 2024" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Elaboración del documento" },
+        { label: "VERSIÓN", value: "001" },
+        { label: "FECHA DE APROBACIÓN", value: "15 de marzo 2025" },
+        { label: "DESCRIPCIÓN DEL CAMBIO", value: "Revisión y aprobación del documento." },
+      ],
+    },
+    {
+      titulo: "ELABORÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+    {
+      titulo: "REVISÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "María del Pilar Jiménez B" },
+        { label: "CARGO", value: "Asistente técnico" },
+        { label: "FIRMA", value: "/firma-pilar.jpeg" },
+      ],
+    },
+    {
+      titulo: "APROBÓ",
+      campos: [
+        { label: "NOMBRES Y APELLIDOS", value: "Jazmín Valencia" },
+        { label: "CARGO", value: "Director técnico" },
+        { label: "FIRMA", value: "/firma-jazmin.jpeg" },
+      ],
+    },
+  ]
+
   const handleCrearFicha = () => {
     if (!nuevaFicha.nombre.trim()) return
     const ficha: FichaTecnica = {
@@ -1421,6 +2238,27 @@ export default function FichasTecnicasPage() {
       setTipoFichaActual(tipo)
     } else if (tipo === "Corona Zirconio Sobre Implante") {
       ficha = crearFichaCoronaZirconioImplanteVacia()
+      setTipoFichaActual(tipo)
+    } else if (tipo === "Incrustacion Disilicato") {
+      ficha = crearFichaIncrustacionDisilicatoVacia()
+      setTipoFichaActual(tipo)
+    } else if (tipo === "Incrustacion Metal") {
+      ficha = crearFichaIncrustacionMetalVacia()
+      setTipoFichaActual(tipo)
+    } else if (tipo === "Nucleo NPG") {
+      ficha = crearFichaNucleoNpgVacia()
+      setTipoFichaActual(tipo)
+    } else if (tipo === "Protesis Hibrida All on Four") {
+      ficha = crearFichaProtesisHibridaAllOnFourVacia()
+      setTipoFichaActual(tipo)
+    } else if (tipo === "Provisional PMMA Sobre implante") {
+      ficha = crearFichaProvisionalPmmaImplanteVacia()
+      setTipoFichaActual(tipo)
+    } else if (tipo === "Provisional PMMA") {
+      ficha = crearFichaProvisionalPmmaVacia()
+      setTipoFichaActual(tipo)
+    } else if (tipo === "Provisional Resina Impresa") {
+      ficha = crearFichaProvisionalResinaImpresaVacia()
       setTipoFichaActual(tipo)
     } else {
       ficha = crearFichaVacia()
@@ -1986,6 +2824,202 @@ export default function FichasTecnicasPage() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="rounded-xl bg-card p-6 shadow-sm border border-border cursor-pointer hover:border-primary/50 transition-colors"
+        onClick={() => handleAbrirFicha("Incrustacion Disilicato")}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <FileText size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Ficha rápida de Incrustación en Disilicato de litio
+              </p>
+              <p className="text-lg font-semibold text-foreground">
+                Incrustación en Disilicato de litio
+              </p>
+            </div>
+          </div>
+          <button className="inline-flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/20">
+            <Edit3 size={16} />
+            Editar
+          </button>
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="rounded-xl bg-card p-6 shadow-sm border border-border cursor-pointer hover:border-primary/50 transition-colors"
+        onClick={() => handleAbrirFicha("Incrustacion Metal")}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <FileText size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Ficha rápida de Incrustación en metal
+              </p>
+              <p className="text-lg font-semibold text-foreground">
+                Incrustación en metal
+              </p>
+            </div>
+          </div>
+          <button className="inline-flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/20">
+            <Edit3 size={16} />
+            Editar
+          </button>
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="rounded-xl bg-card p-6 shadow-sm border border-border cursor-pointer hover:border-primary/50 transition-colors"
+        onClick={() => handleAbrirFicha("Nucleo NPG")}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <FileText size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Ficha rápida de Núcleo NPG
+              </p>
+              <p className="text-lg font-semibold text-foreground">
+                Núcleo NPG
+              </p>
+            </div>
+          </div>
+          <button className="inline-flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/20">
+            <Edit3 size={16} />
+            Editar
+          </button>
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="rounded-xl bg-card p-6 shadow-sm border border-border cursor-pointer hover:border-primary/50 transition-colors"
+        onClick={() => handleAbrirFicha("Protesis Hibrida All on Four")}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <FileText size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Ficha rápida de Prótesis hibrida all on four
+              </p>
+              <p className="text-lg font-semibold text-foreground">
+                Prótesis hibrida all on four
+              </p>
+            </div>
+          </div>
+          <button className="inline-flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/20">
+            <Edit3 size={16} />
+            Editar
+          </button>
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="rounded-xl bg-card p-6 shadow-sm border border-border cursor-pointer hover:border-primary/50 transition-colors"
+        onClick={() => handleAbrirFicha("Provisional PMMA Sobre implante")}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <FileText size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Ficha rápida de Provisional en PMMA Sobre implante
+              </p>
+              <p className="text-lg font-semibold text-foreground">
+                Provisional en PMMA Sobre implante
+              </p>
+            </div>
+          </div>
+          <button className="inline-flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/20">
+            <Edit3 size={16} />
+            Editar
+          </button>
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="rounded-xl bg-card p-6 shadow-sm border border-border cursor-pointer hover:border-primary/50 transition-colors"
+        onClick={() => handleAbrirFicha("Provisional PMMA")}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <FileText size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Ficha rápida de Provisional en PMMA
+              </p>
+              <p className="text-lg font-semibold text-foreground">
+                Provisional en PMMA
+              </p>
+            </div>
+          </div>
+          <button className="inline-flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/20">
+            <Edit3 size={16} />
+            Editar
+          </button>
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+        className="rounded-xl bg-card p-6 shadow-sm border border-border cursor-pointer hover:border-primary/50 transition-colors"
+        onClick={() => handleAbrirFicha("Provisional Resina Impresa")}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10 text-primary">
+              <FileText size={24} />
+            </div>
+            <div>
+              <p className="text-sm text-muted-foreground">
+                Ficha rápida de Provisional en resina impresa
+              </p>
+              <p className="text-lg font-semibold text-foreground">
+                Provisional en resina impresa
+              </p>
+            </div>
+          </div>
+          <button className="inline-flex items-center gap-2 rounded-xl bg-primary/10 px-4 py-2.5 text-sm font-medium text-primary transition-colors hover:bg-primary/20">
+            <Edit3 size={16} />
+            Editar
+          </button>
+        </div>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.2 }}
         className="rounded-xl bg-card shadow-sm"
       >
@@ -2106,6 +3140,17 @@ export default function FichasTecnicasPage() {
                   <option value="Corona Zirconio Monolitica">
                     Corona en zirconio monolítica
                   </option>
+                  <option value="Incrustacion Disilicato">
+                    Incrustación en Disilicato de litio
+                  </option>
+                  <option value="Incrustacion Metal">
+                    Incrustación en metal
+                  </option>
+                  <option value="Nucleo NPG">Núcleo NPG</option>
+                  <option value="Protesis Hibrida All on Four">Prótesis hibrida all on four</option>
+                  <option value="Provisional PMMA Sobre implante">Provisional en PMMA Sobre implante</option>
+                  <option value="Provisional PMMA">Provisional en PMMA</option>
+                  <option value="Provisional Resina Impresa">Provisional en resina impresa</option>
                   <option value="Corona Zirconio">Corona Zirconio</option>
                   <option value="Corona Disilicato">Corona Disilicato</option>
                   <option value="Incrustación">Incrustación</option>
@@ -2149,7 +3194,7 @@ export default function FichasTecnicasPage() {
           <div className="rounded-xl bg-card shadow-xl w-full max-w-[850px] my-8 flex flex-col max-h-[90vh]">
             <div className="flex items-center justify-between p-6 border-b border-border">
               <h3 className="text-lg font-semibold text-foreground">
-                {tipoFichaActual === "Carilla de Disilicato Monolitica" ? "Carilla de Disilicato Monolítica" : tipoFichaActual === "Carilla de Disilicato Impresa en Resina" ? "Carilla de Disilicato Impresa en Resina" : tipoFichaActual === "Ceramica de Encia" ? "Cerámica de Encía" : tipoFichaActual === "Colado de UCLA" ? "Colado de UCLA" : tipoFichaActual === "Corona Disilicato Estratificada" ? "Corona en Disilicato de litio estratificada" : tipoFichaActual === "Corona Disilicato Monolitica" ? "Corona en Disilicato de litio monolítica" : tipoFichaActual === "Corona Disilicato Sobre Implante" ? "Corona en Disilicato de litio sobre implante" : tipoFichaActual === "Corona Zirconio Estratificada" ? "Corona en zirconio estratificada" : tipoFichaActual === "Corona Zirconio Monolitica" ? "Corona en zirconio monolítica" : "Carilla de Disilicato Estratificada"}
+                {tipoFichaActual === "Carilla de Disilicato Monolitica" ? "Carilla de Disilicato Monolítica" : tipoFichaActual === "Carilla de Disilicato Impresa en Resina" ? "Carilla de Disilicato Impresa en Resina" : tipoFichaActual === "Ceramica de Encia" ? "Cerámica de Encía" : tipoFichaActual === "Colado de UCLA" ? "Colado de UCLA" : tipoFichaActual === "Corona Disilicato Estratificada" ? "Corona en Disilicato de litio estratificada" : tipoFichaActual === "Corona Disilicato Monolitica" ? "Corona en Disilicato de litio monolítica" : tipoFichaActual === "Corona Disilicato Sobre Implante" ? "Corona en Disilicato de litio sobre implante" : tipoFichaActual === "Corona Zirconio Estratificada" ? "Corona en zirconio estratificada" : tipoFichaActual === "Corona Zirconio Monolitica" ? "Corona en zirconio monolítica" : tipoFichaActual === "Incrustacion Disilicato" ? "Incrustación en Disilicato de litio" : tipoFichaActual === "Incrustacion Metal" ? "Incrustación en metal" : tipoFichaActual === "Nucleo NPG" ? "Núcleo NPG" : tipoFichaActual === "Protesis Hibrida All on Four" ? "Prótesis hibrida all on four" : tipoFichaActual === "Provisional PMMA Sobre implante" ? "Provisional en PMMA Sobre implante" : tipoFichaActual === "Provisional PMMA" ? "Provisional en PMMA" : tipoFichaActual === "Provisional Resina Impresa" ? "Provisional en resina impresa" : "Carilla de Disilicato Estratificada"}
               </h3>
               <button
                 onClick={() => setShowFichaModal(false)}
@@ -2241,6 +3286,76 @@ export default function FichasTecnicasPage() {
                 />
               ) : tipoFichaActual === "Corona Zirconio Monolitica" ? (
                 <FichaTecnicaCoronaZirconioMonolitica
+                  secciones={fichaActual}
+                  onCampoChange={handleCampoChange}
+                  editing={editingFicha}
+                  onToggleEditing={() => setEditingFicha((e) => !e)}
+                  onDownload={handleDownloadPdf}
+                  downloading={downloadingFicha}
+                  showToolbar={true}
+                />
+              ) : tipoFichaActual === "Incrustacion Disilicato" ? (
+                <FichaTecnicaIncrustacionDisilicato
+                  secciones={fichaActual}
+                  onCampoChange={handleCampoChange}
+                  editing={editingFicha}
+                  onToggleEditing={() => setEditingFicha((e) => !e)}
+                  onDownload={handleDownloadPdf}
+                  downloading={downloadingFicha}
+                  showToolbar={true}
+                />
+              ) : tipoFichaActual === "Incrustacion Metal" ? (
+                <FichaTecnicaIncrustacionMetal
+                  secciones={fichaActual}
+                  onCampoChange={handleCampoChange}
+                  editing={editingFicha}
+                  onToggleEditing={() => setEditingFicha((e) => !e)}
+                  onDownload={handleDownloadPdf}
+                  downloading={downloadingFicha}
+                  showToolbar={true}
+                />
+              ) : tipoFichaActual === "Nucleo NPG" ? (
+                <FichaTecnicaNucleoNPG
+                  secciones={fichaActual}
+                  onCampoChange={handleCampoChange}
+                  editing={editingFicha}
+                  onToggleEditing={() => setEditingFicha((e) => !e)}
+                  onDownload={handleDownloadPdf}
+                  downloading={downloadingFicha}
+                  showToolbar={true}
+                />
+              ) : tipoFichaActual === "Protesis Hibrida All on Four" ? (
+                <FichaTecnicaProtesisHibridaAllOnFour
+                  secciones={fichaActual}
+                  onCampoChange={handleCampoChange}
+                  editing={editingFicha}
+                  onToggleEditing={() => setEditingFicha((e) => !e)}
+                  onDownload={handleDownloadPdf}
+                  downloading={downloadingFicha}
+                  showToolbar={true}
+                />
+              ) : tipoFichaActual === "Provisional PMMA Sobre implante" ? (
+                <FichaTecnicaProvisionalPmmaImplante
+                  secciones={fichaActual}
+                  onCampoChange={handleCampoChange}
+                  editing={editingFicha}
+                  onToggleEditing={() => setEditingFicha((e) => !e)}
+                  onDownload={handleDownloadPdf}
+                  downloading={downloadingFicha}
+                  showToolbar={true}
+                />
+              ) : tipoFichaActual === "Provisional PMMA" ? (
+                <FichaTecnicaProvisionalPmma
+                  secciones={fichaActual}
+                  onCampoChange={handleCampoChange}
+                  editing={editingFicha}
+                  onToggleEditing={() => setEditingFicha((e) => !e)}
+                  onDownload={handleDownloadPdf}
+                  downloading={downloadingFicha}
+                  showToolbar={true}
+                />
+              ) : tipoFichaActual === "Provisional Resina Impresa" ? (
+                <FichaTecnicaProvisionalResinaImpresa
                   secciones={fichaActual}
                   onCampoChange={handleCampoChange}
                   editing={editingFicha}
