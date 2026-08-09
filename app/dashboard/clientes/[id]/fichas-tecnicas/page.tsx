@@ -2447,7 +2447,12 @@ ISO 15841: alambres para uso en ortodoncia`,
         }
       }
 
-      pdf.save("carilla-en-disilicato-estratificada.pdf")
+      const fileName = tipoFichaActual
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, "")
+        .replace(/\s+/g, "-")
+        .replace(/-+/g, "-")
+      pdf.save(`${fileName}.pdf`)
       console.log("[PDF] Descarga completada")
     } catch (err) {
       const message = (err as Error)?.message || String(err)
