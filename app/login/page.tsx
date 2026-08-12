@@ -131,7 +131,7 @@ export default function LoginPage() {
 
       sessionStorage.setItem("clienteId", String(cliente.id))
       localStorage.setItem("isLoggedIn", "true")
-      setExistingEmail(authData.user.email)
+      setExistingEmail(authData.user.email ?? null)
 
       if (redirectUrl) {
         router.push(redirectUrl)

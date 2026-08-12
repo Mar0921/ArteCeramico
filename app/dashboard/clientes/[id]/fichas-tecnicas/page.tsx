@@ -8,7 +8,6 @@ import {
   FileText,
   Upload,
   ArrowLeft,
-  Plus,
   Download,
   Eye,
   Save,
@@ -40,6 +39,7 @@ interface FichaTecnica {
   tipo: string
   fecha: string
   url: string
+  secciones?: Seccion[]
 }
 
 export interface CampoEditable {
@@ -86,18 +86,15 @@ export default function FichasTecnicasPage() {
   >([])
   const [loadingSolicitudes, setLoadingSolicitudes] = useState(true)
 
-  const [showModal, setShowModal] = useState(false)
   const [showFichaModal, setShowFichaModal] = useState(false)
-  const [nuevaFicha, setNuevaFicha] = useState({
-    nombre: "",
-    tipo: "Carilla de Disilicato Estratificada",
-    fecha: new Date().toISOString().split("T")[0],
-  })
 
   const [fichaActual, setFichaActual] = useState<Seccion[]>([])
   const [tipoFichaActual, setTipoFichaActual] = useState<string>("")
   const [editingFicha, setEditingFicha] = useState(true)
   const [downloadingFicha, setDownloadingFicha] = useState(false)
+  const [solicitudActualId, setSolicitudActualId] = useState<number | null>(null)
+  const [fichasGuardadasPorSolicitud, setFichasGuardadasPorSolicitud] = useState<Record<number, FichaTecnica[]>>({})
+  const [fichaGuardadaSeleccionada, setFichaGuardadaSeleccionada] = useState<FichaTecnica | null>(null)
 
   useEffect(() => {
     const loadSolicitudes = async () => {
@@ -126,7 +123,39 @@ export default function FichasTecnicasPage() {
     }
 
     loadSolicitudes()
+    loadFichasTecnicas()
   }, [clienteId])
+
+  useEffect(() => {
+    if (solicitudActualId) {
+      loadFichasTecnicas()
+    }
+  }, [solicitudActualId])
+
+  const loadFichasTecnicas = async () => {
+    if (!solicitudActualId) return
+    try {
+      const response = await fetch(`/api/fichas-tecnicas?solicitud_id=${solicitudActualId}`)
+      if (response.ok) {
+        const result = await response.json()
+        const data = result.data || []
+        const fichas: FichaTecnica[] = data.map((f: any) => ({
+          id: f.id,
+          nombre: f.nombre,
+          tipo: f.tipo,
+          fecha: f.fecha,
+          url: "#",
+          secciones: f.secciones || [],
+        }))
+        setFichasGuardadasPorSolicitud((prev) => ({
+          ...prev,
+          [solicitudActualId]: fichas,
+        }))
+      }
+    } catch (err) {
+      console.error("Error cargando fichas tecnicas:", err)
+    }
+  }
 
   const crearFichaVacia = (): Seccion[] => [
     {
@@ -2193,21 +2222,10 @@ ISO 15841: alambres para uso en ortodoncia`,
     },
   ]
 
-  const handleCrearFicha = () => {
-    if (!nuevaFicha.nombre.trim()) return
-    const ficha: FichaTecnica = {
-      id: Date.now(),
-      nombre: nuevaFicha.nombre,
-      tipo: nuevaFicha.tipo,
-      fecha: nuevaFicha.fecha,
-      url: "#",
-    }
-    setFichas([ficha, ...fichas])
-    setNuevaFicha({ nombre: "", tipo: "Carilla de Disilicato Estratificada", fecha: new Date().toISOString().split("T")[0] })
-    setShowModal(false)
-  }
-
   const handleAbrirFicha = (tipo: string = "Carilla de Disilicato Estratificada") => {
+    const ultimaSolicitud = solicitudes.find((s) => s.paciente || s.odontologo) || solicitudes[0]
+    setSolicitudActualId(ultimaSolicitud?.id ?? null)
+
     let ficha: Seccion[] = []
     if (tipo === "Carilla de Disilicato Monolitica") {
       ficha = crearFichaMonoliticaVacia()
@@ -2264,7 +2282,6 @@ ISO 15841: alambres para uso en ortodoncia`,
       ficha = crearFichaVacia()
       setTipoFichaActual(tipo)
     }
-    const ultimaSolicitud = solicitudes.find((s) => s.paciente || s.odontologo) || solicitudes[0]
     if (ultimaSolicitud) {
       ficha.forEach((seccion) => {
         seccion.campos.forEach((campo) => {
@@ -2288,7 +2305,68 @@ ISO 15841: alambres para uso en ortodoncia`,
     setShowFichaModal(true)
   }
 
-  const handleGuardarFicha = () => {
+  const handleGuardarFicha = async () => {
+    if (!solicitudActualId || !tipoFichaActual || !fichaActual.length) {
+      setShowFichaModal(false)
+      return
+    }
+
+    const fichaGuardada: FichaTecnica = {
+      id: Date.now(),
+      nombre: tipoFichaActual,
+      tipo: tipoFichaActual,
+      fecha: new Date().toISOString().split("T")[0],
+      url: "#",
+      secciones: fichaActual,
+    }
+
+    try {
+      const response = await fetch("/api/fichas-tecnicas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          solicitud_id: solicitudActualId,
+          tipo: fichaGuardada.tipo,
+          nombre: fichaGuardada.nombre,
+          fecha: fichaGuardada.fecha,
+          secciones: fichaGuardada.secciones,
+        }),
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        const fichaDb = result.data
+        fichaGuardada.id = fichaDb.id
+        setFichasGuardadasPorSolicitud((prev) => ({
+          ...prev,
+          [solicitudActualId]: [...(prev[solicitudActualId] || []), fichaGuardada],
+        }))
+      } else {
+        console.error("Error guardando ficha en BD")
+      }
+    } catch (err) {
+      console.error("Error guardando ficha:", err)
+    }
+
+    setShowFichaModal(false)
+  }
+
+  const handleVerFichaGuardada = (ficha: FichaTecnica) => {
+    setFichaGuardadaSeleccionada(ficha)
+    setFichaActual(ficha.secciones || [])
+    setTipoFichaActual(ficha.tipo)
+    setEditingFicha(false)
+    setShowFichaModal(true)
+  }
+
+  const handleDescargarFichaGuardada = async (ficha: FichaTecnica) => {
+    setFichaGuardadaSeleccionada(ficha)
+    setFichaActual(ficha.secciones || [])
+    setTipoFichaActual(ficha.tipo)
+    setEditingFicha(false)
+    setShowFichaModal(true)
+    await new Promise((r) => setTimeout(r, 100))
+    await handleDownloadPdf()
     setShowFichaModal(false)
   }
 
@@ -2326,7 +2404,7 @@ ISO 15841: alambres para uso en ortodoncia`,
         modalScroll.scrollTop = 0
       }
 
-      const replaceLabColors = (root: HTMLElement | Document) => {
+      const replaceLabColors = (root: HTMLElement | Element) => {
         const walk = (el: HTMLElement | Element) => {
           if (el instanceof HTMLElement) {
             const computed = getComputedStyle(el)
@@ -2509,13 +2587,6 @@ ISO 15841: alambres para uso en ortodoncia`,
             </p>
           </div>
         </div>
-        <button
-          onClick={() => setShowModal(true)}
-          className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary-dark"
-        >
-          <Plus size={18} />
-          Nueva Ficha Técnica
-        </button>
       </div>
 
       <motion.div
@@ -3022,176 +3093,73 @@ ISO 15841: alambres para uso en ortodoncia`,
         </div>
       </motion.div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.2 }}
-        className="rounded-xl bg-card shadow-sm"
-      >
-        <div className="border-b border-border p-6">
-          <h2 className="text-lg font-semibold text-foreground">
-            Fichas Registradas
-          </h2>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border">
-                <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
-                  Nombre
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
-                  Tipo
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
-                  Fecha
-                </th>
-                <th className="px-6 py-4 text-right text-sm font-medium text-muted-foreground">
-                  Acciones
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {fichas.map((ficha) => (
-                <tr
-                  key={ficha.id}
-                  className="border-b border-border last:border-0 hover:bg-muted/50"
-                >
-                  <td className="px-6 py-4 font-medium text-foreground">
-                    {ficha.nombre}
-                  </td>
-                  <td className="px-6 py-4 text-muted-foreground">
-                    {ficha.tipo}
-                  </td>
-                  <td className="px-6 py-4 text-muted-foreground">
-                    {ficha.fecha}
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground">
-                        <Eye size={16} />
-                      </button>
-                      <button className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground">
-                        <Download size={16} />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </motion.div>
-
-      {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="rounded-xl bg-card p-6 shadow-xl w-full max-w-md">
-            <h3 className="text-lg font-semibold text-foreground mb-4">
-              Nueva Ficha Técnica
-            </h3>
-            <div className="space-y-4">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-foreground">
-                  Nombre
-                </label>
-                <input
-                  type="text"
-                  value={nuevaFicha.nombre}
-                  onChange={(e) =>
-                    setNuevaFicha((prev) => ({ ...prev, nombre: e.target.value }))
-                  }
-                  placeholder="Nombre de la ficha técnica"
-                  className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
-              <div>
-                <label className="mb-2 block text-sm font-medium text-foreground">
-                  Tipo
-                </label>
-                <select
-                  value={nuevaFicha.tipo}
-                  onChange={(e) =>
-                    setNuevaFicha((prev) => ({ ...prev, tipo: e.target.value }))
-                  }
-                  className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                >
-                  <option value="Carilla de Disilicato Estratificada">
-                    Carilla de Disilicato Estratificada
-                  </option>
-                  <option value="Carilla de Disilicato Monolitica">
-                    Carilla de Disilicato Monolítica
-                  </option>
-                  <option value="Carilla de Disilicato Impresa en Resina">
-                    Carilla de Disilicato Impresa en Resina
-                  </option>
-                  <option value="Ceramica de Encia">
-                    Cerámica de Encía
-                  </option>
-                  <option value="Colado de UCLA">
-                    Colado de UCLA
-                  </option>
-                  <option value="Corona Disilicato Estratificada">
-                    Corona en Disilicato de litio estratificada
-                  </option>
-                  <option value="Corona Disilicato Monolitica">
-                    Corona en Disilicato de litio monolítica
-                  </option>
-                  <option value="Corona Disilicato Sobre Implante">
-                    Corona en Disilicato de litio sobre implante
-                  </option>
-                  <option value="Corona Zirconio Estratificada">
-                    Corona en zirconio estratificada
-                  </option>
-                  <option value="Corona Zirconio Monolitica">
-                    Corona en zirconio monolítica
-                  </option>
-                  <option value="Incrustacion Disilicato">
-                    Incrustación en Disilicato de litio
-                  </option>
-                  <option value="Incrustacion Metal">
-                    Incrustación en metal
-                  </option>
-                  <option value="Nucleo NPG">Núcleo NPG</option>
-                  <option value="Protesis Hibrida All on Four">Prótesis hibrida all on four</option>
-                  <option value="Provisional PMMA Sobre implante">Provisional en PMMA Sobre implante</option>
-                  <option value="Provisional PMMA">Provisional en PMMA</option>
-                  <option value="Provisional Resina Impresa">Provisional en resina impresa</option>
-                  <option value="Corona Zirconio">Corona Zirconio</option>
-                  <option value="Corona Disilicato">Corona Disilicato</option>
-                  <option value="Incrustación">Incrustación</option>
-                  <option value="Prótesis">Prótesis</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-2 block text-sm font-medium text-foreground">
-                  Fecha
-                </label>
-                <input
-                  type="date"
-                  value={nuevaFicha.fecha}
-                  onChange={(e) =>
-                    setNuevaFicha((prev) => ({ ...prev, fecha: e.target.value }))
-                  }
-                  className="w-full rounded-xl border border-border bg-background px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                />
-              </div>
-            </div>
-            <div className="mt-6 flex items-center justify-end gap-3">
-              <button
-                onClick={() => setShowModal(false)}
-                className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={handleCrearFicha}
-                className="rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-dark"
-              >
-                Crear Ficha
-              </button>
-            </div>
+      {solicitudActualId && fichasGuardadasPorSolicitud[solicitudActualId]?.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+          className="rounded-xl bg-card shadow-sm"
+        >
+          <div className="border-b border-border p-6">
+            <h2 className="text-lg font-semibold text-foreground">
+              Fichas técnicas de esta solicitud
+            </h2>
           </div>
-        </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
+                    Nombre
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
+                    Tipo
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
+                    Fecha
+                  </th>
+                  <th className="px-6 py-4 text-right text-sm font-medium text-muted-foreground">
+                    Acciones
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {fichasGuardadasPorSolicitud[solicitudActualId].map((ficha) => (
+                  <tr
+                    key={ficha.id}
+                    className="border-b border-border last:border-0 hover:bg-muted/50"
+                  >
+                    <td className="px-6 py-4 font-medium text-foreground">
+                      {ficha.nombre}
+                    </td>
+                    <td className="px-6 py-4 text-muted-foreground">
+                      {ficha.tipo}
+                    </td>
+                    <td className="px-6 py-4 text-muted-foreground">
+                      {ficha.fecha}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <button
+                          onClick={() => handleVerFichaGuardada(ficha)}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                        >
+                          <Eye size={16} />
+                        </button>
+                        <button
+                          onClick={() => handleDescargarFichaGuardada(ficha)}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                        >
+                          <Download size={16} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </motion.div>
       )}
 
       {showFichaModal && (
