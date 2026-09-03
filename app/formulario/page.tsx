@@ -48,6 +48,9 @@ export default function FormPage() {
         <Suspense fallback={<div className="flex justify-center items-center min-h-[50vh]"><p>Cargando formulario...</p></div>}>
           <FormContent />
         </Suspense>
+        <footer className="text-center mt-8 text-sm text-muted-foreground max-w-3xl mx-auto">
+          La prescripción del dispositivo médico sobre medida bucal vence en seis (6) meses. Una vez transcurrido este tiempo, y al no haber concluido el trabajo, es necesario una nueva valoración del paciente y con fundamento a lo cual se determinará iniciar nuevamente el proceso de fabricación.
+        </footer>
       </main>
     </>
   )

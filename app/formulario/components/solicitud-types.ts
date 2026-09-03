@@ -18,6 +18,8 @@ export interface SolicitudFormData {
   paciente: string
   ccPaciente: string
   direccion: string
+  correo: string
+  telefono: string
   firma: string
   tiposTrabajo: string[]
   chimenea: boolean | null
@@ -89,6 +91,8 @@ export function createDefaultSolicitud(options?: {
       paciente: "",
       ccPaciente: "",
       direccion: "",
+      correo: "",
+      telefono: "",
       firma: "",
       tiposTrabajo: options?.tipoTrabajo ? [...options.tipoTrabajo] : [],
       chimenea: null,

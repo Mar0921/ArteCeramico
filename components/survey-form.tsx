@@ -86,10 +86,28 @@ export function SurveyForm({
   }
 
   const handleSubmit = async () => {
-    if (!response.email || !response.paciente || !response.nombreProfesional || !response.fechaEntrega) return
+    if (!response.email || !response.paciente || !response.opinion || !response.nombreProfesional || !response.fechaEntrega) return
     setSubmittingSurvey((prev) => ({ ...prev, [solicitudId]: true }))
     try {
-      await new Promise((resolve) => setTimeout(resolve, 600))
+      const res = await fetch("/api/encuestas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          solicitud_id: solicitudId,
+          email: response.email,
+          paciente: response.paciente,
+          evaluaciones: response.evaluaciones,
+          opinion: response.opinion,
+          nombre_profesional: response.nombreProfesional,
+          fecha_entrega: response.fechaEntrega,
+        }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.message || "Error al guardar encuesta")
+      }
+
       setSurveySuccess((prev) => ({ ...prev, [solicitudId]: true }))
       setSurveyResponses((prev) => ({
         ...prev,
@@ -102,8 +120,8 @@ export function SurveyForm({
           fechaEntrega: "",
         },
       }))
-    } catch {
-      console.error("Error enviando encuesta")
+    } catch (err) {
+      console.error("Error enviando encuesta:", err)
     } finally {
       setSubmittingSurvey((prev) => ({ ...prev, [solicitudId]: false }))
     }
@@ -184,7 +202,7 @@ export function SurveyForm({
 
           <div>
             <Label className="text-xs font-medium block mb-2">
-              Opinión general del profesional tratante:
+              Opinión general del profesional tratante: <span className="text-red-500">*</span>
             </Label>
             <div className="space-y-2">
               {OPINIONES.map((op) => (
@@ -257,7 +275,7 @@ export function SurveyForm({
 
           <Button
             onClick={handleSubmit}
-            disabled={submittingSurvey[solicitudId] || !response.email || !response.paciente || !response.nombreProfesional || !response.fechaEntrega}
+            disabled={submittingSurvey[solicitudId] || !response.email || !response.paciente || !response.opinion || !response.nombreProfesional || !response.fechaEntrega}
             className="w-full"
             size="sm"
           >

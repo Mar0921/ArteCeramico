@@ -81,6 +81,17 @@ export const DrawableTooth = forwardRef<DrawableToothRef, DrawableToothProps>(
       ctx.lineTo(centerX, h)
       ctx.stroke()
 
+      ctx.fillStyle = "#9ca3af"
+      ctx.font = "bold 10px sans-serif"
+      ctx.textAlign = "center"
+      ctx.textBaseline = "middle"
+      const offsetX = toothWidth / 4
+      const offsetY = toothHeight / 4
+      ctx.fillText("1", centerX + offsetX, centerY - offsetY)
+      ctx.fillText("2", centerX - offsetX, centerY - offsetY)
+      ctx.fillText("3", centerX - offsetX, centerY + offsetY)
+      ctx.fillText("4", centerX + offsetX, centerY + offsetY)
+
     }, [])
 
     useEffect(() => {

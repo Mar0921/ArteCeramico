@@ -45,6 +45,8 @@ function buildFormDataPayload(
   payload.append("paciente", formData.paciente || "")
   payload.append("ccPaciente", formData.ccPaciente || "")
   payload.append("direccion", formData.direccion || "")
+  payload.append("correo", formData.correo || "")
+  payload.append("telefono", formData.telefono || "")
   payload.append("firma", formData.firma || "")
   payload.append("color", formData.color || "")
   payload.append("guia_color", formData.guia || "")
@@ -170,12 +172,11 @@ export function PrescriptionForm({
 
         const { data, error } = await supabase
           .from("clientes")
-          .select("nombre, documento")
+          .select("nombre, documento, correo, telefono, direccion")
           .eq("user_id", user.id)
           .single()
 
         if (error || !data) {
-          console.error("Cliente no encontrado:", error)
           return
         }
 
@@ -185,6 +186,9 @@ export function PrescriptionForm({
             formData: {
               ...s.formData,
               odontologo: data.nombre ?? s.formData.odontologo,
+              correo: data.correo ?? s.formData.correo,
+              telefono: data.telefono ?? s.formData.telefono,
+              direccion: data.direccion ?? s.formData.direccion,
             },
           }))
         )
@@ -404,6 +408,18 @@ export function PrescriptionForm({
   return (
     <div ref={formRef} className="max-w-3xl mx-auto bg-white shadow-lg overflow-hidden border border-gray-300">
       <Navbar />
+
+      {/* Header de la Prescripción */}
+      <div className="border-b border-gray-300 bg-gray-50 px-4 py-3">
+        <div className="flex items-center justify-between">
+          <h1 className="text-lg font-bold text-gray-800">Prescripción</h1>
+          <div className="flex items-center gap-4 text-xs text-gray-600">
+            <span><span className="font-semibold">Fecha de elaboración:</span> 01-02-2026</span>
+            <span><span className="font-semibold">CODIGO:</span> GF-FO-001</span>
+            <span><span className="font-semibold">VERSION:</span> 001</span>
+          </div>
+        </div>
+      </div>
 
       {/* Tabs de solicitudes */}
       <div className="solicitudes-tabs flex items-center gap-2 p-3 bg-gray-50 border-b flex-wrap">

@@ -407,6 +407,25 @@ export function SolicitudSection({
 
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1 flex-1">
+            <Label className="text-xs whitespace-nowrap">CORREO:</Label>
+            <Input
+              className="flex-1 h-6 border-b border-gray-400 rounded-none border-t-0 border-l-0 border-r-0 text-xs"
+              value={formData.correo}
+              onChange={(e) => onFormDataChange({ correo: e.target.value })}
+            />
+          </div>
+          <div className="flex items-center gap-1 flex-1">
+            <Label className="text-xs whitespace-nowrap">TELÉFONO:</Label>
+            <Input
+              className="flex-1 h-6 border-b border-gray-400 rounded-none border-t-0 border-l-0 border-r-0 text-xs"
+              value={formData.telefono}
+              onChange={(e) => onFormDataChange({ telefono: e.target.value })}
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1 flex-1">
             <Label className="text-xs whitespace-nowrap">PACIENTE:</Label>
             <Input
               className="flex-1 h-6 border-b border-gray-400 rounded-none border-t-0 border-l-0 border-r-0 text-xs"
@@ -723,7 +742,7 @@ export function SolicitudSection({
             <div className="grid grid-cols-3 gap-x-2 gap-y-1 text-[11px]">
               {[
                 ["analogo", "ANÁLOGO"],
-                ["registro", "REGISTRO DE MORDIDA", "REGISTRO DE\nMORDIDA"],
+                ["registro", "REGISTRO DE MORDIDA", "REGISTRO DE MORDIDA"],
                 ["antagonista", "ANTAGONISTA"],
                 ["coping", "COPING DE IMP"],
                 ["cubeta", "CUBETA"],

@@ -3176,179 +3176,223 @@ ISO 15841: alambres para uso en ortodoncia`,
                 <X size={18} />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto bg-neutral-200">
-              {tipoFichaActual === "Carilla de Disilicato Monolitica" ? (
-                <FichaTecnicaMonolitica
-                  secciones={fichaActual}
-                  onCampoChange={handleCampoChange}
-                  editing={editingFicha}
-                  onToggleEditing={() => setEditingFicha((e) => !e)}
-                  onDownload={handleDownloadPdf}
-                  downloading={downloadingFicha}
-                  showToolbar={true}
-                />
-              ) : tipoFichaActual === "Carilla de Disilicato Impresa en Resina" ? (
-                <FichaTecnicaResina
-                  secciones={fichaActual}
-                  onCampoChange={handleCampoChange}
-                  editing={editingFicha}
-                  onToggleEditing={() => setEditingFicha((e) => !e)}
-                  onDownload={handleDownloadPdf}
-                  downloading={downloadingFicha}
-                  showToolbar={true}
-                />
-              ) : tipoFichaActual === "Ceramica de Encia" ? (
-                <FichaTecnicaCeramicaEncia
-                  secciones={fichaActual}
-                  onCampoChange={handleCampoChange}
-                  editing={editingFicha}
-                  onToggleEditing={() => setEditingFicha((e) => !e)}
-                  onDownload={handleDownloadPdf}
-                  downloading={downloadingFicha}
-                  showToolbar={true}
-                />
-              ) : tipoFichaActual === "Colado de UCLA" ? (
-                <FichaTecnicaColadoUcla
-                  secciones={fichaActual}
-                  onCampoChange={handleCampoChange}
-                  editing={editingFicha}
-                  onToggleEditing={() => setEditingFicha((e) => !e)}
-                  onDownload={handleDownloadPdf}
-                  downloading={downloadingFicha}
-                  showToolbar={true}
-                />
-              ) : tipoFichaActual === "Corona Disilicato Estratificada" ? (
-                <FichaTecnicaCoronaDisilicatoEstratificada
-                  secciones={fichaActual}
-                  onCampoChange={handleCampoChange}
-                  editing={editingFicha}
-                  onToggleEditing={() => setEditingFicha((e) => !e)}
-                  onDownload={handleDownloadPdf}
-                  downloading={downloadingFicha}
-                  showToolbar={true}
-                />
-              ) : tipoFichaActual === "Corona Disilicato Monolitica" ? (
-                <FichaTecnicaCoronaDisilicatoMonolitica
-                  secciones={fichaActual}
-                  onCampoChange={handleCampoChange}
-                  editing={editingFicha}
-                  onToggleEditing={() => setEditingFicha((e) => !e)}
-                  onDownload={handleDownloadPdf}
-                  downloading={downloadingFicha}
-                  showToolbar={true}
-                />
-              ) : tipoFichaActual === "Corona Disilicato Sobre Implante" ? (
-                <FichaTecnicaCoronaDisilicatoImplante
-                  secciones={fichaActual}
-                  onCampoChange={handleCampoChange}
-                  editing={editingFicha}
-                  onToggleEditing={() => setEditingFicha((e) => !e)}
-                  onDownload={handleDownloadPdf}
-                  downloading={downloadingFicha}
-                  showToolbar={true}
-                />
-              ) : tipoFichaActual === "Corona Zirconio Estratificada" ? (
-                <FichaTecnicaCoronaZirconioEstratificada
-                  secciones={fichaActual}
-                  onCampoChange={handleCampoChange}
-                  editing={editingFicha}
-                  onToggleEditing={() => setEditingFicha((e) => !e)}
-                  onDownload={handleDownloadPdf}
-                  downloading={downloadingFicha}
-                  showToolbar={true}
-                />
-              ) : tipoFichaActual === "Corona Zirconio Monolitica" ? (
-                <FichaTecnicaCoronaZirconioMonolitica
-                  secciones={fichaActual}
-                  onCampoChange={handleCampoChange}
-                  editing={editingFicha}
-                  onToggleEditing={() => setEditingFicha((e) => !e)}
-                  onDownload={handleDownloadPdf}
-                  downloading={downloadingFicha}
-                  showToolbar={true}
-                />
-              ) : tipoFichaActual === "Incrustacion Disilicato" ? (
-                <FichaTecnicaIncrustacionDisilicato
-                  secciones={fichaActual}
-                  onCampoChange={handleCampoChange}
-                  editing={editingFicha}
-                  onToggleEditing={() => setEditingFicha((e) => !e)}
-                  onDownload={handleDownloadPdf}
-                  downloading={downloadingFicha}
-                  showToolbar={true}
-                />
-              ) : tipoFichaActual === "Incrustacion Metal" ? (
-                <FichaTecnicaIncrustacionMetal
-                  secciones={fichaActual}
-                  onCampoChange={handleCampoChange}
-                  editing={editingFicha}
-                  onToggleEditing={() => setEditingFicha((e) => !e)}
-                  onDownload={handleDownloadPdf}
-                  downloading={downloadingFicha}
-                  showToolbar={true}
-                />
-              ) : tipoFichaActual === "Nucleo NPG" ? (
-                <FichaTecnicaNucleoNPG
-                  secciones={fichaActual}
-                  onCampoChange={handleCampoChange}
-                  editing={editingFicha}
-                  onToggleEditing={() => setEditingFicha((e) => !e)}
-                  onDownload={handleDownloadPdf}
-                  downloading={downloadingFicha}
-                  showToolbar={true}
-                />
-              ) : tipoFichaActual === "Protesis Hibrida All on Four" ? (
-                <FichaTecnicaProtesisHibridaAllOnFour
-                  secciones={fichaActual}
-                  onCampoChange={handleCampoChange}
-                  editing={editingFicha}
-                  onToggleEditing={() => setEditingFicha((e) => !e)}
-                  onDownload={handleDownloadPdf}
-                  downloading={downloadingFicha}
-                  showToolbar={true}
-                />
-              ) : tipoFichaActual === "Provisional PMMA Sobre implante" ? (
-                <FichaTecnicaProvisionalPmmaImplante
-                  secciones={fichaActual}
-                  onCampoChange={handleCampoChange}
-                  editing={editingFicha}
-                  onToggleEditing={() => setEditingFicha((e) => !e)}
-                  onDownload={handleDownloadPdf}
-                  downloading={downloadingFicha}
-                  showToolbar={true}
-                />
-              ) : tipoFichaActual === "Provisional PMMA" ? (
-                <FichaTecnicaProvisionalPmma
-                  secciones={fichaActual}
-                  onCampoChange={handleCampoChange}
-                  editing={editingFicha}
-                  onToggleEditing={() => setEditingFicha((e) => !e)}
-                  onDownload={handleDownloadPdf}
-                  downloading={downloadingFicha}
-                  showToolbar={true}
-                />
-              ) : tipoFichaActual === "Provisional Resina Impresa" ? (
-                <FichaTecnicaProvisionalResinaImpresa
-                  secciones={fichaActual}
-                  onCampoChange={handleCampoChange}
-                  editing={editingFicha}
-                  onToggleEditing={() => setEditingFicha((e) => !e)}
-                  onDownload={handleDownloadPdf}
-                  downloading={downloadingFicha}
-                  showToolbar={true}
-                />
-              ) : (
-                <FichaTecnicaDisilicato
-                  secciones={fichaActual}
-                  onCampoChange={handleCampoChange}
-                  editing={editingFicha}
-                  onToggleEditing={() => setEditingFicha((e) => !e)}
-                  onDownload={handleDownloadPdf}
-                  downloading={downloadingFicha}
-                  showToolbar={true}
-                />
-              )}
-            </div>
+             <div className="flex-1 overflow-y-auto bg-neutral-200">
+               {(function() {
+                 const solicitudActual = solicitudes.find((s) => s.id === solicitudActualId) || solicitudes[0]
+                 const dientesDisponibles = (solicitudActual?.dientes_trabajados || [])
+                   .map((d: string) => String(d).split("-")[0])
+                   .filter((d: string) => d && !isNaN(Number(d)))
+                 const codigoRaw = solicitudActual?.codigo_trazabilidad || ""
+                 const partes = codigoRaw.split("-")
+                 const codigoTrazabilidad = partes.length >= 2 ? `${partes[0]}-${partes[1]}` : codigoRaw
+
+                 return tipoFichaActual === "Carilla de Disilicato Monolitica" ? (
+                   <FichaTecnicaMonolitica
+                     secciones={fichaActual}
+                     onCampoChange={handleCampoChange}
+                     editing={editingFicha}
+                     onToggleEditing={() => setEditingFicha((e) => !e)}
+                     onDownload={handleDownloadPdf}
+                     downloading={downloadingFicha}
+                     showToolbar={true}
+                     dientes={dientesDisponibles}
+                     codigoTrazabilidad={codigoTrazabilidad}
+                   />
+                 ) : tipoFichaActual === "Carilla de Disilicato Impresa en Resina" ? (
+                   <FichaTecnicaResina
+                     secciones={fichaActual}
+                     onCampoChange={handleCampoChange}
+                     editing={editingFicha}
+                     onToggleEditing={() => setEditingFicha((e) => !e)}
+                     onDownload={handleDownloadPdf}
+                     downloading={downloadingFicha}
+                     showToolbar={true}
+                     dientes={dientesDisponibles}
+                     codigoTrazabilidad={codigoTrazabilidad}
+                   />
+                 ) : tipoFichaActual === "Ceramica de Encia" ? (
+                   <FichaTecnicaCeramicaEncia
+                     secciones={fichaActual}
+                     onCampoChange={handleCampoChange}
+                     editing={editingFicha}
+                     onToggleEditing={() => setEditingFicha((e) => !e)}
+                     onDownload={handleDownloadPdf}
+                     downloading={downloadingFicha}
+                     showToolbar={true}
+                     dientes={dientesDisponibles}
+                     codigoTrazabilidad={codigoTrazabilidad}
+                   />
+                 ) : tipoFichaActual === "Colado de UCLA" ? (
+                   <FichaTecnicaColadoUcla
+                     secciones={fichaActual}
+                     onCampoChange={handleCampoChange}
+                     editing={editingFicha}
+                     onToggleEditing={() => setEditingFicha((e) => !e)}
+                     onDownload={handleDownloadPdf}
+                     downloading={downloadingFicha}
+                     showToolbar={true}
+                     dientes={dientesDisponibles}
+                     codigoTrazabilidad={codigoTrazabilidad}
+                   />
+                 ) : tipoFichaActual === "Corona Disilicato Estratificada" ? (
+                   <FichaTecnicaCoronaDisilicatoEstratificada
+                     secciones={fichaActual}
+                     onCampoChange={handleCampoChange}
+                     editing={editingFicha}
+                     onToggleEditing={() => setEditingFicha((e) => !e)}
+                     onDownload={handleDownloadPdf}
+                     downloading={downloadingFicha}
+                     showToolbar={true}
+                     dientes={dientesDisponibles}
+                     codigoTrazabilidad={codigoTrazabilidad}
+                   />
+                 ) : tipoFichaActual === "Corona Disilicato Monolitica" ? (
+                   <FichaTecnicaCoronaDisilicatoMonolitica
+                     secciones={fichaActual}
+                     onCampoChange={handleCampoChange}
+                     editing={editingFicha}
+                     onToggleEditing={() => setEditingFicha((e) => !e)}
+                     onDownload={handleDownloadPdf}
+                     downloading={downloadingFicha}
+                     showToolbar={true}
+                     dientes={dientesDisponibles}
+                     codigoTrazabilidad={codigoTrazabilidad}
+                   />
+                 ) : tipoFichaActual === "Corona Disilicato Sobre Implante" ? (
+                   <FichaTecnicaCoronaDisilicatoImplante
+                     secciones={fichaActual}
+                     onCampoChange={handleCampoChange}
+                     editing={editingFicha}
+                     onToggleEditing={() => setEditingFicha((e) => !e)}
+                     onDownload={handleDownloadPdf}
+                     downloading={downloadingFicha}
+                     showToolbar={true}
+                     dientes={dientesDisponibles}
+                     codigoTrazabilidad={codigoTrazabilidad}
+                   />
+                 ) : tipoFichaActual === "Corona Zirconio Estratificada" ? (
+                   <FichaTecnicaCoronaZirconioEstratificada
+                     secciones={fichaActual}
+                     onCampoChange={handleCampoChange}
+                     editing={editingFicha}
+                     onToggleEditing={() => setEditingFicha((e) => !e)}
+                     onDownload={handleDownloadPdf}
+                     downloading={downloadingFicha}
+                     showToolbar={true}
+                     dientes={dientesDisponibles}
+                     codigoTrazabilidad={codigoTrazabilidad}
+                   />
+                 ) : tipoFichaActual === "Corona Zirconio Monolitica" ? (
+                   <FichaTecnicaCoronaZirconioMonolitica
+                     secciones={fichaActual}
+                     onCampoChange={handleCampoChange}
+                     editing={editingFicha}
+                     onToggleEditing={() => setEditingFicha((e) => !e)}
+                     onDownload={handleDownloadPdf}
+                     downloading={downloadingFicha}
+                     showToolbar={true}
+                     dientes={dientesDisponibles}
+                     codigoTrazabilidad={codigoTrazabilidad}
+                   />
+                 ) : tipoFichaActual === "Incrustacion Disilicato" ? (
+                   <FichaTecnicaIncrustacionDisilicato
+                     secciones={fichaActual}
+                     onCampoChange={handleCampoChange}
+                     editing={editingFicha}
+                     onToggleEditing={() => setEditingFicha((e) => !e)}
+                     onDownload={handleDownloadPdf}
+                     downloading={downloadingFicha}
+                     showToolbar={true}
+                     dientes={dientesDisponibles}
+                     codigoTrazabilidad={codigoTrazabilidad}
+                   />
+                 ) : tipoFichaActual === "Incrustacion Metal" ? (
+                   <FichaTecnicaIncrustacionMetal
+                     secciones={fichaActual}
+                     onCampoChange={handleCampoChange}
+                     editing={editingFicha}
+                     onToggleEditing={() => setEditingFicha((e) => !e)}
+                     onDownload={handleDownloadPdf}
+                     downloading={downloadingFicha}
+                     showToolbar={true}
+                     dientes={dientesDisponibles}
+                     codigoTrazabilidad={codigoTrazabilidad}
+                   />
+                 ) : tipoFichaActual === "Nucleo NPG" ? (
+                   <FichaTecnicaNucleoNPG
+                     secciones={fichaActual}
+                     onCampoChange={handleCampoChange}
+                     editing={editingFicha}
+                     onToggleEditing={() => setEditingFicha((e) => !e)}
+                     onDownload={handleDownloadPdf}
+                     downloading={downloadingFicha}
+                     showToolbar={true}
+                     dientes={dientesDisponibles}
+                     codigoTrazabilidad={codigoTrazabilidad}
+                   />
+                 ) : tipoFichaActual === "Protesis Hibrida All on Four" ? (
+                   <FichaTecnicaProtesisHibridaAllOnFour
+                     secciones={fichaActual}
+                     onCampoChange={handleCampoChange}
+                     editing={editingFicha}
+                     onToggleEditing={() => setEditingFicha((e) => !e)}
+                     onDownload={handleDownloadPdf}
+                     downloading={downloadingFicha}
+                     showToolbar={true}
+                     dientes={dientesDisponibles}
+                     codigoTrazabilidad={codigoTrazabilidad}
+                   />
+                 ) : tipoFichaActual === "Provisional PMMA Sobre implante" ? (
+                   <FichaTecnicaProvisionalPmmaImplante
+                     secciones={fichaActual}
+                     onCampoChange={handleCampoChange}
+                     editing={editingFicha}
+                     onToggleEditing={() => setEditingFicha((e) => !e)}
+                     onDownload={handleDownloadPdf}
+                     downloading={downloadingFicha}
+                     showToolbar={true}
+                     dientes={dientesDisponibles}
+                     codigoTrazabilidad={codigoTrazabilidad}
+                   />
+                 ) : tipoFichaActual === "Provisional PMMA" ? (
+                   <FichaTecnicaProvisionalPmma
+                     secciones={fichaActual}
+                     onCampoChange={handleCampoChange}
+                     editing={editingFicha}
+                     onToggleEditing={() => setEditingFicha((e) => !e)}
+                     onDownload={handleDownloadPdf}
+                     downloading={downloadingFicha}
+                     showToolbar={true}
+                     dientes={dientesDisponibles}
+                     codigoTrazabilidad={codigoTrazabilidad}
+                   />
+                 ) : tipoFichaActual === "Provisional Resina Impresa" ? (
+                   <FichaTecnicaProvisionalResinaImpresa
+                     secciones={fichaActual}
+                     onCampoChange={handleCampoChange}
+                     editing={editingFicha}
+                     onToggleEditing={() => setEditingFicha((e) => !e)}
+                     onDownload={handleDownloadPdf}
+                     downloading={downloadingFicha}
+                     showToolbar={true}
+                     dientes={dientesDisponibles}
+                     codigoTrazabilidad={codigoTrazabilidad}
+                   />
+                 ) : (
+                   <FichaTecnicaDisilicato
+                     secciones={fichaActual}
+                     onCampoChange={handleCampoChange}
+                     editing={editingFicha}
+                     onToggleEditing={() => setEditingFicha((e) => !e)}
+                     onDownload={handleDownloadPdf}
+                     downloading={downloadingFicha}
+                     showToolbar={true}
+                     dientes={dientesDisponibles}
+                     codigoTrazabilidad={codigoTrazabilidad}
+                   />
+                  )
+                })()}
+             </div>
             <div className="flex items-center justify-end gap-3 p-6 border-t border-border">
               <button
                 onClick={() => setShowFichaModal(false)}

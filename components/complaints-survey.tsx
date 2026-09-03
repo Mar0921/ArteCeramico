@@ -94,7 +94,26 @@ export function ComplaintsSurvey({
     if (!response.tipo || !response.descripcion || !response.nombreCompleto || !response.correoElectronico) return
     setSubmittingSurvey((prev) => ({ ...prev, [solicitudId]: true }))
     try {
-      await new Promise((resolve) => setTimeout(resolve, 600))
+      const res = await fetch("/api/quejas", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          solicitud_id: solicitudId,
+          email: response.email,
+          tipo: response.tipo,
+          descripcion: response.descripcion,
+          notificacion: response.notificacion,
+          nombre_completo: response.nombreCompleto,
+          correo_electronico: response.correoElectronico,
+          comentarios_adicionales: response.comentariosAdicionales,
+        }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.message || "Error al guardar queja")
+      }
+
       setSurveySuccess((prev) => ({ ...prev, [solicitudId]: true }))
       setSurveyResponses((prev) => ({
         ...prev,
@@ -108,8 +127,8 @@ export function ComplaintsSurvey({
           comentariosAdicionales: "",
         },
       }))
-    } catch {
-      console.error("Error enviando buzón")
+    } catch (err) {
+      console.error("Error enviando buzón:", err)
     } finally {
       setSubmittingSurvey((prev) => ({ ...prev, [solicitudId]: false }))
     }

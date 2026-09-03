@@ -344,6 +344,8 @@ export async function POST(request: Request) {
     const ccPaciente = String(formData.get("ccPaciente") || "").trim()
     const registroMedico = String(formData.get("registroMedico") || "").trim()
     const direccion = String(formData.get("direccion") || "").trim()
+    const correo = String(formData.get("correo") || "").trim()
+    const telefono = String(formData.get("telefono") || "").trim()
     const firma = String(formData.get("firma") || "").trim()
     const tiposTrabajoJson = String(formData.get("tiposTrabajo") || "[]").trim()
     const materialesJson = String(formData.get("materiales") || "[]").trim()
@@ -566,8 +568,8 @@ export async function POST(request: Request) {
       clienteNombre: (cliente.nombre || "").trim(),
       clienteDocumento: `${cliente.tipo || ""} ${cliente.documento || ""}`.trim(),
       clienteClinica: (cliente.clinica || "").trim(),
-      clienteCorreo: (cliente.correo || "").trim(),
-      clienteTelefono: (cliente.telefono || "").trim(),
+      clienteCorreo: correo || (cliente.correo || "").trim(),
+      clienteTelefono: telefono || (cliente.telefono || "").trim(),
       servicio,
       observaciones,
       archivosNombres: nombresArchivos,
@@ -635,8 +637,10 @@ export async function POST(request: Request) {
       historia_clinica: historiaClinica || null,
       odontologo: formData.get("odontologo")?.toString() || null,
        odontologo_registro_medico: registroMedico || null,
-      odontologo_direccion: direccion || null,
-      odontologo_firma: firma || null,
+       odontologo_direccion: direccion || null,
+       odontologo_correo: correo || null,
+       odontologo_telefono: telefono || null,
+       odontologo_firma: firma || null,
       paciente: paciente || null,
       cc_paciente: ccPaciente || null,
       observaciones: observaciones || null,

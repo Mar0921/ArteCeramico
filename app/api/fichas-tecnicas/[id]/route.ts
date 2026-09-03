@@ -23,27 +23,45 @@ export async function PATCH(
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    const updates: Record<string, unknown> = {}
-    const allowedFields = ["tipo", "nombre", "fecha", "secciones"]
-    for (const field of allowedFields) {
-      if (field in body) {
-        updates[field] = body[field]
-      }
-    }
+    const { data: solicitud, error: fetchError } = await supabase
+      .from("solicitudes")
+      .select("id, fichas_tecnicas")
+      .eq("id", body.solicitud_id)
+      .single()
 
-    if (Object.keys(updates).length === 0) {
+    if (fetchError || !solicitud) {
+      console.error("Error buscando solicitud:", fetchError)
       return NextResponse.json(
-        { message: "No hay campos para actualizar." },
-        { status: 400 }
+        { message: "Solicitud no encontrada." },
+        { status: 404 }
       )
     }
 
-    const { data, error } = await supabase
-      .from("fichas_tecnicas")
-      .update(updates)
-      .eq("id", fichaId)
-      .select("*")
-      .single()
+    const fichas = ((solicitud.fichas_tecnicas as string[]) || []).map((item) => {
+      try {
+        return JSON.parse(item)
+      } catch {
+        return null
+      }
+    }).filter(Boolean)
+
+    const index = fichas.findIndex((f) => f.id === fichaId)
+    if (index === -1) {
+      return NextResponse.json(
+        { message: "Ficha tecnica no encontrada." },
+        { status: 404 }
+      )
+    }
+
+    const updated = { ...fichas[index], ...body }
+    fichas[index] = updated
+
+    const serializadas = fichas.map((f) => JSON.stringify(f))
+
+    const { error } = await supabase
+      .from("solicitudes")
+      .update({ fichas_tecnicas: serializadas })
+      .eq("id", solicitud.id)
 
     if (error) {
       console.error("Error actualizando ficha tecnica:", error)
@@ -53,7 +71,7 @@ export async function PATCH(
       )
     }
 
-    return NextResponse.json({ data })
+    return NextResponse.json({ data: updated })
   } catch (error) {
     console.error("Error inesperado en PATCH /api/fichas-tecnicas/[id]:", error)
     return NextResponse.json(
@@ -77,15 +95,43 @@ export async function DELETE(
       )
     }
 
+    const body = await request.json().catch(() => ({}))
+    const solicitudId = body.solicitud_id
+
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
+    const { data: solicitud, error: fetchError } = await supabase
+      .from("solicitudes")
+      .select("id, fichas_tecnicas")
+      .eq("id", solicitudId)
+      .single()
+
+    if (fetchError || !solicitud) {
+      console.error("Error buscando solicitud:", fetchError)
+      return NextResponse.json(
+        { message: "Solicitud no encontrada." },
+        { status: 404 }
+      )
+    }
+
+    const fichas = ((solicitud.fichas_tecnicas as string[]) || []).map((item) => {
+      try {
+        return JSON.parse(item)
+      } catch {
+        return null
+      }
+    }).filter(Boolean)
+
+    const filtradas = fichas.filter((f) => f.id !== fichaId)
+    const serializadas = filtradas.map((f) => JSON.stringify(f))
+
     const { error } = await supabase
-      .from("fichas_tecnicas")
-      .delete()
-      .eq("id", fichaId)
+      .from("solicitudes")
+      .update({ fichas_tecnicas: serializadas })
+      .eq("id", solicitud.id)
 
     if (error) {
       console.error("Error eliminando ficha tecnica:", error)

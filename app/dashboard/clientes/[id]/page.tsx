@@ -91,7 +91,6 @@ interface Solicitud {
   }[]
   dibujo_odontologo: string | null
   declaracion_conformidad: string | null
-  guia_fabricacion: string | null
   manual_uso: string | null
   recomendaciones: string | null
   garantia: string | null
@@ -110,8 +109,44 @@ interface Servicio {
   cantidad: number
   created_at: string
   declaracion_conformidad: string | null
-  guia_fabricacion: string | null
   manual_uso: string | null
+}
+
+interface EstadoCuentaItem {
+  id: number
+  solicitudId: number
+  servicio: string
+  precio: number | null
+  estado: string
+  fecha: string
+  estado_pago: string
+  comprobante_pago: string | null
+  urlPdf: string
+}
+
+interface EncuestaPostAdaptacion {
+  id: number
+  solicitud_id: number
+  email: string
+  paciente: string
+  evaluaciones: string[]
+  opinion: string
+  nombre_profesional: string
+  fecha_entrega: string
+  created_at: string
+}
+
+interface BuzonQueja {
+  id: number
+  solicitud_id: number
+  email: string
+  tipo: string
+  descripcion: string
+  notificacion: string[]
+  nombre_completo: string
+  correo_electronico: string
+  comentarios_adicionales: string
+  created_at: string
 }
 
 export default function ClientePerfilPage() {
@@ -128,7 +163,7 @@ export default function ClientePerfilPage() {
   const [selectedSolicitud, setSelectedSolicitud] = useState<Solicitud | null>(null)
   const [serviciosDetalle, setServiciosDetalle] = useState<Servicio[]>([])
   const [loadingDetalle, setLoadingDetalle] = useState(false)
-  const [servicioDocs, setServicioDocs] = useState<Record<number, { declaracion_conformidad: File | null; guia_fabricacion: File | null; manual_uso: File | null }>>({})
+  const [servicioDocs, setServicioDocs] = useState<Record<number, { declaracion_conformidad: File | null; manual_uso: File | null }>>({})
   const [uploadingDoc, setUploadingDoc] = useState<Record<string, boolean>>({})
   const [uploadError, setUploadError] = useState<Record<string, string>>({})
   const [uploadSuccess, setUploadSuccess] = useState<Record<string, boolean>>({})
@@ -144,8 +179,7 @@ export default function ClientePerfilPage() {
   const [editMateriales, setEditMateriales] = useState<string[]>([])
   const [editDientes, setEditDientes] = useState<string[]>([])
   const [expandedSolicitud, setExpandedSolicitud] = useState<number | null>(null)
-  const [expandedFichaTecnica, setExpandedFichaTecnica] = useState<Record<number, boolean>>({})
-  const [activeTab, setActiveTab] = useState<{ [solicitudId: number]: "detalle" | "chat" | "documentos" }>({})
+  const [activeTab, setActiveTab] = useState<{ [solicitudId: number]: "detalle" | "chat" | "documentos" | "encuestas" }>({})
   const [mensajesNoLeidos, setMensajesNoLeidos] = useState<{ [solicitudId: number]: number }>({})
   const [mensajesPorSolicitud, setMensajesPorSolicitud] = useState<{ [solicitudId: number]: any[] }>({})
   const [mensajeInput, setMensajeInput] = useState<{ [solicitudId: number]: string }>({})
@@ -157,37 +191,35 @@ export default function ClientePerfilPage() {
   const [guardandoServicio, setGuardandoServicio] = useState<number | null>(null)
 
   const [mostrarEstadoCuenta, setMostrarEstadoCuenta] = useState<{ [clienteId: number]: boolean }>({})
-  const [itemsEstadoCuenta, setItemsEstadoCuenta] = useState<{ [clienteId: number]: any[] }>({})
+  const [itemsEstadoCuenta, setItemsEstadoCuenta] = useState<{ [clienteId: number]: EstadoCuentaItem[] }>({})
   const [totalPagarPorCliente, setTotalPagarPorCliente] = useState<{ [clienteId: number]: number }>({})
   const [cargandoEstadoCuenta, setCargandoEstadoCuenta] = useState<{ [clienteId: number]: boolean }>({})
   const [pagoDocs, setPagoDocs] = useState<{ [itemId: number]: File | null }>({})
   const [uploadingPagoDoc, setUploadingPagoDoc] = useState<{ [itemId: number]: boolean }>({})
   const [pagoStatusUpdating, setPagoStatusUpdating] = useState<{ [itemId: number]: boolean }>({})
+  const [encuestasPostAdaptacion, setEncuestasPostAdaptacion] = useState<Record<number, EncuestaPostAdaptacion[]>>({})
+  const [buzonQuejas, setBuzonQuejas] = useState<Record<number, BuzonQueja[]>>({})
 
-  const [solicitudDocs, setSolicitudDocs] = useState<{ declaracion_conformidad: File | null; guia_fabricacion: File | null; manual_uso: File | null; recomendaciones: File | null; garantia: File | null }>({
+  const [solicitudDocs, setSolicitudDocs] = useState<{ declaracion_conformidad: File | null; manual_uso: File | null; recomendaciones: File | null; garantia: File | null }>({
     declaracion_conformidad: null,
-    guia_fabricacion: null,
     manual_uso: null,
     recomendaciones: null,
     garantia: null,
   })
-  const [uploadingSolicitudDoc, setUploadingSolicitudDoc] = useState<{ declaracion_conformidad: boolean; guia_fabricacion: boolean; manual_uso: boolean; recomendaciones: boolean; garantia: boolean }>({
+  const [uploadingSolicitudDoc, setUploadingSolicitudDoc] = useState<{ declaracion_conformidad: boolean; manual_uso: boolean; recomendaciones: boolean; garantia: boolean }>({
     declaracion_conformidad: false,
-    guia_fabricacion: false,
     manual_uso: false,
     recomendaciones: false,
     garantia: false,
   })
-  const [uploadSolicitudError, setUploadSolicitudError] = useState<{ declaracion_conformidad: string; guia_fabricacion: string; manual_uso: string; recomendaciones: string; garantia: string }>({
+  const [uploadSolicitudError, setUploadSolicitudError] = useState<{ declaracion_conformidad: string; manual_uso: string; recomendaciones: string; garantia: string }>({
     declaracion_conformidad: "",
-    guia_fabricacion: "",
     manual_uso: "",
     recomendaciones: "",
     garantia: "",
   })
-  const [uploadSolicitudSuccess, setUploadSolicitudSuccess] = useState<{ declaracion_conformidad: boolean; guia_fabricacion: boolean; manual_uso: boolean; recomendaciones: boolean; garantia: boolean }>({
+  const [uploadSolicitudSuccess, setUploadSolicitudSuccess] = useState<{ declaracion_conformidad: boolean; manual_uso: boolean; recomendaciones: boolean; garantia: boolean }>({
     declaracion_conformidad: false,
-    guia_fabricacion: false,
     manual_uso: false,
     recomendaciones: false,
     garantia: false,
@@ -276,7 +308,7 @@ export default function ClientePerfilPage() {
     }
   }
 
-  const handleUploadDocSolicitud = async (solicitudId: number, campo: "declaracion_conformidad" | "guia_fabricacion" | "manual_uso" | "recomendaciones" | "garantia", archivoDirecto?: File) => {
+  const handleUploadDocSolicitud = async (solicitudId: number, campo: "declaracion_conformidad" | "manual_uso" | "recomendaciones" | "garantia", archivoDirecto?: File) => {
     const archivo = archivoDirecto || solicitudDocs[campo]
     if (!archivo) return
 
@@ -362,47 +394,51 @@ export default function ClientePerfilPage() {
   }, [id])
 
    useEffect(() => {
-      const loadSolicitudes = async () => {
-        if (!id) return
-        setLoadingSolicitudes(true)
-        const numericId = parseInt(id)
-        if (isNaN(numericId)) {
-          setLoadingSolicitudes(false)
-          return
-        }
+     const loadSolicitudes = async () => {
+       if (!id) return
+       setLoadingSolicitudes(true)
+       const numericId = parseInt(id)
+       if (isNaN(numericId)) {
+         setLoadingSolicitudes(false)
+         return
+       }
 
-        try {
-          const response = await fetch(`/api/solicitudes?cliente_id=${numericId}&limit=100`)
-          const result = await response.json()
-          const data = result.data || []
+       try {
+         const response = await fetch(`/api/solicitudes?cliente_id=${numericId}&limit=100`)
+         const result = await response.json()
+         const data = result.data || []
 
-          const solicitudesIds = data.map((s: any) => s.id)
-          const { data: serviciosData } = await supabase
-            .from("servicios")
-            .select("solicitud_id, precio")
-            .in("solicitud_id", solicitudesIds)
+         const solicitudesIds = data.map((s: any) => s.id)
+         const { data: serviciosData } = await supabase
+           .from("servicios")
+           .select("solicitud_id, precio")
+           .in("solicitud_id", solicitudesIds)
 
-          const preciosPorSolicitud = new Map<number, number>()
-          ;(serviciosData || []).forEach((serv: any) => {
-            preciosPorSolicitud.set(serv.solicitud_id, (preciosPorSolicitud.get(serv.solicitud_id) || 0) + (Number(serv.precio) || 0))
-          })
+         const preciosPorSolicitud = new Map<number, number>()
+         ;(serviciosData || []).forEach((serv: any) => {
+           preciosPorSolicitud.set(serv.solicitud_id, (preciosPorSolicitud.get(serv.solicitud_id) || 0) + (Number(serv.precio) || 0))
+         })
 
-          const solicitudesConPrecio = (data as any[]).map((s: any) => ({
-            ...s,
-            servicios_detalle: s.servicios_detalle || [],
-            precio: preciosPorSolicitud.get(s.id) || 0,
-          }))
+         const solicitudesConPrecio = (data as any[]).map((s: any) => ({
+           ...s,
+           servicios_detalle: s.servicios_detalle || [],
+           precio: preciosPorSolicitud.get(s.id) || 0,
+         }))
 
-          setSolicitudes(solicitudesConPrecio as Solicitud[])
-        } catch (err) {
-          console.error("Error cargando solicitudes del cliente:", err)
-        } finally {
-          setLoadingSolicitudes(false)
-        }
-      }
+         setSolicitudes(solicitudesConPrecio as Solicitud[])
+         for (const solicitud of solicitudesConPrecio) {
+           cargarEncuestasPostAdaptacion(solicitud.id)
+           cargarBuzonQuejas(solicitud.id)
+         }
+       } catch (err) {
+         console.error("Error cargando solicitudes del cliente:", err)
+       } finally {
+         setLoadingSolicitudes(false)
+       }
+     }
 
-      loadSolicitudes()
-    }, [id])
+     loadSolicitudes()
+   }, [id])
 
   useEffect(() => {
     const loadAdmin = async () => {
@@ -596,17 +632,17 @@ export default function ClientePerfilPage() {
     }
   }
 
-  const handleDocChange = (servicioId: number, campo: "declaracion_conformidad" | "guia_fabricacion" | "manual_uso", archivo: File) => {
+  const handleDocChange = (servicioId: number, campo: "declaracion_conformidad" | "manual_uso", archivo: File) => {
     setServicioDocs((prev) => ({
       ...prev,
       [servicioId]: {
-        ...(prev[servicioId] || { declaracion_conformidad: null, guia_fabricacion: null, manual_uso: null }),
+        ...(prev[servicioId] || { declaracion_conformidad: null, manual_uso: null }),
         [campo]: archivo,
       },
     }))
   }
 
-  const handleUploadDoc = async (servicioId: number, campo: "declaracion_conformidad" | "guia_fabricacion" | "manual_uso") => {
+  const handleUploadDoc = async (servicioId: number, campo: "declaracion_conformidad" | "manual_uso") => {
     const archivo = servicioDocs[servicioId]?.[campo]
     if (!archivo) return
 
@@ -690,7 +726,7 @@ export default function ClientePerfilPage() {
     setExpandedSolicitud((prev) => prev === solicitudId ? null : solicitudId)
   }
 
-  const handleSwitchTab = (solicitudId: number, tab: "detalle" | "chat" | "documentos") => {
+  const handleSwitchTab = (solicitudId: number, tab: "detalle" | "chat" | "documentos" | "encuestas") => {
     setActiveTab((prev) => ({ ...prev, [solicitudId]: tab }))
   }
 
@@ -928,12 +964,44 @@ if (!conv) return
       setItemsEstadoCuenta((prev) => ({ ...prev, [clienteId]: items }))
       setTotalPagarPorCliente((prev) => ({
         ...prev,
-        [clienteId]: items.reduce((sum, item) => sum + (item.precio || 0), 0),
+        [clienteId]: items.reduce((sum: number, item: EstadoCuentaItem) => sum + (item.precio || 0), 0),
       }))
     } catch (err) {
       console.error("Error cargando estado de cuenta:", err)
     } finally {
       setCargandoEstadoCuenta((prev) => ({ ...prev, [clienteId]: false }))
+    }
+  }
+
+  const cargarEncuestasPostAdaptacion = async (solicitudId: number) => {
+    try {
+      const response = await fetch(`/api/encuestas?solicitud_id=${solicitudId}`)
+      if (response.ok) {
+        const result = await response.json()
+        const data = result.data || []
+        setEncuestasPostAdaptacion((prev) => ({
+          ...prev,
+          [solicitudId]: data,
+        }))
+      }
+    } catch (err) {
+      console.error("Error cargando encuestas post-adaptación:", err)
+    }
+  }
+
+  const cargarBuzonQuejas = async (solicitudId: number) => {
+    try {
+      const response = await fetch(`/api/quejas?solicitud_id=${solicitudId}`)
+      if (response.ok) {
+        const result = await response.json()
+        const data = result.data || []
+        setBuzonQuejas((prev) => ({
+          ...prev,
+          [solicitudId]: data,
+        }))
+      }
+    } catch (err) {
+      console.error("Error cargando buzón de quejas:", err)
     }
   }
 
@@ -1263,17 +1331,27 @@ if (!conv) return
                                 </span>
                               )}
                             </button>
-                            <button
-                              onClick={() => handleSwitchTab(solicitud.id, "documentos")}
-                              className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${tabActiva === "documentos"
-                                ? "border-primary text-primary"
-                                : "border-transparent text-muted-foreground hover:text-foreground"
-                                }`}
-                            >
-                              <Paperclip size={14} />
-                              Documentos
-                            </button>
-                          </div>
+                             <button
+                               onClick={() => handleSwitchTab(solicitud.id, "documentos")}
+                               className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${tabActiva === "documentos"
+                                 ? "border-primary text-primary"
+                                 : "border-transparent text-muted-foreground hover:text-foreground"
+                                 }`}
+                             >
+                               <Paperclip size={14} />
+                               Documentos
+                             </button>
+                             <button
+                               onClick={() => handleSwitchTab(solicitud.id, "encuestas")}
+                               className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${tabActiva === "encuestas"
+                                 ? "border-primary text-primary"
+                                 : "border-transparent text-muted-foreground hover:text-foreground"
+                                 }`}
+                             >
+                               <FileText size={14} />
+                               Encuestas y Buzón
+                             </button>
+                           </div>
 
                           {/* Tab: Detalle */}
                           {tabActiva === "detalle" && (
@@ -1758,13 +1836,11 @@ if (!conv) return
                                                   Precio: ${servicio.precio ? Number(servicio.precio).toLocaleString("es-CO") : "0"}
                                                 </p>
                                                 <div className="mt-2 space-y-1">
-                                                  {(["declaracion_conformidad", "guia_fabricacion", "manual_uso"] as const).map((campo) => {
-                                                     const etiqueta =
-                                                       campo === "declaracion_conformidad"
-                                                         ? "Declaración de Conformidad"
-                                                         : campo === "guia_fabricacion"
-                                                           ? "Ficha Técnica"
-                                                           : "Manual de Uso"
+                                                   {(["declaracion_conformidad", "manual_uso"] as const).map((campo) => {
+                                                      const etiqueta =
+                                                        campo === "declaracion_conformidad"
+                                                          ? "Declaración de Conformidad"
+                                                          : "Manual de Uso"
                                                     const url = servicio[campo as keyof typeof servicio] as string | null
                                                     const uploadKey = `${servicio.id}-${campo}`
                                                     const error = uploadError[uploadKey]
@@ -1948,144 +2024,81 @@ if (!conv) return
                             <div className="bg-gray-50 p-4">
                               <p className="text-[10px] text-gray-500 uppercase tracking-wide">Documentos de la Solicitud</p>
                               <div className="space-y-2">
-                                {(["declaracion_conformidad"] as const).map((campo) => {
-                                  const url = solicitud[campo]
-                                  const etiqueta = campo === "declaracion_conformidad"
-                                    ? "Declaración de Conformidad"
-                                    : campo === "guia_fabricacion"
-                                      ? "Ficha Técnica"
-                                      : campo === "manual_uso"
-                                        ? "Manual de Uso"
-                                        : campo === "recomendaciones"
-                                          ? "Recomendaciones"
-                                          : "Garantía"
-                                  const uploading = uploadingSolicitudDoc[campo]
-                                  const error = uploadSolicitudError[campo]
-                                  const success = uploadSolicitudSuccess[campo]
+                                 {(["declaracion_conformidad", "manual_uso", "recomendaciones", "garantia"] as const).map((campo) => {
+                                   const url = solicitud[campo]
+                                   const etiqueta = campo === "declaracion_conformidad"
+                                     ? "Declaración de Conformidad"
+                                     : campo === "manual_uso"
+                                       ? "Manual de Uso"
+                                       : campo === "recomendaciones"
+                                         ? "Recomendaciones"
+                                         : "Garantía"
+                                   const uploading = uploadingSolicitudDoc[campo]
+                                   const error = uploadSolicitudError[campo]
+                                   const success = uploadSolicitudSuccess[campo]
 
-                                  return (
-                                    <div key={campo} className="flex items-center justify-between gap-2">
-                                      <div className="flex items-center gap-2 flex-1 min-w-0">
-                                        <FileText size={14} className="text-gray-500 shrink-0" />
-                                        {url ? (
-                                          <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline truncate">
-                                            {etiqueta}
-                                          </a>
-                                        ) : (
-                                          <span className="text-xs text-gray-500 truncate">{etiqueta} - No subido</span>
-                                        )}
-                                        {success && (
-                                          <CheckCircle size={12} className="text-green-500 shrink-0" />
-                                        )}
-                                      </div>
-                                      <div className="flex items-center gap-2 shrink-0">
-                                        <input
-                                          type="file"
-                                          className="hidden"
-                                          id={`solicitud-${solicitud.id}-${campo}`}
-                                          accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
-                                          onChange={(e) => {
-                                            const file = e.target.files?.[0]
-                                            if (file) handleUploadDocSolicitud(solicitud.id, campo, file)
-                                          }}
-                                        />
-                                        <label htmlFor={`solicitud-${solicitud.id}-${campo}`} className="cursor-pointer">
-                                          <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted">
-                                            {uploadingSolicitudDoc[campo] ? "Subiendo..." : "Subir"}
-                                          </span>
-                                        </label>
-                                        {solicitud[campo] && (
-                                          <button
-                                            onClick={() => handleUploadDocSolicitud(solicitud.id, campo)}
-                                            disabled={uploading}
-                                            className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted disabled:opacity-50"
-                                          >
-                                            Actualizar
-                                          </button>
-                                        )}
-                                      </div>
+                                   return (
+                                     <div key={campo} className="flex items-center justify-between gap-2">
+                                       <div className="flex items-center gap-2 flex-1 min-w-0">
+                                         <FileText size={14} className="text-gray-500 shrink-0" />
+                                         {url ? (
+                                           <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline truncate">
+                                             {etiqueta}
+                                           </a>
+                                         ) : (
+                                           <span className="text-xs text-gray-500 truncate">{etiqueta} - No subido</span>
+                                         )}
+                                         {success && (
+                                           <CheckCircle size={12} className="text-green-500 shrink-0" />
+                                         )}
+                                       </div>
+                                       <div className="flex items-center gap-2 shrink-0">
+                                         <input
+                                           type="file"
+                                           className="hidden"
+                                           id={`solicitud-${solicitud.id}-${campo}`}
+                                           accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
+                                           onChange={(e) => {
+                                             const file = e.target.files?.[0]
+                                             if (file) handleUploadDocSolicitud(solicitud.id, campo, file)
+                                           }}
+                                         />
+                                         <label htmlFor={`solicitud-${solicitud.id}-${campo}`} className="cursor-pointer">
+                                           <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted">
+                                             {uploadingSolicitudDoc[campo] ? "Subiendo..." : "Subir"}
+                                           </span>
+                                         </label>
+                                         {solicitud[campo] && (
+                                           <button
+                                             onClick={() => handleUploadDocSolicitud(solicitud.id, campo)}
+                                             disabled={uploading}
+                                             className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted disabled:opacity-50"
+                                           >
+                                             Actualizar
+                                           </button>
+                                         )}
+                                       </div>
+                                     </div>
+                                   )
+                                 })}
+
+                                  <div className="flex items-center justify-between gap-2">
+                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                      <FileText size={14} className="text-gray-500 shrink-0" />
+                                      <span className="text-xs text-foreground">Ficha Técnica</span>
                                     </div>
-                                  )
-                                })}
-
-                                <div className="border border-border rounded-lg">
-                                  <button
-                                    onClick={() => setExpandedFichaTecnica(prev => ({ ...prev, [solicitud.id]: !prev[solicitud.id] }))}
-                                    className="w-full flex items-center justify-between p-2 text-xs font-medium text-foreground hover:bg-muted/50 transition-colors"
-                                  >
-                                    <span>Ficha Técnica</span>
-                                    <span className="text-[10px] text-muted-foreground">
-                                      {expandedFichaTecnica[solicitud.id] ? "Ocultar" : "Ver"}
-                                    </span>
-                                  </button>
-                                  {expandedFichaTecnica[solicitud.id] && (
-                                    <div className="px-2 pb-2 space-y-2">
-                                      {(["guia_fabricacion", "manual_uso", "recomendaciones", "garantia"] as const).map((campo) => {
-                                        const url = solicitud[campo]
-                                        const etiqueta = campo === "guia_fabricacion" ? "Ficha Técnica" : campo === "manual_uso" ? "Manual de Uso" : campo === "recomendaciones" ? "Recomendaciones" : "Garantía"
-                                        const uploading = uploadingSolicitudDoc[campo]
-                                        const error = uploadSolicitudError[campo]
-                                        const success = uploadSolicitudSuccess[campo]
-
-                                        return (
-                                          <div key={campo} className="flex items-center justify-between gap-2">
-                                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                                              <FileText size={14} className="text-gray-500 shrink-0" />
-                                              {url ? (
-                                                <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline truncate">
-                                                  {etiqueta}
-                                                </a>
-                                              ) : (
-                                                <span className="text-xs text-gray-500 truncate">{etiqueta} - No subido</span>
-                                              )}
-                                              {success && (
-                                                <CheckCircle size={12} className="text-green-500 shrink-0" />
-                                              )}
-                                            </div>
-                                            <div className="flex items-center gap-2 shrink-0">
-                                              <input
-                                                type="file"
-                                                className="hidden"
-                                                id={`solicitud-${solicitud.id}-${campo}`}
-                                                accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp"
-                                                onChange={(e) => {
-                                                  const file = e.target.files?.[0]
-                                                  if (file) handleUploadDocSolicitud(solicitud.id, campo, file)
-                                                }}
-                                              />
-                                              {campo === "guia_fabricacion" ? (
-                                                <button
-                                                  onClick={() => router.push(`/dashboard/clientes/${client.id}/fichas-tecnicas`)}
-                                                  className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted"
-                                                >
-                                                  <Upload size={12} />
-                                                  Subir
-                                                </button>
-                                              ) : (
-                                                <label htmlFor={`solicitud-${solicitud.id}-${campo}`} className="cursor-pointer">
-                                                  <span className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted">
-                                                    {uploadingSolicitudDoc[campo] ? "Subiendo..." : "Subir"}
-                                                  </span>
-                                                </label>
-                                              )}
-                                              {(solicitudDocs[campo] || solicitud[campo]) && (
-                                                <button
-                                                  onClick={() => handleUploadDocSolicitud(solicitud.id, campo)}
-                                                  disabled={uploadingSolicitudDoc[campo]}
-                                                  className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted disabled:opacity-50"
-                                                >
-                                                  {solicitudDocs[campo] ? "Guardar" : "Actualizar"}
-                                                </button>
-                                              )}
-                                            </div>
-                                          </div>
-                                        )
-                                      })}
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      <button
+                                        onClick={() => router.push(`/dashboard/clientes/${client.id}/fichas-tecnicas`)}
+                                        className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted"
+                                      >
+                                        <Upload size={12} />
+                                        Subir
+                                      </button>
                                     </div>
-                                  )}
-                               </div>
+                                  </div>
 
-                                 {/* Documentos adjuntos del cliente */}
+                                  {/* Documentos adjuntos del cliente */}
                                  {solicitud.urls_documentos && solicitud.urls_documentos.length > 0 && (
                                    <div className="mt-4 pt-3 border-t border-border">
                                      <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">Archivos Adjuntos</p>
@@ -2116,10 +2129,51 @@ if (!conv) return
                                  )}
                                </div>
                              </div>
+                            )}
+                          
+                           {/* Tab: Encuestas */}
+                           {tabActiva === "encuestas" && (
+                             <div className="bg-gray-50 p-4">
+                               <div className="space-y-4">
+                                 <div>
+                                   <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">Encuesta Pos Adaptación</p>
+                                   {encuestasPostAdaptacion[solicitud.id]?.length > 0 ? (
+                                     encuestasPostAdaptacion[solicitud.id].map((encuesta) => (
+                                       <div key={encuesta.id} className="text-xs bg-white p-3 rounded border border-gray-200 mb-2">
+                                         <p><strong>Profesional:</strong> {encuesta.nombre_profesional}</p>
+                                         <p><strong>Paciente:</strong> {encuesta.paciente}</p>
+                                         <p><strong>Fecha entrega:</strong> {encuesta.fecha_entrega}</p>
+                                         <p><strong>Opinión:</strong> {encuesta.opinion}</p>
+                                         <p><strong>Evaluaciones:</strong> {(encuesta.evaluaciones || []).join(", ")}</p>
+                                       </div>
+                                     ))
+                                   ) : (
+                                     <span className="text-xs text-gray-500">No hay encuestas registradas</span>
+                                   )}
+                                 </div>
+                                 <div>
+                                   <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">Buzón de Quejas</p>
+                                   {buzonQuejas[solicitud.id]?.length > 0 ? (
+                                     buzonQuejas[solicitud.id].map((queja) => (
+                                       <div key={queja.id} className="text-xs bg-white p-3 rounded border border-gray-200 mb-2">
+                                         <p><strong>Tipo:</strong> {queja.tipo}</p>
+                                         <p><strong>Nombre:</strong> {queja.nombre_completo}</p>
+                                         <p><strong>Correo:</strong> {queja.correo_electronico}</p>
+                                         <p><strong>Descripción:</strong> {queja.descripcion}</p>
+                                         {queja.comentarios_adicionales && <p><strong>Comentarios:</strong> {queja.comentarios_adicionales}</p>}
+                                         <p><strong>Notificación:</strong> {(queja.notificacion || []).join(", ")}</p>
+                                       </div>
+                                     ))
+                                   ) : (
+                                     <span className="text-xs text-gray-500">No hay registros en el buzón</span>
+                                   )}
+                                 </div>
+                               </div>
+                             </div>
                            )}
                          </motion.div>
-                      )}
-                    </AnimatePresence>
+                       )}
+                     </AnimatePresence>
                   </div>
                 )
               })}
@@ -2174,7 +2228,7 @@ if (!conv) return
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/40">
-                      {(itemsEstadoCuenta[client!.id] || []).map((item: any, index: number) => (
+                      {(itemsEstadoCuenta[client!.id] || []).map((item: EstadoCuentaItem, index: number) => (
                         <tr key={item.id}>
                           <td className="py-2 pr-3 text-xs text-muted-foreground">{index + 1}</td>
                           <td className="py-2 pr-3 text-xs font-medium text-foreground">{item.servicio}</td>

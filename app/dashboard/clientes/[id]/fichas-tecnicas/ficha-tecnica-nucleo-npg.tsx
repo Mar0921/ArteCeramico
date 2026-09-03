@@ -13,6 +13,8 @@ type Props = {
   onDownload: () => void
   downloading: boolean
   showToolbar?: boolean
+  dientes?: string[]
+  codigoTrazabilidad?: string
 }
 
 function EditableField({
@@ -65,7 +67,7 @@ function InfoTable({ children }: { children: React.ReactNode }) {
   return <div className="mb-4 border border-neutral-300">{children}</div>
 }
 
-function InfoRow({ label, children, value, seccionIndex, campoIndex, editing, onCampoChange }: {
+function InfoRow({ label, children, value, seccionIndex, campoIndex, editing, onCampoChange, customEditor }: {
   label: string
   children?: React.ReactNode
   value?: string
@@ -73,6 +75,7 @@ function InfoRow({ label, children, value, seccionIndex, campoIndex, editing, on
   campoIndex?: number
   editing?: boolean
   onCampoChange?: (seccionIndex: number, campoIndex: number, value: string) => void
+  customEditor?: () => React.ReactNode
 }) {
   const isEditable = seccionIndex !== undefined && campoIndex !== undefined && editing && onCampoChange
   const displayValue = value || ""
@@ -82,12 +85,16 @@ function InfoRow({ label, children, value, seccionIndex, campoIndex, editing, on
       <div className="w-[38%] shrink-0 border-r border-neutral-300 bg-neutral-50 p-3 font-bold">{label}</div>
       <div className="flex-1 p-3">
         {isEditable ? (
-          <EditableField
-            value={displayValue}
-            onChange={(val) => onCampoChange(seccionIndex, campoIndex, val)}
-            editing={editing}
-            rows={displayValue.split('\n').length > 3 ? 6 : 2}
-          />
+          customEditor ? (
+            customEditor()
+          ) : (
+            <EditableField
+              value={displayValue}
+              onChange={(val) => onCampoChange(seccionIndex, campoIndex, val)}
+              editing={editing}
+              rows={displayValue.split('\n').length > 3 ? 6 : 2}
+            />
+          )
         ) : (
           children
         )}
@@ -109,6 +116,7 @@ function Td({ children, className = "", seccionIndex, campoIndex, editing, onCam
   campoIndex?: number
   editing?: boolean
   onCampoChange?: (seccionIndex: number, campoIndex: number, value: string) => void
+  customEditor?: () => React.ReactNode
 }) {
   const value = typeof children === 'string' ? children : ""
   const isEditable = seccionIndex !== undefined && campoIndex !== undefined && editing && onCampoChange
@@ -180,6 +188,8 @@ export function FichaTecnicaNucleoNPG({
   onDownload,
   downloading,
   showToolbar = true,
+  dientes,
+  codigoTrazabilidad = "",
 }: Props) {
   const getCampo = (seccionIndex: number, campoIndex: number): CampoEditable | undefined => {
     return secciones[seccionIndex]?.campos[campoIndex]
@@ -282,7 +292,8 @@ export function FichaTecnicaNucleoNPG({
                   const isVidaUtil = campo.label === "Vida útil estimada"
 
                   const isLargeField = isMateriales || isNormas || isRiesgos || isAdvertencias || isInstruccionesUso || isInstruccionesMantenimiento || isGarantia || isDescripcion || isUsoPrevisto || isVidaUtil
-
+                  const isNumeroSerie = campo.label === "Número de Serie o identificación del dispositivo"
+                  const selectedDientes = isNumeroSerie && campo.value && codigoTrazabilidad ? String(campo.value).split(",").map(v => v.replace(`${codigoTrazabilidad}-`, "")).filter(Boolean) : []
                   return (
                     <InfoRow
                       key={campo.label}
@@ -291,7 +302,25 @@ export function FichaTecnicaNucleoNPG({
                       seccionIndex={seccionIndex}
                       campoIndex={campoIndex}
                       editing={editing && isCampoEditable}
-                      onCampoChange={isCampoEditable ? onCampoChange : undefined}
+                      onCampoChange={isCampoEditable && !isNumeroSerie ? onCampoChange : undefined}
+                      customEditor={isNumeroSerie && editing && isCampoEditable && dientes && dientes.length > 0 ? () => (
+                        <select
+                          multiple
+                          size={5}
+                          value={selectedDientes}
+                          onChange={(e) => {
+                            const selected = Array.from(e.target.selectedOptions, option => option.value).filter(Boolean)
+                            const newValue = selected.length > 0 ? selected.map(d => `${codigoTrazabilidad}-${d}`).join(",") : ""
+                            onCampoChange(seccionIndex, campoIndex, newValue)
+                          }}
+                          className={"w-full rounded border border-amber-300 bg-amber-50 p-2 text-[11px] text-neutral-900 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200"}
+                        >
+                          <option value={""}>Seleccionar diente...</option>
+                          {dientes!.map((d) => (
+                            <option key={d} value={d}>{d}</option>
+                          ))}
+                        </select>
+                      ) : undefined}
                     >
                       {isLargeField ? (
                         <div className="whitespace-pre-line">
