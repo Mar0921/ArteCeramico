@@ -91,6 +91,8 @@ interface Solicitud {
   dientes_trabajados: string[] | null
   dientesTrabajados: string[]
   dientes_detallados: { numero: number; servicio: string; estado: string }[]
+  guia_fabricacion: string | null
+  terminos_garantia: string | null
   servicios_detalle: {
     id: number
     nombre: string
@@ -105,11 +107,6 @@ interface Solicitud {
   tiposTrabajo: string[]
   piezasEnviadas: number
   dibujo_odontologo: string | null
-  declaracion_conformidad: string | null
-  guia_fabricacion: string | null
-  manual_uso: string | null
-  recomendaciones: string | null
-  garantia: string | null
 }
 
 interface Cliente {
@@ -177,36 +174,20 @@ export default function ClientesPage() {
   const [serviciosDetalle, setServiciosDetalle] = useState<Servicio[]>([])
   const [loadingDetalle, setLoadingDetalle] = useState(false)
   const [servicioDocs, setServicioDocs] = useState<Record<number, { declaracion_conformidad: File | null; guia_fabricacion: File | null; manual_uso: File | null }>>({})
-  const [solicitudDocs, setSolicitudDocs] = useState<{ declaracion_conformidad: File | null; guia_fabricacion: File | null; manual_uso: File | null; recomendaciones: File | null; garantia: File | null }>({
-    declaracion_conformidad: null,
-    guia_fabricacion: null,
-    manual_uso: null,
-    recomendaciones: null,
-    garantia: null,
+  const [solicitudDocs, setSolicitudDocs] = useState<{ terminos_garantia: File | null }>({
+    terminos_garantia: null,
   })
   const [uploadingDoc, setUploadingDoc] = useState<Record<string, boolean>>({})
-  const [uploadingSolicitudDoc, setUploadingSolicitudDoc] = useState<{ declaracion_conformidad: boolean; guia_fabricacion: boolean; manual_uso: boolean; recomendaciones: boolean; garantia: boolean }>({
-    declaracion_conformidad: false,
-    guia_fabricacion: false,
-    manual_uso: false,
-    recomendaciones: false,
-    garantia: false,
+  const [uploadingSolicitudDoc, setUploadingSolicitudDoc] = useState<{ terminos_garantia: boolean }>({
+    terminos_garantia: false,
   })
   const [uploadError, setUploadError] = useState<Record<string, string>>({})
-  const [uploadSolicitudError, setUploadSolicitudError] = useState<{ declaracion_conformidad: string; guia_fabricacion: string; manual_uso: string; recomendaciones: string; garantia: string }>({
-    declaracion_conformidad: "",
-    guia_fabricacion: "",
-    manual_uso: "",
-    recomendaciones: "",
-    garantia: "",
+  const [uploadSolicitudError, setUploadSolicitudError] = useState<{ terminos_garantia: string }>({
+    terminos_garantia: "",
   })
   const [uploadSuccess, setUploadSuccess] = useState<Record<string, boolean>>({})
-  const [uploadSolicitudSuccess, setUploadSolicitudSuccess] = useState<{ declaracion_conformidad: boolean; guia_fabricacion: boolean; manual_uso: boolean; recomendaciones: boolean; garantia: boolean }>({
-    declaracion_conformidad: false,
-    guia_fabricacion: false,
-    manual_uso: false,
-    recomendaciones: false,
-    garantia: false,
+  const [uploadSolicitudSuccess, setUploadSolicitudSuccess] = useState<{ terminos_garantia: boolean }>({
+    terminos_garantia: false,
   })
   const [mostrarEstadoCuenta, setMostrarEstadoCuenta] = useState(false)
   const [itemsEstadoCuenta, setItemsEstadoCuenta] = useState<{
@@ -229,7 +210,6 @@ export default function ClientesPage() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [notificacionesNoLeidas, setNotificacionesNoLeidas] = useState<Record<number, number>>({})
   const [expandedSolicitudId, setExpandedSolicitudId] = useState<number | null>(null)
-  const [expandedFichaTecnica, setExpandedFichaTecnica] = useState<Record<number, boolean>>({})
   const [surveyResponses, setSurveyResponses] = useState<Record<number, {
     email: string
     paciente: string
@@ -1108,7 +1088,7 @@ export default function ClientesPage() {
     }
   }
 
-  const handleUploadDocSolicitud = async (solicitudId: number, campo: "declaracion_conformidad" | "guia_fabricacion" | "manual_uso" | "recomendaciones" | "garantia") => {
+  const handleUploadDocSolicitud = async (solicitudId: number, campo: "terminos_garantia") => {
     const archivo = solicitudDocs[campo]
     if (!archivo) return
 
@@ -1136,23 +1116,10 @@ export default function ClientesPage() {
 
       setUploadSolicitudSuccess((prev) => ({ ...prev, [campo]: true }))
       setTimeout(() => {
-        setUploadSolicitudSuccess((prev) => {
-          const next = { ...prev }
-          delete next[campo]
-          return next
-        })
+        setUploadSolicitudSuccess((prev) => ({ ...prev, [campo]: false }))
       }, 3000)
 
-      const nombreDocumento =
-        campo === "declaracion_conformidad"
-          ? "Declaración de Conformidad"
-          : campo === "guia_fabricacion"
-            ? "Ficha Técnica"
-            : campo === "manual_uso"
-              ? "Manual de Uso"
-              : campo === "recomendaciones"
-                ? "Recomendaciones"
-                : "Garantía"
+      const nombreDocumento = "Términos de Garantía"
 
       setSolicitudMensaje(`${nombreDocumento} subido correctamente`)
       setTimeout(() => setSolicitudMensaje(null), 4000)
@@ -2203,88 +2170,27 @@ export default function ClientesPage() {
                             {(activeTab[solicitud.id] ?? "detalle") === "documentos" && (
                               <div className="bg-gray-50 p-4">
                                 <div className="space-y-2">
-                                  <p className="text-[10px] text-gray-500 uppercase tracking-wide">Documentos de la Solicitud</p>
-                                  <div className="flex items-center gap-2">
-                                    <FileText size={14} className="text-gray-500 shrink-0" />
-                                    {solicitud.declaracion_conformidad ? (
-                                      <a href={solicitud.declaracion_conformidad} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
-                                        Declaración de Conformidad
-                                      </a>
-                                    ) : (
-                                      <span className="text-xs text-gray-500">Declaración de Conformidad - No subido</span>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <FileText size={14} className="text-gray-500 shrink-0" />
-                                    {solicitud.guia_fabricacion ? (
-                                      <a href={solicitud.guia_fabricacion} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
-                                        Ficha Técnica
-                                      </a>
-                                    ) : (
-                                      <span className="text-xs text-gray-500">Ficha Técnica - No subido</span>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <FileText size={14} className="text-gray-500 shrink-0" />
-                                    {solicitud.manual_uso ? (
-                                      <a href={solicitud.manual_uso} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
-                                        Manual de Uso
-                                      </a>
-                                    ) : (
-                                      <span className="text-xs text-gray-500">Manual de Uso - No subido</span>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <FileText size={14} className="text-gray-500 shrink-0" />
-                                    {solicitud.recomendaciones ? (
-                                      <a href={solicitud.recomendaciones} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
-                                        Recomendaciones
-                                      </a>
-                                    ) : (
-                                      <span className="text-xs text-gray-500">Recomendaciones - No subido</span>
-                                    )}
-                                  </div>
-                                  <div className="flex items-center gap-2">
-                                    <FileText size={14} className="text-gray-500 shrink-0" />
-                                    {solicitud.garantia ? (
-                                      <a href={solicitud.garantia} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
-                                        Garantía
-                                      </a>
-                                    ) : (
-                                      <span className="text-xs text-gray-500">Garantía - No subido</span>
-                                    )}
-                                  </div>
-                                  <div className="border border-border rounded-lg">
-                                    <button
-                                      onClick={() => setExpandedFichaTecnica(prev => ({ ...prev, [solicitud.id]: !prev[solicitud.id] }))}
-                                      className="w-full flex items-center justify-between p-2 text-xs font-medium text-foreground hover:bg-muted/50 transition-colors"
-                                    >
-                                      <span>Ficha Técnica</span>
-                                      <span className="text-[10px] text-muted-foreground">
-                                        {expandedFichaTecnica[solicitud.id] ? "Ocultar" : "Ver"}
-                                      </span>
-                                    </button>
-                                    {expandedFichaTecnica[solicitud.id] && (
-                                      <div className="px-2 pb-2 space-y-2">
-                                        {(["guia_fabricacion", "manual_uso", "recomendaciones", "garantia"] as const).map((campo) => {
-                                          const url = solicitud[campo]
-                                          const etiqueta = campo === "guia_fabricacion" ? "Ficha Técnica" : campo === "manual_uso" ? "Manual de Uso" : campo === "recomendaciones" ? "Recomendaciones" : "Garantía"
-                                          return (
-                                            <div key={campo} className="flex items-center gap-2">
-                                              <FileText size={14} className="text-gray-500 shrink-0" />
-                                              {url ? (
-                                                <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
-                                                  {etiqueta}
-                                                </a>
-                                              ) : (
-                                                <span className="text-xs text-gray-500">{etiqueta} - No subido</span>
-                                              )}
-                                            </div>
-                                          )
-                                        })}
-                                      </div>
-                                    )}
-                                  </div>
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Documentos de la Solicitud</p>
+                                <div className="flex items-center gap-2">
+                                  <FileText size={14} className="text-gray-500 shrink-0" />
+                                  {solicitud.guia_fabricacion ? (
+                                    <a href={solicitud.guia_fabricacion} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
+                                      Ficha Técnica
+                                    </a>
+                                  ) : (
+                                    <span className="text-xs text-gray-500">Ficha Técnica - No subido</span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <FileText size={14} className="text-gray-500 shrink-0" />
+                                  {solicitud.terminos_garantia ? (
+                                    <a href={solicitud.terminos_garantia} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
+                                      Términos de Garantía
+                                    </a>
+                                  ) : (
+                                    <span className="text-xs text-gray-500">Términos de Garantía - No subido</span>
+                                  )}
+                                </div>
                                   {solicitud.urls_documentos && solicitud.urls_documentos.length > 0 && (
                                     <div className="mt-2 pt-2 border-t border-border">
                                       <p className="text-[10px] text-gray-500 mb-1">Archivos adjuntos:</p>

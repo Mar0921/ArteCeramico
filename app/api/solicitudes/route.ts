@@ -638,8 +638,6 @@ export async function POST(request: Request) {
       odontologo: formData.get("odontologo")?.toString() || null,
        odontologo_registro_medico: registroMedico || null,
        odontologo_direccion: direccion || null,
-       odontologo_correo: correo || null,
-       odontologo_telefono: telefono || null,
        odontologo_firma: firma || null,
       paciente: paciente || null,
       cc_paciente: ccPaciente || null,

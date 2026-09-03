@@ -2329,6 +2329,7 @@ ISO 15841: alambres para uso en ortodoncia`,
           tipo: fichaGuardada.tipo,
           nombre: fichaGuardada.nombre,
           fecha: fichaGuardada.fecha,
+          url: fichaGuardada.url,
           secciones: fichaGuardada.secciones,
         }),
       })

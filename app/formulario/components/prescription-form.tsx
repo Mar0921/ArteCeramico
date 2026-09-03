@@ -116,6 +116,8 @@ export function PrescriptionForm({
                   ...s.formData,
                   productos: s.formData?.productos ?? [],
                   codigoTrazabilidad: generateCodigoTrazabilidad(),
+                  correo: s.formData?.correo ?? "",
+                  telefono: s.formData?.telefono ?? "",
                 },
               }))
             }
@@ -172,7 +174,7 @@ export function PrescriptionForm({
 
         const { data, error } = await supabase
           .from("clientes")
-          .select("nombre, documento, correo, telefono, direccion")
+          .select("nombre, documento, correo, telefono")
           .eq("user_id", user.id)
           .single()
 
@@ -188,7 +190,6 @@ export function PrescriptionForm({
               odontologo: data.nombre ?? s.formData.odontologo,
               correo: data.correo ?? s.formData.correo,
               telefono: data.telefono ?? s.formData.telefono,
-              direccion: data.direccion ?? s.formData.direccion,
             },
           }))
         )
