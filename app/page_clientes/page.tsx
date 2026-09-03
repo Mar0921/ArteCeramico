@@ -118,6 +118,7 @@ interface Cliente {
   telefono: string
   clinica: string
   created_at: string
+  convenio_firmado: boolean | null
 }
 
 interface Message {
@@ -231,6 +232,9 @@ export default function ClientesPage() {
   }>>({})
   const [submittingComplaints, setSubmittingComplaints] = useState<Record<number, boolean>>({})
   const [complaintsSuccess, setComplaintsSuccess] = useState<Record<number, boolean>>({})
+  const [guardandoConvenio, setGuardandoConvenio] = useState(false)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const [dibujando, setDibujando] = useState(false)
 
   const { toast } = useToast()
 
@@ -728,9 +732,82 @@ export default function ClientesPage() {
     } finally {
       setSaving(false)
     }
-  }
+    }
 
-  const handleSubmitSolicitud = async (event: React.FormEvent<HTMLFormElement>) => {
+    const iniciarDibujo = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      setDibujando(true)
+      const ctx = canvas.getContext("2d")
+      if (!ctx) return
+      const rect = canvas.getBoundingClientRect()
+      const clientX = "touches" in e ? (e as React.TouchEvent).touches[0].clientX : (e as React.MouseEvent).clientX
+      const clientY = "touches" in e ? (e as React.TouchEvent).touches[0].clientY : (e as React.MouseEvent).clientY
+      const scaleX = canvas.width / rect.width
+      const scaleY = canvas.height / rect.height
+      ctx.lineWidth = 1.2 * Math.max(scaleX, scaleY)
+      ctx.lineCap = "round"
+      ctx.strokeStyle = "#333"
+      ctx.beginPath()
+      ctx.moveTo((clientX - rect.left) * scaleX, (clientY - rect.top) * scaleY)
+    }
+
+    const dibujar = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+      if (!dibujando) return
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const ctx = canvas.getContext("2d")
+      if (!ctx) return
+      const rect = canvas.getBoundingClientRect()
+      const clientX = "touches" in e ? (e as React.TouchEvent).touches[0].clientX : (e as React.MouseEvent).clientX
+      const clientY = "touches" in e ? (e as React.TouchEvent).touches[0].clientY : (e as React.MouseEvent).clientY
+      const scaleX = canvas.width / rect.width
+      const scaleY = canvas.height / rect.height
+      ctx.lineTo((clientX - rect.left) * scaleX, (clientY - rect.top) * scaleY)
+      ctx.stroke()
+    }
+
+    const detenerDibujo = () => {
+      if (!dibujando) return
+      setDibujando(false)
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const ctx = canvas.getContext("2d")
+      if (!ctx) return
+      ctx.closePath()
+    }
+
+    const limpiarFirma = () => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+      const ctx = canvas.getContext("2d")
+      if (!ctx) return
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+    }
+
+    const handleGuardarConvenio = async () => {
+     if (!clientData?.id) return
+
+     setGuardandoConvenio(true)
+     try {
+       const { error } = await supabase
+         .from("clientes")
+         .update({ convenio_firmado: true })
+         .eq("id", clientData.id)
+
+       if (error) throw error
+
+       setClientData((prev) => prev ? { ...prev, convenio_firmado: true } : prev)
+       toast({ title: "Convenio firmado", description: "El carta convenio se ha marcado como completada." })
+     } catch (err) {
+       console.error("Error guardando convenio:", err)
+       toast({ title: "Error", description: "No se pudo guardar el estado del convenio.", variant: "destructive" })
+     } finally {
+       setGuardandoConvenio(false)
+     }
+   }
+
+   const handleSubmitSolicitud = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!clientData?.id) return
 
@@ -1399,6 +1476,173 @@ export default function ClientesPage() {
             </div>
           </div>
         )}
+
+        {/* CARTA CONVENIO */}
+        <section className="rounded-3xl border border-border/50 bg-card/60 p-8 shadow-2xl backdrop-blur-xl">
+          <div className="mb-6 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-primary/10 p-2">
+                <FileText className="text-primary" size={20} />
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">Carta Convenio</h2>
+                <p className="text-sm text-muted-foreground">Documento de autorización y compromiso entre el odontólogo y Arte Cerámico</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {clientData?.convenio_firmado ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
+                  <CheckCircle2 size={14} />
+                  Completada
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+                  <AlertCircle size={14} />
+                  Pendiente
+                </span>
+              )}
+              {!clientData?.convenio_firmado && (
+                <button
+                  onClick={handleGuardarConvenio}
+                  disabled={guardandoConvenio}
+                  className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow transition-all hover:scale-[1.02] disabled:opacity-50"
+                >
+                  {guardandoConvenio ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Save size={16} />
+                  )}
+                  Firmar y Guardar
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <div className="relative mx-auto w-full max-w-4xl rounded-2xl border border-border/40 bg-white p-10 text-sm text-gray-800 shadow-inner">
+              <div className="absolute top-6 right-6 text-[10px] text-gray-500">
+                <div>Fecha de elaboración: 01-02-2026</div>
+                <div>CODIGO: GF-AC-001</div>
+                <div>VERSION: 001</div>
+              </div>
+
+              <div className="mb-6 flex justify-start">
+                <img
+                  src="/Arte_Ceramico_Logo.svg"
+                  alt="Arte Cerámico Logo"
+                  className="h-16 w-auto"
+                />
+              </div>
+
+              <p className="mb-2 text-center text-xs text-gray-500">
+                Santiago de Cali, {new Date().toLocaleDateString("es-CO", { day: "2-digit", month: "long", year: "numeric" })}
+              </p>
+
+              <h3 className="mb-6 text-center text-2xl font-bold text-gray-900">CARTA CONVENIO</h3>
+
+              <p className="mb-2 text-sm"><span className="font-semibold">Clínica:</span> {clientData?.clinica || "XXXXXXXXX"}</p>
+              <p className="mb-6 text-sm"><span className="font-semibold">Doctor:</span> {clientData?.nombre || "XXXXXXXXXX"}</p>
+
+              <div className="mb-6 space-y-3 text-justify text-xs leading-relaxed">
+                <p>
+                  El laboratorio dental ARTE CERAMICO confirma el compromiso para la provisión en cuanto a fabricación, reparación y dispensación, de los DISPOSITIVOS MÉDICOS SOBRE MEDIDA BUCAL, cumpliendo con la resolución 214 de 2022 en la cual se establecen los requisitos sanitarios que deben cumplir los dispositivos médicos sobre medida bucal.
+                </p>
+                <p>
+                  Nuestro compromiso es respetar su autonomía como odontólogo, fabricando o reparando los dispositivos acordes a la prescripción por usted realizada en la evaluación previa del paciente con los datos completos.
+                </p>
+                <p>Dclaramos nuestro compromiso como fabricante.</p>
+
+                <p className="font-semibold">DENTRO DEL CONVENIO EL LABORATORIO SE COMPROMETE A:</p>
+                <ol className="list-decimal list-inside space-y-1 ml-4">
+                  <li>El laboratorio garantiza que los trabajos entregados estarán elaborados con materiales de buena calidad y conforme a las especificaciones solicitadas.</li>
+                  <li>Cumplir con Procedimientos documentados: Declaración de conformidad con su garantía si aplica, Ficha técnica de fabricación, manual de uso.</li>
+                  <li>El tiempo de entrega estará sujeto a acuerdos según la complejidad del caso.</li>
+                  <li>Nos comprometemos a respetar su autonomía y trabajar articuladamente entre técnico y odontólogo.</li>
+                  <li>Ambas partes se comprometen a mantener la confidencialidad respecto a los datos de los pacientes, precios, y cualquier información considerada confidencial.</li>
+                </ol>
+
+                <p className="font-semibold">COMPROMISO DEL ODONTOLOGO</p>
+                <ol className="list-decimal list-inside space-y-1 ml-4">
+                  <li>Enviar la orden de fabricación de forma completa y clara con los datos solicitados sin enmendaduras y en letra legible en los términos establecidos en el artículo 6 de la resolución 214 de 2022.</li>
+                  <li>Estar debidamente habilitado ante la secretaría de salud en los términos establecidos en la resolución 3100 de 2019.</li>
+                  <li>Realizar el control pos-adaptación 8 días después en una cita de control al paciente y enviar copia del registro de verificación del estado del dispositivo en el control de la paciente realizada por el odontólogo.</li>
+                  <li>Informar al Laboratorio dental cualquier evento adverso serio y compartir el código del evento adverso reportado en los programas de tecno vigilancia.</li>
+                </ol>
+                <p>
+                  Esperamos atender y cumplir sus necesidades en cuanto a calidad, diseño y estética de los dispositivos médicos.
+                </p>
+              </div>
+
+              <div className="mt-10 border-t border-gray-300 pt-6">
+                <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
+                  <div className="flex flex-col items-center text-center">
+                    <div className="mb-2 h-24 w-full max-w-48 overflow-hidden rounded-md border border-gray-300 bg-gray-50">
+                      <img
+                        src="/firma-oscar.jpeg"
+                        alt="Firma Representante Legal"
+                        className="h-full w-full object-contain p-2"
+                      />
+                    </div>
+                    <p className="text-xs font-semibold text-gray-700 mb-1">__________________________________</p>
+                    <p className="text-xs text-gray-600">Representante legal</p>
+                  </div>
+
+                  <div className="flex flex-col items-center text-center">
+                    <div className="mb-2 h-24 w-full max-w-48 overflow-hidden rounded-md border border-gray-300 bg-gray-50">
+                      <img
+                        src="/firma-jazmin.jpeg"
+                        alt="Firma D.T."
+                        className="h-full w-full object-contain p-2"
+                      />
+                    </div>
+                    <p className="text-xs font-semibold text-gray-700 mb-1">__________________________________</p>
+                    <p className="text-xs text-gray-600">D.T. LABORATORIO DENTAL ARTE CERAMICO</p>
+                  </div>
+
+                  <div className="flex flex-col items-center text-center">
+                    <canvas
+                      ref={canvasRef}
+                      className="mb-2 h-24 w-full max-w-48 rounded-md border border-gray-300 bg-gray-50"
+                      width={384}
+                      height={96}
+                      onMouseDown={iniciarDibujo}
+                      onMouseMove={dibujar}
+                      onMouseUp={detenerDibujo}
+                      onMouseLeave={detenerDibujo}
+                      onTouchStart={iniciarDibujo}
+                      onTouchMove={dibujar}
+                      onTouchEnd={detenerDibujo}
+                    />
+                    <p className="text-xs font-semibold text-gray-700 mb-1">__________________________________</p>
+                    <p className="text-xs text-gray-600">Recibido Odontólogo o Auxiliar</p>
+                    <button
+                      onClick={limpiarFirma}
+                      type="button"
+                      className="mt-1 text-xs text-gray-400 hover:text-gray-600"
+                    >
+                      Limpiar firma
+                    </button>
+                  </div>
+                </div>
+                <div className="mt-4 text-center">
+                  <p className="text-xs text-gray-500">
+                    Santiago de Cali, {new Date().toLocaleDateString("es-CO", { day: "2-digit", month: "long", year: "numeric" })}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-10 border-t border-gray-300 pt-4">
+                <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-center text-[10px] text-gray-500">
+                  <span>Carrera 42 A # 5 C 36</span>
+                  <span>B. Tequendama</span>
+                  <span>602 6670481 - 602 4082563</span>
+                  <span>3177280804</span>
+                  <span>lab-arteceramico@hotmail.com</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* ESTADO DE CUENTA */}
         <section className="rounded-3xl border border-border/50 bg-card/60 p-8 shadow-2xl backdrop-blur-xl">

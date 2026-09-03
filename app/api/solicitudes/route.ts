@@ -807,7 +807,7 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from("solicitudes")
-      .select("id, servicio, estado, created_at, cliente_id, dientes_trabajados, odontologo, cc_odontologo, paciente, cc_paciente, odontologo_registro_medico, fecha_elaboracion, fecha_entrega, odontologo_firma, color, guia, tipos_trabajo, materiales, urls_documentos, dibujo_odontologo, codigo_trazabilidad")
+      .select("id, servicio, estado, created_at, cliente_id, dientes_trabajados, odontologo, cc_odontologo, paciente, cc_paciente, odontologo_registro_medico, fecha_elaboracion, fecha_entrega, odontologo_firma, color, guia, tipos_trabajo, materiales, urls_documentos, dibujo_odontologo, codigo_trazabilidad, fase")
       .order("created_at", { ascending: false })
       .limit(limit)
 

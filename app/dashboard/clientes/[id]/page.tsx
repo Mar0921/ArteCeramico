@@ -93,6 +93,7 @@ interface Solicitud {
   terminos_garantia: string | null
   comprobante_pago: string | null
   estado_pago: string | null
+  fase: string | null
   fecha_pago: string | null
   observaciones_pago: string | null
   conversacion_id?: number
@@ -158,6 +159,33 @@ export default function ClientePerfilPage() {
   const [loadingSolicitudes, setLoadingSolicitudes] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedSolicitud, setSelectedSolicitud] = useState<Solicitud | null>(null)
+
+  const FASES_PROCESO = [
+    "LIMPIEZA Y DESINFECCION DE ENTRADA",
+    "VACEADO Y PREPARACION MODELOS",
+    "PLATO BASE Y RODETE",
+    "ESCANEO Y DISEÑO",
+    "DISEÑO DE MODELO 3D",
+    "LIBERADO Y PULIDO DE META externalizadoL",
+    "CONTROL DE CALIDAD DE PROCESO 1",
+    "IMPRESION RESINA",
+    "FRESADO ZR-DSL-PMMA",
+    "FRESADO CERA",
+    "ENCERADO MANUAL",
+    "SINTERIZADO",
+    "IMPRESION 3D",
+    "DISEÑO DE BARRA",
+    "ENFILADO",
+    "CONTROL CALIDAD DE PROCESO 2",
+    "PULIDO DE METAL Y RESINAS",
+    "MICROFRESADO",
+    "FRESADO MONTURA",
+    "REVESTIR + DESENCERAR + INYECTAR",
+    "LIBERADO Y PULIDO LIBRE DE METAL",
+    "MAQUILLAJE Y CERAMICA",
+    "CONTROL DE CALIDAD LIBERACION",
+    "LIMPIEZA Y DESINFECCION DE DISPOSITIVO TERMINADO",
+  ]
   const [serviciosDetalle, setServiciosDetalle] = useState<Servicio[]>([])
   const [loadingDetalle, setLoadingDetalle] = useState(false)
   const [servicioDocs, setServicioDocs] = useState<Record<number, { declaracion_conformidad: File | null; manual_uso: File | null }>>({})
@@ -258,7 +286,7 @@ export default function ClientePerfilPage() {
         fecha_entrega: selectedSolicitud.fecha_entrega,
         estado: selectedSolicitud.estado,
       }
-        ;["chimenea", "prueba", "terminado", "color", "guia", "caja", "codigo_trazabilidad", "piezas_enviadas", "historia_clinica", "fecha_elaboracion", "odontologo_registro_medico", "terminos_garantia"].forEach((campo) => {
+        ;["chimenea", "prueba", "terminado", "color", "guia", "caja", "codigo_trazabilidad", "piezas_enviadas", "historia_clinica", "fecha_elaboracion", "odontologo_registro_medico", "terminos_garantia", "fase"].forEach((campo) => {
           const val = (selectedSolicitud as any)[campo]
           if (val !== undefined && val !== null) {
             payload[campo] = val
@@ -1569,26 +1597,47 @@ if (!conv) return
                                 </div>
                               )}
 
-                              {/* Estado */}
-                              <div className="mb-4">
-                                <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Estado</p>
-                                {editandoSolicitudId === solicitud.id ? (
-                                  <select
-                                    value={selectedSolicitud?.estado || solicitud.estado}
-                                    onChange={(e) => setSelectedSolicitud(prev => prev ? { ...prev, estado: e.target.value } : null)}
-                                    className="text-xs rounded-lg border border-border bg-background px-2 py-1.5"
-                                  >
-                                    <option value="pendiente">Pendiente</option>
-                                    <option value="en_proceso">En proceso</option>
-                                    <option value="finalizado">Finalizado</option>
-                                    <option value="aprobado">Aprobado</option>
-                                    <option value="cancelado">Cancelado</option>
-                                  </select>
-                                ) : (
-                                  <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-medium ${getEstadoStyle(solicitud.estado)}`}>
-                                    {formatEstado(solicitud.estado)}
-                                  </span>
-                                )}
+                              {/* Estado y Fase */}
+                              <div className="mb-4 flex gap-4">
+                                <div className="flex-1">
+                                  <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Estado</p>
+                                  {editandoSolicitudId === solicitud.id ? (
+                                    <select
+                                      value={selectedSolicitud?.estado || solicitud.estado}
+                                      onChange={(e) => setSelectedSolicitud(prev => prev ? { ...prev, estado: e.target.value } : null)}
+                                      className="text-xs rounded-lg border border-border bg-background px-2 py-1.5 w-full"
+                                    >
+                                      <option value="pendiente">Pendiente</option>
+                                      <option value="en_proceso">En proceso</option>
+                                      <option value="finalizado">Finalizado</option>
+                                      <option value="aprobado">Aprobado</option>
+                                      <option value="cancelado">Cancelado</option>
+                                    </select>
+                                  ) : (
+                                    <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-medium ${getEstadoStyle(solicitud.estado)}`}>
+                                      {formatEstado(solicitud.estado)}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex-1">
+                                  <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Fase</p>
+                                  {editandoSolicitudId === solicitud.id ? (
+                                    <select
+                                      value={selectedSolicitud?.fase || solicitud.fase || ""}
+                                      onChange={(e) => setSelectedSolicitud(prev => prev ? { ...prev, fase: e.target.value || null } : null)}
+                                      className="text-xs rounded-lg border border-border bg-background px-2 py-1.5 w-full"
+                                    >
+                                      <option value="">Sin fase asignada</option>
+                                      {FASES_PROCESO.map((fase) => (
+                                        <option key={fase} value={fase}>{fase}</option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    <span className="inline-flex rounded-full px-2.5 py-1 text-[10px] font-medium bg-gray-100 text-gray-700 w-full">
+                                      {solicitud.fase || "Sin fase"}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
 
                               <div className="flex items-center justify-between">
