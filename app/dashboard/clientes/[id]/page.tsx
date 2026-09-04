@@ -29,9 +29,11 @@ import {
   Search,
   Plus,
   Filter,
-  Paperclip,
-  Send,
+   Paperclip,
+   Send,
+   Download,
 } from "lucide-react"
+import { DentalChart as DentalChartForm } from "@/app/formulario/components/dental-chart"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
 
@@ -206,7 +208,7 @@ export default function ClientePerfilPage() {
   const [editMateriales, setEditMateriales] = useState<string[]>([])
   const [editDientes, setEditDientes] = useState<string[]>([])
   const [expandedSolicitud, setExpandedSolicitud] = useState<number | null>(null)
-  const [activeTab, setActiveTab] = useState<{ [solicitudId: number]: "detalle" | "chat" | "documentos" | "encuestas" }>({})
+  const [activeTab, setActiveTab] = useState<{ [solicitudId: number]: "detalle" | "chat" | "documentos" | "encuestas" | "orden" }>({})
   const [mensajesNoLeidos, setMensajesNoLeidos] = useState<{ [solicitudId: number]: number }>({})
   const [mensajesPorSolicitud, setMensajesPorSolicitud] = useState<{ [solicitudId: number]: any[] }>({})
   const [mensajeInput, setMensajeInput] = useState<{ [solicitudId: number]: string }>({})
@@ -239,6 +241,9 @@ export default function ClientePerfilPage() {
   const [uploadSolicitudSuccess, setUploadSolicitudSuccess] = useState<{ terminos_garantia: boolean }>({
     terminos_garantia: false,
   })
+  const [descargandoConvenio, setDescargandoConvenio] = useState(false)
+  const [materialesOrden, setMaterialesOrden] = useState<Record<number, { material: string; producto: string; lote: string; fabricante: string; proveedor: string }[]>>({})
+  const [fasesOrden, setFasesOrden] = useState<Record<number, { tipo: string; estado: string; realizada_por: string; fecha_finalizacion: string; fecha_prueba: string }[]>>({})
 
   useEffect(() => {
     if (editandoSolicitudId) {
@@ -500,6 +505,28 @@ export default function ClientePerfilPage() {
     setEditandoServicioId(null)
   }
 
+  const handleDescargarConvenio = async () => {
+    if (!client?.convenio_documento_url) return
+
+    setDescargandoConvenio(true)
+    try {
+      const response = await fetch(client.convenio_documento_url)
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `carta-convenio-${client.id}.png`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (err: any) {
+      console.error("Error descargando convenio:", err?.message || err)
+    } finally {
+      setDescargandoConvenio(false)
+    }
+  }
+
   const handleGuardarEstado = async () => {
     if (!selectedSolicitud || !nuevoEstado) return
     setGuardando(true)
@@ -741,7 +768,7 @@ export default function ClientePerfilPage() {
     setExpandedSolicitud((prev) => prev === solicitudId ? null : solicitudId)
   }
 
-  const handleSwitchTab = (solicitudId: number, tab: "detalle" | "chat" | "documentos" | "encuestas") => {
+  const handleSwitchTab = (solicitudId: number, tab: "detalle" | "chat" | "documentos" | "encuestas" | "orden") => {
     setActiveTab((prev) => ({ ...prev, [solicitudId]: tab }))
   }
 
@@ -1244,15 +1271,29 @@ if (!conv) return
               <h2 className="text-xl font-bold text-foreground">Carta Convenio Firmada</h2>
             </div>
             {client.convenio_documento_url && (
-              <a
-                href={client.convenio_documento_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-              >
-                <Eye size={16} />
-                Ver documento
-              </a>
+              <div className="flex items-center gap-2">
+                <a
+                  href={client.convenio_documento_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                >
+                  <Eye size={16} />
+                  Ver documento
+                </a>
+                <button
+                  onClick={handleDescargarConvenio}
+                  disabled={descargandoConvenio}
+                  className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                >
+                  {descargandoConvenio ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Download size={16} />
+                  )}
+                  Descargar
+                </button>
+              </div>
             )}
           </div>
           {client.convenio_documento_url ? (
@@ -1398,17 +1439,27 @@ if (!conv) return
                                <Paperclip size={14} />
                                Documentos
                              </button>
-                             <button
-                               onClick={() => handleSwitchTab(solicitud.id, "encuestas")}
-                               className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${tabActiva === "encuestas"
-                                 ? "border-primary text-primary"
-                                 : "border-transparent text-muted-foreground hover:text-foreground"
-                                 }`}
-                             >
-                               <FileText size={14} />
-                               Encuestas y Buzón
-                             </button>
-                           </div>
+                              <button
+                                onClick={() => handleSwitchTab(solicitud.id, "encuestas")}
+                                className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${tabActiva === "encuestas"
+                                  ? "border-primary text-primary"
+                                  : "border-transparent text-muted-foreground hover:text-foreground"
+                                  }`}
+                              >
+                                <FileText size={14} />
+                                Encuestas y Buzón
+                              </button>
+                              <button
+                                onClick={() => handleSwitchTab(solicitud.id, "orden")}
+                                className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${tabActiva === "orden"
+                                  ? "border-primary text-primary"
+                                  : "border-transparent text-muted-foreground hover:text-foreground"
+                                  }`}
+                              >
+                                <FileText size={14} />
+                                Orden de Fabricación
+                              </button>
+                            </div>
 
                           {/* Tab: Detalle */}
                           {tabActiva === "detalle" && (
@@ -1641,8 +1692,8 @@ if (!conv) return
                                 </div>
                               )}
 
-                              {/* Estado y Fase */}
-                              <div className="mb-4 flex gap-4">
+                              {/* Estado */}
+                              <div className="mb-4">
                                 <div className="flex-1">
                                   <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Estado</p>
                                   {editandoSolicitudId === solicitud.id ? (
@@ -1660,25 +1711,6 @@ if (!conv) return
                                   ) : (
                                     <span className={`inline-flex rounded-full px-2.5 py-1 text-[10px] font-medium ${getEstadoStyle(solicitud.estado)}`}>
                                       {formatEstado(solicitud.estado)}
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="flex-1">
-                                  <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Fase</p>
-                                  {editandoSolicitudId === solicitud.id ? (
-                                    <select
-                                      value={selectedSolicitud?.fase || solicitud.fase || ""}
-                                      onChange={(e) => setSelectedSolicitud(prev => prev ? { ...prev, fase: e.target.value || null } : null)}
-                                      className="text-xs rounded-lg border border-border bg-background px-2 py-1.5 w-full"
-                                    >
-                                      <option value="">Sin fase asignada</option>
-                                      {FASES_PROCESO.map((fase) => (
-                                        <option key={fase} value={fase}>{fase}</option>
-                                      ))}
-                                    </select>
-                                  ) : (
-                                    <span className="inline-flex rounded-full px-2.5 py-1 text-[10px] font-medium bg-gray-100 text-gray-700 w-full">
-                                      {solicitud.fase || "Sin fase"}
                                     </span>
                                   )}
                                 </div>
@@ -2227,13 +2259,410 @@ if (!conv) return
                                        </div>
                                      ))
                                    ) : (
-                                     <span className="text-xs text-gray-500">No hay registros en el buzón</span>
-                                   )}
-                                 </div>
-                               </div>
-                             </div>
-                           )}
-                         </motion.div>
+                                    <span className="text-xs text-gray-500">No hay registros en el buzón</span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Tab: Orden de Fabricación */}
+                            {tabActiva === "orden" && (
+                              <div className="bg-gray-50 p-4">
+                                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 bg-white relative min-h-[400px]">
+                                  {/* Header del documento */}
+                                  <div className="absolute top-4 right-4 text-[10px] text-gray-500">
+                                    <div>Fecha de elaboración: {solicitud.fecha_elaboracion || "01-02-2026"}</div>
+                                    <div>CODIGO: GF-FO-002</div>
+                                    <div>VERSION: 001</div>
+                                  </div>
+
+                                  <h3 className="text-center text-xl font-bold text-gray-900 mb-6 mt-6">ORDEN DE FABRICACIÓN</h3>
+
+                                  <div className="mb-4">
+                                    <p className="text-xs font-semibold text-gray-600 mb-1">Fabricante</p>
+                                    <p className="text-xs text-gray-800">Laboratorio Dental Arte Cerámico</p>
+                                    <p className="text-xs text-gray-800">Kra. 42 A # 5 C 36</p>
+                                    <p className="text-xs text-gray-800">760042 Tequendama</p>
+                                    <p className="text-xs text-gray-800">14676333</p>
+                                  </div>
+
+                                  <div className="mb-4">
+                                    <p className="text-xs font-semibold text-gray-600 mb-1">Técnico Responsable</p>
+                                    <p className="text-xs text-gray-800">Jazmín Valencia</p>
+                                  </div>
+
+                                  <div className="mb-4">
+                                    <p className="text-xs font-semibold text-gray-600 mb-1">Código de trazabilidad</p>
+                                    <p className="text-xs text-gray-800">{solicitud.codigo_trazabilidad || "Sin código"}</p>
+                                  </div>
+
+                                  {/* Detalles del Trabajo */}
+                                  <div className="mb-4 border-t border-gray-300 pt-3">
+                                    <p className="text-xs font-semibold text-gray-600 mb-2">DETALLES DEL TRABAJO</p>
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                      <div>
+                                        <span className="text-gray-500">Paciente:</span>{" "}
+                                        <span className="text-gray-800">{solicitud.paciente || "-"}</span>
+                                      </div>
+                                      <div>
+                                        <span className="text-gray-500">Doctor/a:</span>{" "}
+                                        <span className="text-gray-800">{solicitud.odontologo || "-"}</span>
+                                      </div>
+                                      <div>
+                                        <span className="text-gray-500">Cliente:</span>{" "}
+                                        <span className="text-gray-800">{client?.nombre || "-"}</span>
+                                      </div>
+                                      <div>
+                                        <span className="text-gray-500">Color:</span>{" "}
+                                        <span className="text-gray-800">{solicitud.color || "-"}</span>
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* PRODUCTOS - Dental chart con dientes marcados */}
+                                  <div className="mb-4 border-t border-gray-300 pt-3">
+                                    <p className="text-xs font-semibold text-gray-600 mb-2">PRODUCTOS</p>
+                                    <p className="text-[10px] text-gray-500 mb-2">Dibujo de dientes trabajados</p>
+                                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-3">
+                                      <DentalChartForm
+                                        readOnly
+                                        selectedTeeth={
+                                          (solicitud.dientes_detallados || []).length > 0
+                                            ? (solicitud.dientes_detallados || []).map((d) => d.numero)
+                                            : (solicitud.dientes_trabajados || [])
+                                                .map((d: string) => parseInt(d.split("-")[0], 10))
+                                                .filter((n) => !isNaN(n))
+                                        }
+                                        toothStatuses={(solicitud.dientes_detallados || []).reduce(
+                                          (acc: Record<number, "normal" | "ausencia" | "implante" | "pilar">, d) => {
+                                            acc[d.numero] = d.estado as "normal" | "ausencia" | "implante" | "pilar"
+                                            return acc
+                                          }, {}
+                                        )}
+                                        onToothSelect={() => {}}
+                                        onToothStatusChange={() => {}}
+                                        onToothStatusClear={() => {}}
+                                      />
+                                    </div>
+
+                                    <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">Resumen de Productos</p>
+                                    <div className="overflow-x-auto">
+                                      <table className="w-full text-[10px] border border-gray-300">
+                                        <thead className="bg-gray-200">
+                                          <tr>
+                                            <th className="border border-gray-300 px-2 py-1 text-left">#</th>
+                                            <th className="border border-gray-300 px-2 py-1 text-left">Producto</th>
+                                            <th className="border border-gray-300 px-2 py-1 text-left">Unidades</th>
+                                            <th className="border border-gray-300 px-2 py-1 text-left">Dientes</th>
+                                            <th className="border border-gray-300 px-2 py-1 text-left">Clase de la prótesis</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {(solicitud.servicios_detalle || []).length > 0 ? (
+                                            (solicitud.servicios_detalle || []).map((serv: any, idx: number) => (
+                                              <tr key={idx}>
+                                                <td className="border border-gray-300 px-2 py-1">{idx + 1}</td>
+                                                <td className="border border-gray-300 px-2 py-1">{serv.nombre || "-"}</td>
+                                                <td className="border border-gray-300 px-2 py-1">{serv.cantidad || 1}</td>
+                                                <td className="border border-gray-300 px-2 py-1">{serv.dientes || "-"}</td>
+                                                <td className="border border-gray-300 px-2 py-1">{serv.tipo_trabajo || "-"}</td>
+                                              </tr>
+                                            ))
+                                          ) : (
+                                            <tr>
+                                              <td className="border border-gray-300 px-2 py-1" colSpan={5}>
+                                                Sin productos registrados
+                                              </td>
+                                            </tr>
+                                          )}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+
+                                  {/* MATERIALES EMPLEADOS - Tabla rellenable */}
+                                  <div className="mb-4 border-t border-gray-300 pt-3">
+                                    <p className="text-xs font-semibold text-gray-600 mb-2">MATERIALES EMPLEADOS</p>
+                                    <div className="overflow-x-auto">
+                                      <table className="w-full text-[10px] border border-gray-300">
+                                        <thead className="bg-gray-200">
+                                          <tr>
+                                            <th className="border border-gray-300 px-2 py-1 text-left">Material</th>
+                                            <th className="border border-gray-300 px-2 py-1 text-left">Producto</th>
+                                            <th className="border border-gray-300 px-2 py-1 text-left">Número de lote</th>
+                                            <th className="border border-gray-300 px-2 py-1 text-left">Fabricante</th>
+                                            <th className="border border-gray-300 px-2 py-1 text-left">Proveedor</th>
+                                            <th className="border border-gray-300 px-2 py-1 text-center w-12">Acciones</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {(materialesOrden[solicitud.id] || []).map((mat, idx) => (
+                                            <tr key={idx}>
+                                              <td className="border border-gray-300 px-1">
+                                                <input
+                                                  type="text"
+                                                  value={mat.material}
+                                                  onChange={(e) => {
+                                                    const newMat = e.target.value
+                                                    setMaterialesOrden((prev) => ({
+                                                      ...prev,
+                                                      [solicitud.id]: (prev[solicitud.id] || []).map((m, i) =>
+                                                        i === idx ? { ...m, material: newMat } : m
+                                                      ),
+                                                    }))
+                                                  }}
+                                                  className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
+                                                />
+                                              </td>
+                                              <td className="border border-gray-300 px-1">
+                                                <input
+                                                  type="text"
+                                                  value={mat.producto}
+                                                  onChange={(e) => {
+                                                    const newProducto = e.target.value
+                                                    setMaterialesOrden((prev) => ({
+                                                      ...prev,
+                                                      [solicitud.id]: (prev[solicitud.id] || []).map((m, i) =>
+                                                        i === idx ? { ...m, producto: newProducto } : m
+                                                      ),
+                                                    }))
+                                                  }}
+                                                  className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
+                                                />
+                                              </td>
+                                              <td className="border border-gray-300 px-1">
+                                                <input
+                                                  type="text"
+                                                  value={mat.lote}
+                                                  onChange={(e) => {
+                                                    const newLote = e.target.value
+                                                    setMaterialesOrden((prev) => ({
+                                                      ...prev,
+                                                      [solicitud.id]: (prev[solicitud.id] || []).map((m, i) =>
+                                                        i === idx ? { ...m, lote: newLote } : m
+                                                      ),
+                                                    }))
+                                                  }}
+                                                  className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
+                                                />
+                                              </td>
+                                              <td className="border border-gray-300 px-1">
+                                                <input
+                                                  type="text"
+                                                  value={mat.fabricante}
+                                                  onChange={(e) => {
+                                                    const newFab = e.target.value
+                                                    setMaterialesOrden((prev) => ({
+                                                      ...prev,
+                                                      [solicitud.id]: (prev[solicitud.id] || []).map((m, i) =>
+                                                        i === idx ? { ...m, fabricante: newFab } : m
+                                                      ),
+                                                    }))
+                                                  }}
+                                                  className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
+                                                />
+                                              </td>
+                                              <td className="border border-gray-300 px-1">
+                                                <input
+                                                  type="text"
+                                                  value={mat.proveedor}
+                                                  onChange={(e) => {
+                                                    const newProv = e.target.value
+                                                    setMaterialesOrden((prev) => ({
+                                                      ...prev,
+                                                      [solicitud.id]: (prev[solicitud.id] || []).map((m, i) =>
+                                                        i === idx ? { ...m, proveedor: newProv } : m
+                                                      ),
+                                                    }))
+                                                  }}
+                                                  className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
+                                                />
+                                              </td>
+                                              <td className="border border-gray-300 px-1 text-center">
+                                                <button
+                                                  onClick={() => {
+                                                    setMaterialesOrden((prev) => ({
+                                                      ...prev,
+                                                      [solicitud.id]: (prev[solicitud.id] || []).filter((_, i) => i !== idx),
+                                                    }))
+                                                  }}
+                                                  className="text-red-500 hover:text-red-700"
+                                                >
+                                                  <X size={10} />
+                                                </button>
+                                              </td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                      <button
+                                        onClick={() => {
+                                          setMaterialesOrden((prev) => ({
+                                            ...prev,
+                                            [solicitud.id]: [
+                                              ...(prev[solicitud.id] || []),
+                                              { material: "", producto: "", lote: "", fabricante: "", proveedor: "" },
+                                            ],
+                                          }))
+                                        }}
+                                        className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted mt-2"
+                                      >
+                                        <Plus size={10} />
+                                        Agregar material
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* FASES DE FABRICACIÓN - Tabla rellenable */}
+                                  <div className="mb-4 border-t border-gray-300 pt-3">
+                                    <p className="text-xs font-semibold text-gray-600 mb-2">FASES DE FABRICACIÓN</p>
+                                    <div className="overflow-x-auto">
+                                      <table className="w-full text-[10px] border border-gray-300">
+                                        <thead className="bg-gray-200">
+                                          <tr>
+                                            <th className="border border-gray-300 px-2 py-1 text-left">Tipo</th>
+                                            <th className="border border-gray-300 px-2 py-1 text-left">Estado</th>
+                                            <th className="border border-gray-300 px-2 py-1 text-left">Realizada por</th>
+                                            <th className="border border-gray-300 px-2 py-1 text-left">Fecha finalización</th>
+                                            <th className="border border-gray-300 px-2 py-1 text-left">Fecha prueba</th>
+                                            <th className="border border-gray-300 px-2 py-1 text-center w-12">Acciones</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {(fasesOrden[solicitud.id] || []).map((fase, idx) => (
+                                            <tr key={idx}>
+                                              <td className="border border-gray-300 px-1">
+                                                <select
+                                                  value={fase.tipo}
+                                                  onChange={(e) => {
+                                                    const newTipo = e.target.value
+                                                    setFasesOrden((prev) => ({
+                                                      ...prev,
+                                                      [solicitud.id]: (prev[solicitud.id] || []).map((f, i) =>
+                                                        i === idx ? { ...f, tipo: newTipo } : f
+                                                      ),
+                                                    }))
+                                                  }}
+                                                  className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
+                                                >
+                                                  <option value="">Seleccionar fase</option>
+                                                  {FASES_PROCESO.map((opt) => (
+                                                    <option key={opt} value={opt}>{opt}</option>
+                                                  ))}
+                                                </select>
+                                              </td>
+                                              <td className="border border-gray-300 px-1">
+                                                <select
+                                                  value={fase.estado}
+                                                  onChange={(e) => {
+                                                    const newEstado = e.target.value
+                                                    setFasesOrden((prev) => ({
+                                                      ...prev,
+                                                      [solicitud.id]: (prev[solicitud.id] || []).map((f, i) =>
+                                                        i === idx ? { ...f, estado: newEstado } : f
+                                                      ),
+                                                    }))
+                                                  }}
+                                                  className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
+                                                >
+                                                  <option value="pendiente">Pendiente</option>
+                                                  <option value="en_proceso">En proceso</option>
+                                                  <option value="completado">Completado</option>
+                                                </select>
+                                              </td>
+                                              <td className="border border-gray-300 px-1">
+                                                <input
+                                                  type="text"
+                                                  value={fase.realizada_por}
+                                                  onChange={(e) => {
+                                                    const newVal = e.target.value
+                                                    setFasesOrden((prev) => ({
+                                                      ...prev,
+                                                      [solicitud.id]: (prev[solicitud.id] || []).map((f, i) =>
+                                                        i === idx ? { ...f, realizada_por: newVal } : f
+                                                      ),
+                                                    }))
+                                                  }}
+                                                  className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
+                                                  placeholder="Nombre"
+                                                />
+                                              </td>
+                                              <td className="border border-gray-300 px-1">
+                                                <input
+                                                  type="date"
+                                                  value={fase.fecha_finalizacion}
+                                                  onChange={(e) => {
+                                                    const newVal = e.target.value
+                                                    setFasesOrden((prev) => ({
+                                                      ...prev,
+                                                      [solicitud.id]: (prev[solicitud.id] || []).map((f, i) =>
+                                                        i === idx ? { ...f, fecha_finalizacion: newVal } : f
+                                                      ),
+                                                    }))
+                                                  }}
+                                                  className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
+                                                />
+                                              </td>
+                                              <td className="border border-gray-300 px-1">
+                                                <input
+                                                  type="date"
+                                                  value={fase.fecha_prueba}
+                                                  onChange={(e) => {
+                                                    const newVal = e.target.value
+                                                    setFasesOrden((prev) => ({
+                                                      ...prev,
+                                                      [solicitud.id]: (prev[solicitud.id] || []).map((f, i) =>
+                                                        i === idx ? { ...f, fecha_prueba: newVal } : f
+                                                      ),
+                                                    }))
+                                                  }}
+                                                  className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
+                                                />
+                                              </td>
+                                              <td className="border border-gray-300 px-1 text-center">
+                                                <button
+                                                  onClick={() => {
+                                                    setFasesOrden((prev) => ({
+                                                      ...prev,
+                                                      [solicitud.id]: (prev[solicitud.id] || []).filter((_, i) => i !== idx),
+                                                    }))
+                                                  }}
+                                                  className="text-red-500 hover:text-red-700"
+                                                >
+                                                  <X size={10} />
+                                                </button>
+                                              </td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                      <button
+                                        onClick={() => {
+                                          setFasesOrden((prev) => ({
+                                            ...prev,
+                                            [solicitud.id]: [
+                                              ...(prev[solicitud.id] || []),
+                                              { tipo: "", estado: "pendiente", realizada_por: "", fecha_finalizacion: "", fecha_prueba: "" },
+                                            ],
+                                          }))
+                                        }}
+                                        className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted mt-2"
+                                      >
+                                        <Plus size={10} />
+                                        Agregar fase
+                                      </button>
+                                    </div>
+                                  </div>
+
+                                  {/* Footer del documento */}
+                                  <div className="border-t border-gray-300 pt-2 mt-4 text-center text-[10px] text-gray-500">
+                                    GF-FO-002 version 001 - {new Date().toLocaleDateString("es-CO", { day: "2-digit", month: "short", year: "numeric" })}
+                                  </div>
+                                </div>
+                              </div>
+                            )}
+                          </motion.div>
                        )}
                      </AnimatePresence>
                   </div>

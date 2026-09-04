@@ -18,6 +18,7 @@ interface DentalChartProps {
   onToothSelect: (toothNumber: number) => void
   onToothStatusChange: (toothNumber: number, status: ToothStatus) => void
   onToothStatusClear: (toothNumber: number) => void
+  readOnly?: boolean
 }
 
 type ToothType = "molar" | "premolar" | "canine" | "incisor"
@@ -108,6 +109,7 @@ export function DentalChart({
   onToothSelect,
   onToothStatusChange,
   onToothStatusClear,
+  readOnly = false,
 }: DentalChartProps) {
   const [selectedTooth, setSelectedTooth] = useState<number | null>(null)
   const selectedToothStatus = selectedTooth ? toothStatuses[selectedTooth] : undefined
@@ -216,6 +218,7 @@ export function DentalChart({
   }
 
   const handleToothClick = (toothNumber: number) => {
+    if (readOnly) return
     onToothSelect(toothNumber)
     setSelectedTooth(toothNumber)
   }
@@ -226,10 +229,10 @@ export function DentalChart({
     const statusConfig = status ? STATUS_CONFIG[status] : null
     const rotation = getRotation(tooth.x, quadrant)
     
-    return (
+     return (
       <g 
         onClick={() => handleToothClick(tooth.num)} 
-        className="cursor-pointer"
+        className={readOnly ? "" : "cursor-pointer"}
         style={{ transformOrigin: `${tooth.x}px ${tooth.y}px` }}
       >
         <g transform={`rotate(${rotation} ${tooth.x} ${tooth.y})`}>
@@ -302,11 +305,12 @@ export function DentalChart({
         <span className="flex-1 text-center">IZQUIERDO</span>
       </div>
 
-      <Dialog open={selectedTooth !== null} onOpenChange={(open) => setSelectedTooth(open ? selectedTooth : null)}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Diente {selectedTooth}</DialogTitle>
-            <DialogDescription>
+      {!readOnly && (
+        <Dialog open={selectedTooth !== null} onOpenChange={(open) => setSelectedTooth(open ? selectedTooth : null)}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle>Diente {selectedTooth}</DialogTitle>
+              <DialogDescription>
               Selecciona el estado asociado a este diente.
             </DialogDescription>
           </DialogHeader>
@@ -376,6 +380,7 @@ export function DentalChart({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      )}
     </div>
   )
 }

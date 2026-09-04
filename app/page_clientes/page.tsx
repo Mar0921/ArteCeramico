@@ -35,6 +35,7 @@ import {
   ChevronDown,
   ChevronUp,
   Shield,
+  Download,
 } from "lucide-react"
 
 import { Navbar } from "@/components/navbar"
@@ -235,6 +236,7 @@ export default function ClientesPage() {
   const [submittingComplaints, setSubmittingComplaints] = useState<Record<number, boolean>>({})
   const [complaintsSuccess, setComplaintsSuccess] = useState<Record<number, boolean>>({})
   const [guardandoConvenio, setGuardandoConvenio] = useState(false)
+  const [descargandoConvenio, setDescargandoConvenio] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const convenioRef = useRef<HTMLDivElement | null>(null)
   const [dibujando, setDibujando] = useState(false)
@@ -922,9 +924,67 @@ export default function ClientesPage() {
      } finally {
        setGuardandoConvenio(false)
      }
-   }
+    }
 
-   const handleSubmitSolicitud = async (event: React.FormEvent<HTMLFormElement>) => {
+    const handleDescargarConvenio = async () => {
+      const convenioDiv = convenioRef.current
+      if (!convenioDiv) return
+
+      setDescargandoConvenio(true)
+      try {
+        const canvas = await html2canvas(convenioDiv, {
+          background: "#ffffff",
+          logging: false,
+          allowTaint: true,
+          useCORS: false,
+          onclone: (clonedDoc: Document) => {
+            const allElements = clonedDoc.querySelectorAll("*")
+            allElements.forEach((el: Element) => {
+              const style = (el as HTMLElement).style
+              if (style) {
+                const cssText = style.cssText
+                if (cssText) {
+                  style.cssText = cssText.replace(/oklab\([^)]*\)|lab\([^)]*\)|color-mix\([^)]*\)/gi, "#000000")
+                }
+              }
+            })
+            const styleSheets = clonedDoc.styleSheets
+            for (let i = 0; i < styleSheets.length; i++) {
+              try {
+                const rules = (styleSheets[i] as CSSStyleSheet).cssRules
+                if (rules) {
+                  for (let j = 0; j < rules.length; j++) {
+                    const rule = rules[j] as CSSStyleRule
+                    if (rule.style) {
+                      rule.style.cssText = rule.style.cssText.replace(/oklab\([^)]*\)|lab\([^)]*\)|color-mix\([^)]*\)/gi, "#000000")
+                    }
+                  }
+                }
+              } catch {
+                void 0
+              }
+            }
+          },
+        } as any)
+
+        const dataURL = canvas.toDataURL("image/png")
+        const link = document.createElement("a")
+        link.download = `carta-convenio-${clientData?.id || "cliente"}.png`
+        link.href = dataURL
+        link.click()
+      } catch (err: any) {
+        console.error("Error descargando convenio:", err?.message || err)
+        toast({
+          title: "Error",
+          description: err?.message || "No se pudo descargar el documento del convenio.",
+          variant: "destructive",
+        })
+      } finally {
+        setDescargandoConvenio(false)
+      }
+    }
+
+    const handleSubmitSolicitud = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (!clientData?.id) return
 
@@ -1632,6 +1692,18 @@ export default function ClientesPage() {
                   Firmar y Guardar
                 </button>
               )}
+              <button
+                onClick={handleDescargarConvenio}
+                disabled={descargandoConvenio}
+                className="flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground shadow transition-all hover:bg-muted disabled:opacity-50"
+              >
+                {descargandoConvenio ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Download size={16} />
+                )}
+                Descargar
+              </button>
             </div>
           </div>
 
