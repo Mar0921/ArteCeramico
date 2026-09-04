@@ -44,6 +44,8 @@ interface Cliente {
   telefono: string
   clinica: string
   created_at: string
+  convenio_firmado: boolean | null
+  convenio_documento_url: string | null
 }
 
 interface Solicitud {
@@ -935,7 +937,7 @@ if (!conv) return
       const solicitudesIds = solicitudes.map((s: any) => s.id)
       const { data: serviciosData } = await supabase
         .from("servicios")
-        .select("solicitud_id, precio, nombre, created_at")
+        .select("id, solicitud_id, precio, nombre, created_at")
         .in("solicitud_id", solicitudesIds)
 
       const serviciosPorSolicitud = new Map<number, any[]>()
@@ -1225,6 +1227,48 @@ if (!conv) return
           </div>
         </div>
       </motion.div>
+
+      {/* Carta Convenio Firmada */}
+      {client.convenio_firmado && (
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          className="rounded-xl bg-card p-6 shadow-sm"
+        >
+          <div className="mb-4 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="rounded-xl bg-primary/10 p-2">
+                <FileText className="text-primary" size={20} />
+              </div>
+              <h2 className="text-xl font-bold text-foreground">Carta Convenio Firmada</h2>
+            </div>
+            {client.convenio_documento_url && (
+              <a
+                href={client.convenio_documento_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+              >
+                <Eye size={16} />
+                Ver documento
+              </a>
+            )}
+          </div>
+          {client.convenio_documento_url ? (
+            <img
+              src={client.convenio_documento_url}
+              alt="Documento de Carta Convenio Firmada"
+              className="max-w-full rounded-md border border-gray-300 bg-gray-50 object-contain shadow-sm"
+            />
+          ) : (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <CheckCircle size={16} className="text-green-500" />
+              Convenio marcado como firmado
+            </div>
+          )}
+        </motion.div>
+      )}
 
       {/* Solicitudes del Cliente */}
       <motion.div

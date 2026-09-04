@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import html2canvas from "html2canvas"
 import { supabase, getValidUser } from "@/lib/supabase"
 import { Footer } from "@/components/footer"
 import { useToast } from "@/hooks/use-toast"
@@ -117,9 +118,10 @@ interface Cliente {
   correo: string
   telefono: string
   clinica: string
-  created_at: string
-  convenio_firmado: boolean | null
-}
+   created_at: string
+   convenio_firmado: boolean | null
+   convenio_documento_url: string | null
+ }
 
 interface Message {
   id: number
@@ -234,6 +236,7 @@ export default function ClientesPage() {
   const [complaintsSuccess, setComplaintsSuccess] = useState<Record<number, boolean>>({})
   const [guardandoConvenio, setGuardandoConvenio] = useState(false)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const convenioRef = useRef<HTMLDivElement | null>(null)
   const [dibujando, setDibujando] = useState(false)
 
   const { toast } = useToast()
@@ -790,18 +793,132 @@ export default function ClientesPage() {
 
      setGuardandoConvenio(true)
      try {
+       let convenio_documento_url: string | null = null
+
+       const canvas = canvasRef.current
+       if (canvas) {
+         try {
+           const dataURL = canvas.toDataURL("image/png")
+           const byteCharacters = atob(dataURL.split(",")[1])
+           const byteArray = new Uint8Array(byteCharacters.length)
+           for (let i = 0; i < byteCharacters.length; i++) {
+             byteArray[i] = byteCharacters.charCodeAt(i)
+           }
+           const blob = new Blob([byteArray], { type: "image/png" })
+
+           const fileName = `convenios/${clientData.id}-${Date.now()}-firma.png`
+           const { error: uploadError } = await supabase.storage
+             .from("documentos")
+             .upload(fileName, blob, { upsert: true })
+
+           if (uploadError) {
+             console.warn("No se pudo subir la firma del convenio:", uploadError)
+           }
+         } catch (uploadErr) {
+           console.warn("Error en upload de firma:", uploadErr)
+         }
+       }
+
+        const convenioDiv = convenioRef.current
+        if (convenioDiv) {
+          try {
+            const canvasFull = await html2canvas(convenioDiv, {
+              background: "#ffffff",
+              logging: false,
+              allowTaint: true,
+              useCORS: false,
+              onclone: (clonedDoc: Document) => {
+                const allElements = clonedDoc.querySelectorAll("*")
+                const computedStylesMap: Map<Element, Array<{ name: string; value: string }>> = new Map()
+
+                allElements.forEach((el: Element) => {
+                  const computed = window.getComputedStyle(el)
+                  const styles: Array<{ name: string; value: string }> = []
+                  for (let i = 0; i < computed.length; i++) {
+                    const prop = computed[i]
+                    const val = computed.getPropertyValue(prop)
+                    styles.push({ name: prop, value: val })
+                  }
+                  computedStylesMap.set(el, styles)
+                })
+
+                clonedDoc.querySelectorAll("style, link[rel='stylesheet']").forEach((el) => el.remove())
+
+                computedStylesMap.forEach((styles, el) => {
+                  const style = (el as HTMLElement).style
+                  styles.forEach(({ name, value }) => {
+                    if (!value.includes("oklab") && !value.includes("lab(") && !value.includes("color-mix")) {
+                      style.setProperty(name, value, "important")
+                    }
+                  })
+                })
+              },
+            } as any)
+
+            console.log("html2canvas result:", canvasFull.width, canvasFull.height)
+
+            const fullDataUrl = canvasFull.toDataURL("image/jpeg", 0.9)
+            const byteCharactersFull = atob(fullDataUrl.split(",")[1])
+            const byteArrayFull = new Uint8Array(byteCharactersFull.length)
+            for (let i = 0; i < byteCharactersFull.length; i++) {
+              byteArrayFull[i] = byteCharactersFull.charCodeAt(i)
+            }
+            const fullBlob = new Blob([byteArrayFull], { type: "image/jpeg" })
+
+            const fullFileName = `convenios/${clientData.id}-${Date.now()}-documento.jpeg`
+            const { error: fullUploadError } = await supabase.storage
+              .from("documentos")
+              .upload(fullFileName, fullBlob, { upsert: true })
+
+            if (fullUploadError) {
+              console.warn("No se pudo subir el documento del convenio:", fullUploadError)
+            } else {
+              const { data: { publicUrl } } = supabase.storage.from("documentos").getPublicUrl(fullFileName)
+              convenio_documento_url = publicUrl
+              console.log("Documento del convenio subido:", publicUrl)
+            }
+          } catch (fullErr: any) {
+            console.error("Error capturando documento del convenio:", fullErr?.message || fullErr)
+          }
+        }
+
        const { error } = await supabase
          .from("clientes")
-         .update({ convenio_firmado: true })
+         .update({ convenio_firmado: true, convenio_documento_url })
          .eq("id", clientData.id)
 
-       if (error) throw error
+       if (error) {
+         const errorMsg = (error as any)?.message || JSON.stringify(error)
+         const needsConvenioDocUrl = errorMsg.includes("convenio_documento_url")
+         const needsConvenioFirmado = errorMsg.includes("convenio_firmado")
 
-       setClientData((prev) => prev ? { ...prev, convenio_firmado: true } : prev)
+         if (needsConvenioFirmado) {
+           const { error: fallbackError } = await supabase
+             .from("clientes")
+             .update({})
+             .eq("id", clientData.id)
+
+           if (fallbackError) {
+             throw fallbackError
+           }
+           toast({ title: "Atención", description: "Las columnas de convenio no existen en la base de datos. Ejecuta las migraciones correspondientes.", variant: "destructive" })
+         } else if (needsConvenioDocUrl) {
+           const { error: fallbackError } = await supabase
+             .from("clientes")
+             .update({ convenio_firmado: true })
+             .eq("id", clientData.id)
+
+           if (fallbackError) throw fallbackError
+         } else {
+           throw error
+         }
+       }
+
+       setClientData((prev) => prev ? { ...prev, convenio_firmado: true, convenio_documento_url } : prev)
        toast({ title: "Convenio firmado", description: "El carta convenio se ha marcado como completada." })
-     } catch (err) {
-       console.error("Error guardando convenio:", err)
-       toast({ title: "Error", description: "No se pudo guardar el estado del convenio.", variant: "destructive" })
+     } catch (err: any) {
+       console.error("Error guardando convenio:", err?.message || err, err?.code || "", err)
+       toast({ title: "Error", description: err?.message || "No se pudo guardar el estado del convenio.", variant: "destructive" })
      } finally {
        setGuardandoConvenio(false)
      }
@@ -1519,7 +1636,7 @@ export default function ClientesPage() {
           </div>
 
           <div className="overflow-x-auto">
-            <div className="relative mx-auto w-full max-w-4xl rounded-2xl border border-border/40 bg-white p-10 text-sm text-gray-800 shadow-inner">
+            <div ref={convenioRef} className="relative mx-auto w-full max-w-4xl rounded-2xl border border-border/40 bg-white p-10 text-sm text-gray-800 shadow-inner">
               <div className="absolute top-6 right-6 text-[10px] text-gray-500">
                 <div>Fecha de elaboración: 01-02-2026</div>
                 <div>CODIGO: GF-AC-001</div>
@@ -1530,7 +1647,7 @@ export default function ClientesPage() {
                 <img
                   src="/Arte_Ceramico_Logo.svg"
                   alt="Arte Cerámico Logo"
-                  className="h-16 w-auto"
+                  style={{ height: "2.5rem", width: "auto" }}
                 />
               </div>
 
