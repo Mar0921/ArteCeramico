@@ -237,6 +237,7 @@ export default function ClientesPage() {
   const [complaintsSuccess, setComplaintsSuccess] = useState<Record<number, boolean>>({})
   const [guardandoConvenio, setGuardandoConvenio] = useState(false)
   const [descargandoConvenio, setDescargandoConvenio] = useState(false)
+  const [convenioExpanded, setConvenioExpanded] = useState(true)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const convenioRef = useRef<HTMLDivElement | null>(null)
   const [dibujando, setDibujando] = useState(false)
@@ -1678,6 +1679,13 @@ export default function ClientesPage() {
                   Pendiente
                 </span>
               )}
+              <button
+                onClick={() => setConvenioExpanded(!convenioExpanded)}
+                className="inline-flex items-center gap-1 rounded-xl border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground shadow transition-all hover:bg-muted"
+              >
+                {convenioExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                {convenioExpanded ? "Ocultar" : "Ver"}
+              </button>
               {!clientData?.convenio_firmado && (
                 <button
                   onClick={handleGuardarConvenio}
@@ -1707,8 +1715,9 @@ export default function ClientesPage() {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <div ref={convenioRef} className="relative mx-auto w-full max-w-4xl rounded-2xl border border-border/40 bg-white p-10 text-sm text-gray-800 shadow-inner">
+          {convenioExpanded && (
+            <div className="overflow-x-auto">
+              <div ref={convenioRef} className="relative mx-auto w-full max-w-4xl rounded-2xl border border-border/40 bg-white p-10 text-sm text-gray-800 shadow-inner">
               <div className="absolute top-6 right-6 text-[10px] text-gray-500">
                 <div>Fecha de elaboración: 01-02-2026</div>
                 <div>CODIGO: GF-AC-001</div>
@@ -1831,6 +1840,7 @@ export default function ClientesPage() {
               </div>
             </div>
           </div>
+          )}
         </section>
 
         {/* ESTADO DE CUENTA */}

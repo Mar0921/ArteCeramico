@@ -242,6 +242,7 @@ export default function ClientePerfilPage() {
     terminos_garantia: false,
   })
   const [descargandoConvenio, setDescargandoConvenio] = useState(false)
+  const [convenioExpanded, setConvenioExpanded] = useState(true)
   const [materialesOrden, setMaterialesOrden] = useState<Record<number, { material: string; producto: string; lote: string; fabricante: string; proveedor: string }[]>>({})
   const [fasesOrden, setFasesOrden] = useState<Record<number, { tipo: string; estado: string; realizada_por: string; fecha_finalizacion: string; fecha_prueba: string }[]>>({})
 
@@ -1270,43 +1271,56 @@ if (!conv) return
               </div>
               <h2 className="text-xl font-bold text-foreground">Carta Convenio Firmada</h2>
             </div>
-            {client.convenio_documento_url && (
-              <div className="flex items-center gap-2">
-                <a
-                  href={client.convenio_documento_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-                >
-                  <Eye size={16} />
-                  Ver documento
-                </a>
-                <button
-                  onClick={handleDescargarConvenio}
-                  disabled={descargandoConvenio}
-                  className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
-                >
-                  {descargandoConvenio ? (
-                    <Loader2 size={16} className="animate-spin" />
-                  ) : (
-                    <Download size={16} />
-                  )}
-                  Descargar
-                </button>
-              </div>
-            )}
-          </div>
-          {client.convenio_documento_url ? (
-            <img
-              src={client.convenio_documento_url}
-              alt="Documento de Carta Convenio Firmada"
-              className="max-w-full rounded-md border border-gray-300 bg-gray-50 object-contain shadow-sm"
-            />
-          ) : (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <CheckCircle size={16} className="text-green-500" />
-              Convenio marcado como firmado
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setConvenioExpanded(!convenioExpanded)}
+                className="inline-flex items-center gap-1 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+              >
+                {convenioExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                {convenioExpanded ? "Ocultar" : "Ver"}
+              </button>
+              {client.convenio_documento_url && (
+                <>
+                  <a
+                    href={client.convenio_documento_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                  >
+                    <Eye size={16} />
+                    Ver documento
+                  </a>
+                  <button
+                    onClick={handleDescargarConvenio}
+                    disabled={descargandoConvenio}
+                    className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                  >
+                    {descargandoConvenio ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Download size={16} />
+                    )}
+                    Descargar
+                  </button>
+                </>
+              )}
             </div>
+          </div>
+          {convenioExpanded && (
+            <>
+              {client.convenio_documento_url ? (
+                <img
+                  src={client.convenio_documento_url}
+                  alt="Documento de Carta Convenio Firmada"
+                  className="max-w-full rounded-md border border-gray-300 bg-gray-50 object-contain shadow-sm"
+                />
+              ) : (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <CheckCircle size={16} className="text-green-500" />
+                  Convenio marcado como firmado
+                </div>
+              )}
+            </>
           )}
         </motion.div>
       )}
