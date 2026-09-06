@@ -51,7 +51,8 @@ export async function PATCH(
        "guia_fabricacion",
        "manual_uso",
        "fase",
-    ]
+       "orden_fabricacion_url",
+     ]
 
     const updates: Record<string, unknown> = {}
     for (const field of allowedFields) {

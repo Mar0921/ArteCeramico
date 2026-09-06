@@ -98,7 +98,8 @@ interface Solicitud {
   comprobante_pago: string | null
   estado_pago: string | null
   fase: string | null
-  fecha_pago: string | null
+   orden_fabricacion_url: string | null
+   fecha_pago: string | null
   observaciones_pago: string | null
   conversacion_id?: number
 }
@@ -245,6 +246,10 @@ export default function ClientePerfilPage() {
   const [convenioExpanded, setConvenioExpanded] = useState(true)
   const [materialesOrden, setMaterialesOrden] = useState<Record<number, { material: string; producto: string; lote: string; fabricante: string; proveedor: string }[]>>({})
   const [fasesOrden, setFasesOrden] = useState<Record<number, { tipo: string; estado: string; realizada_por: string; fecha_finalizacion: string; fecha_prueba: string }[]>>({})
+  const ordenRef = useRef<HTMLDivElement | null>(null)
+  const [guardandoOrden, setGuardandoOrden] = useState(false)
+  const [descargandoOrden, setDescargandoOrden] = useState(false)
+  const [ordenPreviewExpanded, setOrdenPreviewExpanded] = useState(true)
 
   useEffect(() => {
     if (editandoSolicitudId) {
@@ -526,7 +531,110 @@ export default function ClientePerfilPage() {
     } finally {
       setDescargandoConvenio(false)
     }
+   }
+
+  // --- Utilidades para exportar la Orden de Fabricación a imagen ---
+
+  const renderOrdenCanvas = async (ordenDiv: HTMLElement) => {
+    const { default: html2canvas } = await import("html2canvas-pro")
+    return await html2canvas(ordenDiv, {
+      scale: 2,
+      backgroundColor: "#ffffff",
+      useCORS: true,
+      allowTaint: true,
+      logging: false,
+    } as any)
   }
+
+  const handleGuardarOrden = async (solicitudId: number) => {
+     const ordenDiv = ordenRef.current
+     if (!ordenDiv) return
+
+    setGuardandoOrden(true)
+    try {
+      const canvas = await renderOrdenCanvas(ordenDiv)
+      const dataUrl = canvas.toDataURL("image/png")
+
+       const response = await fetch(dataUrl)
+       const blob = await response.blob()
+       const fileName = `ordenes/${solicitudId}/${Date.now()}.png`
+       const { error: uploadError } = await supabase.storage
+         .from("documentos")
+         .upload(fileName, blob, {
+           upsert: true,
+           contentType: "image/png",
+         })
+
+       if (uploadError) throw new Error(`Error al subir: ${uploadError.message}`)
+
+       const { data: publicData } = supabase.storage.from("documentos").getPublicUrl(fileName)
+
+       const { error: updateError } = await supabase
+         .from("solicitudes")
+         .update({ orden_fabricacion_url: publicData.publicUrl })
+         .eq("id", solicitudId)
+
+       if (updateError) throw updateError
+
+       setSolicitudes((prev) =>
+         prev.map((s) => (s.id === solicitudId ? { ...s, orden_fabricacion_url: publicData.publicUrl } : s))
+       )
+
+       toast({ title: "Orden guardada", description: "La orden de fabricación se ha guardado correctamente." })
+     } catch (err: any) {
+       console.error("Error guardando orden:", err?.message || err)
+       toast({ title: "Error", description: err?.message || "No se pudo guardar la orden.", variant: "destructive" })
+     } finally {
+       setGuardandoOrden(false)
+     }
+   }
+
+   const handleDescargarOrden = async (solicitudId: number) => {
+     const solicitud = solicitudes.find((s) => s.id === solicitudId)
+     if (solicitud?.orden_fabricacion_url) {
+       setDescargandoOrden(true)
+       try {
+         const response = await fetch(solicitud.orden_fabricacion_url)
+         const blob = await response.blob()
+         const url = URL.createObjectURL(blob)
+         const link = document.createElement("a")
+         link.href = url
+         link.download = `orden-fabricacion-${solicitudId}.png`
+         document.body.appendChild(link)
+         link.click()
+         document.body.removeChild(link)
+         URL.revokeObjectURL(url)
+       } catch (err: any) {
+         console.error("Error descargando orden:", err?.message || err)
+       } finally {
+         setDescargandoOrden(false)
+       }
+       return
+     }
+
+      const ordenDiv = ordenRef.current
+      if (!ordenDiv) return
+
+      setDescargandoOrden(true)
+      try {
+        const canvas = await renderOrdenCanvas(ordenDiv)
+        canvas.toBlob((blob) => {
+          if (!blob) return
+          const url = URL.createObjectURL(blob)
+          const link = document.createElement("a")
+          link.href = url
+          link.download = `orden-fabricacion-${solicitudId}.png`
+          document.body.appendChild(link)
+          link.click()
+          document.body.removeChild(link)
+          URL.revokeObjectURL(url)
+        })
+      } catch (err: any) {
+        console.error("Error descargando orden:", err?.message || err)
+      } finally {
+        setDescargandoOrden(false)
+      }
+    }
 
   const handleGuardarEstado = async () => {
     if (!selectedSolicitud || !nuevoEstado) return
@@ -1312,7 +1420,7 @@ if (!conv) return
                 <img
                   src={client.convenio_documento_url}
                   alt="Documento de Carta Convenio Firmada"
-                  className="max-w-full rounded-md border border-gray-300 bg-gray-50 object-contain shadow-sm"
+                  className="max-w-full rounded-md border border-gray-300 object-contain shadow-sm"
                 />
               ) : (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
@@ -2283,7 +2391,57 @@ if (!conv) return
                             {/* Tab: Orden de Fabricación */}
                             {tabActiva === "orden" && (
                               <div className="bg-gray-50 p-4">
-                                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 bg-white relative min-h-[400px]">
+                                <div className="flex items-center justify-between mb-4">
+                                  <h3 className="text-lg font-semibold text-foreground">Orden de Fabricación</h3>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={() => handleGuardarOrden(solicitud.id)}
+                                      disabled={guardandoOrden}
+                                      className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground shadow transition-all hover:bg-muted disabled:opacity-50"
+                                    >
+                                      {guardandoOrden ? (
+                                        <Loader2 size={16} className="animate-spin" />
+                                      ) : (
+                                        <Save size={16} />
+                                      )}
+                                      Guardar
+                                    </button>
+                                    <button
+                                      onClick={() => handleDescargarOrden(solicitud.id)}
+                                      disabled={descargandoOrden}
+                                      className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-semibold text-foreground shadow transition-all hover:bg-muted disabled:opacity-50"
+                                    >
+                                      {descargandoOrden ? (
+                                        <Loader2 size={16} className="animate-spin" />
+                                      ) : (
+                                        <Download size={16} />
+                                      )}
+                                      Descargar
+                                    </button>
+                                  </div>
+                                </div>
+                                {solicitud.orden_fabricacion_url && (
+                                  <div className="mb-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <p className="text-xs font-semibold text-gray-600">Orden de Fabricación generada</p>
+                                      <button
+                                        onClick={() => setOrdenPreviewExpanded(!ordenPreviewExpanded)}
+                                        className="inline-flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-xs font-medium text-foreground hover:bg-muted"
+                                      >
+                                        {ordenPreviewExpanded ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                                        {ordenPreviewExpanded ? "Ocultar" : "Ver"}
+                                      </button>
+                                    </div>
+                                    {ordenPreviewExpanded && (
+                                      <img
+                                        src={solicitud.orden_fabricacion_url}
+                                        alt="Orden de Fabricación"
+                                        className="max-w-full rounded-md border border-gray-300 object-contain shadow-sm"
+                                      />
+                                    )}
+                                  </div>
+                                )}
+                                <div ref={ordenRef} className="border-2 border-dashed border-gray-300 rounded-lg p-6 bg-white relative min-h-[400px]">
                                   {/* Header del documento */}
                                   <div className="absolute top-4 right-4 text-[10px] text-gray-500">
                                     <div>Fecha de elaboración: {solicitud.fecha_elaboracion || "01-02-2026"}</div>
@@ -2292,7 +2450,6 @@ if (!conv) return
                                   </div>
 
                                   <h3 className="text-center text-xl font-bold text-gray-900 mb-6 mt-6">ORDEN DE FABRICACIÓN</h3>
-
                                   <div className="mb-4">
                                     <p className="text-xs font-semibold text-gray-600 mb-1">Fabricante</p>
                                     <p className="text-xs text-gray-800">Laboratorio Dental Arte Cerámico</p>

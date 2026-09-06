@@ -1656,7 +1656,7 @@ export default function ClientesPage() {
         )}
 
         {/* CARTA CONVENIO */}
-        <section className="rounded-3xl border border-border/50 bg-card/60 p-8 shadow-2xl backdrop-blur-xl">
+        <section className="rounded-3xl border border-border/50 bg-white p-8 shadow-2xl">
           <div className="mb-6 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="rounded-xl bg-primary/10 p-2">
@@ -1716,8 +1716,7 @@ export default function ClientesPage() {
           </div>
 
           {convenioExpanded && (
-            <div className="overflow-x-auto">
-              <div ref={convenioRef} className="relative mx-auto w-full max-w-4xl rounded-2xl border border-border/40 bg-white p-10 text-sm text-gray-800 shadow-inner">
+            <div ref={convenioRef} className="relative mx-auto w-full max-w-4xl rounded-2xl border border-border/40 bg-white p-10 text-sm text-gray-800 shadow-inner">
               <div className="absolute top-6 right-6 text-[10px] text-gray-500">
                 <div>Fecha de elaboración: 01-02-2026</div>
                 <div>CODIGO: GF-AC-001</div>
@@ -1839,7 +1838,6 @@ export default function ClientesPage() {
                 </div>
               </div>
             </div>
-          </div>
           )}
         </section>
 
