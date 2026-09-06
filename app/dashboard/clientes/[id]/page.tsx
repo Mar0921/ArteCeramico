@@ -99,6 +99,8 @@ interface Solicitud {
   estado_pago: string | null
   fase: string | null
    orden_fabricacion_url: string | null
+   orden_materiales: string | null
+   orden_fases: string | null
    fecha_pago: string | null
   observaciones_pago: string | null
   conversacion_id?: number
@@ -334,6 +336,22 @@ export default function ClientePerfilPage() {
     }
   }
 
+  const guardarMaterialesOrden = async (solicitudId: number, materiales: any[]) => {
+    const { error } = await supabase
+      .from("solicitudes")
+      .update({ orden_materiales: JSON.stringify(materiales) })
+      .eq("id", solicitudId)
+    if (error) console.error("Error guardando materiales orden:", error)
+  }
+
+  const guardarFasesOrden = async (solicitudId: number, fases: any[]) => {
+    const { error } = await supabase
+      .from("solicitudes")
+      .update({ orden_fases: JSON.stringify(fases) })
+      .eq("id", solicitudId)
+    if (error) console.error("Error guardando fases orden:", error)
+  }
+
   const handleUploadDocSolicitud = async (solicitudId: number, campo: "terminos_garantia", archivoDirecto?: File) => {
     const archivo = archivoDirecto || solicitudDocs[campo]
     if (!archivo) return
@@ -445,13 +463,21 @@ export default function ClientePerfilPage() {
            preciosPorSolicitud.set(serv.solicitud_id, (preciosPorSolicitud.get(serv.solicitud_id) || 0) + (Number(serv.precio) || 0))
          })
 
-         const solicitudesConPrecio = (data as any[]).map((s: any) => ({
-           ...s,
-           servicios_detalle: s.servicios_detalle || [],
-           precio: preciosPorSolicitud.get(s.id) || 0,
-         }))
+          const solicitudesConPrecio = (data as any[]).map((s: any) => ({
+            ...s,
+            servicios_detalle: s.servicios_detalle || [],
+            precio: preciosPorSolicitud.get(s.id) || 0,
+          }))
 
-         setSolicitudes(solicitudesConPrecio as Solicitud[])
+          const materialesIniciales: Record<number, any[]> = {}
+          const fasesIniciales: Record<number, any[]> = {}
+          for (const s of solicitudesConPrecio) {
+            try { materialesIniciales[s.id] = s.orden_materiales ? JSON.parse(s.orden_materiales) : [] } catch { materialesIniciales[s.id] = [] }
+            try { fasesIniciales[s.id] = s.orden_fases ? JSON.parse(s.orden_fases) : [] } catch { fasesIniciales[s.id] = [] }
+          }
+          setMaterialesOrden(materialesIniciales)
+          setFasesOrden(fasesIniciales)
+          setSolicitudes(solicitudesConPrecio as Solicitud[])
          for (const solicitud of solicitudesConPrecio) {
            cargarEncuestasPostAdaptacion(solicitud.id)
            cargarBuzonQuejas(solicitud.id)
@@ -535,15 +561,118 @@ export default function ClientePerfilPage() {
 
   // --- Utilidades para exportar la Orden de Fabricación a imagen ---
 
+  const COLOR_FN_REGEX = /\b(oklch|oklab|lab|color)(\s*\([^)]*\))/gi
+
+  const normalizeColorValue = (value: string): string | null => {
+    if (!value) return null
+    if (!COLOR_FN_REGEX.test(value)) {
+      COLOR_FN_REGEX.lastIndex = 0
+      return value
+    }
+    COLOR_FN_REGEX.lastIndex = 0
+    try {
+      const canvas = document.createElement("canvas")
+      canvas.width = 1
+      canvas.height = 1
+      const ctx = canvas.getContext("2d")
+      if (!ctx) return null
+      ctx.fillStyle = value
+      ctx.fillRect(0, 0, 1, 1)
+      const [r, g, b] = ctx.getImageData(0, 0, 1, 1).data
+      return `rgb(${r}, ${g}, ${b})`
+    } catch {
+      return null
+    }
+  }
+
+  const collectColorVarOverrides = (): { el: HTMLElement; prop: string; original: string; replacement: string }[] => {
+    const overrides: { el: HTMLElement; prop: string; original: string; replacement: string }[] = []
+    const targets: HTMLElement[] = []
+    const root = document.documentElement
+    if (root) targets.push(root)
+    const body = document.body
+    if (body) targets.push(body)
+    for (const el of targets) {
+      const style = getComputedStyle(el)
+      const vars: string[] = []
+      for (let i = 0; i < style.length; i++) {
+        vars.push(style[i])
+      }
+      for (const prop of vars) {
+        if (!prop.startsWith("--")) continue
+        const val = style.getPropertyValue(prop).trim()
+        if (!val || !COLOR_FN_REGEX.test(val)) {
+          COLOR_FN_REGEX.lastIndex = 0
+          continue
+        }
+        COLOR_FN_REGEX.lastIndex = 0
+        const rgb = normalizeColorValue(val)
+        if (rgb) {
+          overrides.push({ el, prop, original: val, replacement: rgb })
+        }
+      }
+    }
+    return overrides
+  }
+
+  const sanitizeInlineColorsDeep = (root: HTMLElement): { el: HTMLElement; style: CSSStyleDeclaration; prop: string; original: string }[] => {
+    const restored: { el: HTMLElement; style: CSSStyleDeclaration; prop: string; original: string }[] = []
+    const walk = (el: Element) => {
+      const style = (el as HTMLElement).style
+      if (style) {
+        for (const prop of Array.from(style)) {
+          const val = style.getPropertyValue(prop).trim()
+          if (!val || !COLOR_FN_REGEX.test(val)) {
+            COLOR_FN_REGEX.lastIndex = 0
+            continue
+          }
+          COLOR_FN_REGEX.lastIndex = 0
+          const rgb = normalizeColorValue(val)
+          if (rgb) {
+            restored.push({ el: el as HTMLElement, style, prop, original: val })
+            style.setProperty(prop, rgb, style.getPropertyPriority(prop))
+          }
+        }
+      }
+      for (const child of Array.from(el.children)) {
+        walk(child)
+      }
+    }
+    walk(root)
+    return restored
+  }
+
   const renderOrdenCanvas = async (ordenDiv: HTMLElement) => {
     const { default: html2canvas } = await import("html2canvas-pro")
-    return await html2canvas(ordenDiv, {
-      scale: 2,
-      backgroundColor: "#ffffff",
-      useCORS: true,
-      allowTaint: true,
-      logging: false,
-    } as any)
+    const varOverrides = collectColorVarOverrides()
+    const inlineOverrides = sanitizeInlineColorsDeep(ordenDiv)
+    for (const { el, prop, replacement } of varOverrides) {
+      el.style.setProperty(prop, replacement)
+    }
+    try {
+      return await html2canvas(ordenDiv, {
+        scale: 2,
+        backgroundColor: "#ffffff",
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+      } as any)
+    } finally {
+      for (const { el, prop, original } of varOverrides) {
+        if (original === "") {
+          el.style.removeProperty(prop)
+        } else {
+          el.style.setProperty(prop, original)
+        }
+      }
+      for (const { el, style, prop, original } of inlineOverrides) {
+        if (original === "") {
+          style.removeProperty(prop)
+        } else {
+          style.setProperty(prop, original, style.getPropertyPriority(prop))
+        }
+      }
+    }
   }
 
   const handleGuardarOrden = async (solicitudId: number) => {
@@ -2574,15 +2703,17 @@ if (!conv) return
                                                 <input
                                                   type="text"
                                                   value={mat.material}
-                                                  onChange={(e) => {
-                                                    const newMat = e.target.value
-                                                    setMaterialesOrden((prev) => ({
-                                                      ...prev,
-                                                      [solicitud.id]: (prev[solicitud.id] || []).map((m, i) =>
-                                                        i === idx ? { ...m, material: newMat } : m
-                                                      ),
-                                                    }))
-                                                  }}
+                                                   onChange={(e) => {
+                                                     const newMat = e.target.value
+                                                     setMaterialesOrden((prev) => {
+                                                       const next = (prev[solicitud.id] || []).map((m, i) =>
+                                                         i === idx ? { ...m, material: newMat } : m
+                                                       )
+                                                       const updated = { ...prev, [solicitud.id]: next }
+                                                       guardarMaterialesOrden(solicitud.id, next)
+                                                       return updated
+                                                     })
+                                                   }}
                                                   className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
                                                 />
                                               </td>
@@ -2590,15 +2721,17 @@ if (!conv) return
                                                 <input
                                                   type="text"
                                                   value={mat.producto}
-                                                  onChange={(e) => {
-                                                    const newProducto = e.target.value
-                                                    setMaterialesOrden((prev) => ({
-                                                      ...prev,
-                                                      [solicitud.id]: (prev[solicitud.id] || []).map((m, i) =>
-                                                        i === idx ? { ...m, producto: newProducto } : m
-                                                      ),
-                                                    }))
-                                                  }}
+                                                   onChange={(e) => {
+                                                     const newProducto = e.target.value
+                                                     setMaterialesOrden((prev) => {
+                                                       const next = (prev[solicitud.id] || []).map((m, i) =>
+                                                         i === idx ? { ...m, producto: newProducto } : m
+                                                       )
+                                                       const updated = { ...prev, [solicitud.id]: next }
+                                                       guardarMaterialesOrden(solicitud.id, next)
+                                                       return updated
+                                                     })
+                                                   }}
                                                   className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
                                                 />
                                               </td>
@@ -2606,15 +2739,17 @@ if (!conv) return
                                                 <input
                                                   type="text"
                                                   value={mat.lote}
-                                                  onChange={(e) => {
-                                                    const newLote = e.target.value
-                                                    setMaterialesOrden((prev) => ({
-                                                      ...prev,
-                                                      [solicitud.id]: (prev[solicitud.id] || []).map((m, i) =>
-                                                        i === idx ? { ...m, lote: newLote } : m
-                                                      ),
-                                                    }))
-                                                  }}
+                                                   onChange={(e) => {
+                                                     const newLote = e.target.value
+                                                     setMaterialesOrden((prev) => {
+                                                       const next = (prev[solicitud.id] || []).map((m, i) =>
+                                                         i === idx ? { ...m, lote: newLote } : m
+                                                       )
+                                                       const updated = { ...prev, [solicitud.id]: next }
+                                                       guardarMaterialesOrden(solicitud.id, next)
+                                                       return updated
+                                                     })
+                                                   }}
                                                   className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
                                                 />
                                               </td>
@@ -2622,15 +2757,17 @@ if (!conv) return
                                                 <input
                                                   type="text"
                                                   value={mat.fabricante}
-                                                  onChange={(e) => {
-                                                    const newFab = e.target.value
-                                                    setMaterialesOrden((prev) => ({
-                                                      ...prev,
-                                                      [solicitud.id]: (prev[solicitud.id] || []).map((m, i) =>
-                                                        i === idx ? { ...m, fabricante: newFab } : m
-                                                      ),
-                                                    }))
-                                                  }}
+                                                   onChange={(e) => {
+                                                     const newFab = e.target.value
+                                                     setMaterialesOrden((prev) => {
+                                                       const next = (prev[solicitud.id] || []).map((m, i) =>
+                                                         i === idx ? { ...m, fabricante: newFab } : m
+                                                       )
+                                                       const updated = { ...prev, [solicitud.id]: next }
+                                                       guardarMaterialesOrden(solicitud.id, next)
+                                                       return updated
+                                                     })
+                                                   }}
                                                   className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
                                                 />
                                               </td>
@@ -2638,26 +2775,30 @@ if (!conv) return
                                                 <input
                                                   type="text"
                                                   value={mat.proveedor}
-                                                  onChange={(e) => {
-                                                    const newProv = e.target.value
-                                                    setMaterialesOrden((prev) => ({
-                                                      ...prev,
-                                                      [solicitud.id]: (prev[solicitud.id] || []).map((m, i) =>
-                                                        i === idx ? { ...m, proveedor: newProv } : m
-                                                      ),
-                                                    }))
-                                                  }}
+                                                   onChange={(e) => {
+                                                     const newProv = e.target.value
+                                                     setMaterialesOrden((prev) => {
+                                                       const next = (prev[solicitud.id] || []).map((m, i) =>
+                                                         i === idx ? { ...m, proveedor: newProv } : m
+                                                       )
+                                                       const updated = { ...prev, [solicitud.id]: next }
+                                                       guardarMaterialesOrden(solicitud.id, next)
+                                                       return updated
+                                                     })
+                                                   }}
                                                   className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
                                                 />
                                               </td>
                                               <td className="border border-gray-300 px-1 text-center">
                                                 <button
-                                                  onClick={() => {
-                                                    setMaterialesOrden((prev) => ({
-                                                      ...prev,
-                                                      [solicitud.id]: (prev[solicitud.id] || []).filter((_, i) => i !== idx),
-                                                    }))
-                                                  }}
+                                                   onClick={() => {
+                                                     setMaterialesOrden((prev) => {
+                                                       const next = (prev[solicitud.id] || []).filter((_, i) => i !== idx)
+                                                       const updated = { ...prev, [solicitud.id]: next }
+                                                       guardarMaterialesOrden(solicitud.id, next)
+                                                       return updated
+                                                     })
+                                                   }}
                                                   className="text-red-500 hover:text-red-700"
                                                 >
                                                   <X size={10} />
@@ -2668,15 +2809,17 @@ if (!conv) return
                                         </tbody>
                                       </table>
                                       <button
-                                        onClick={() => {
-                                          setMaterialesOrden((prev) => ({
-                                            ...prev,
-                                            [solicitud.id]: [
-                                              ...(prev[solicitud.id] || []),
-                                              { material: "", producto: "", lote: "", fabricante: "", proveedor: "" },
-                                            ],
-                                          }))
-                                        }}
+                                         onClick={() => {
+                                           setMaterialesOrden((prev) => {
+                                             const next = [
+                                               ...(prev[solicitud.id] || []),
+                                               { material: "", producto: "", lote: "", fabricante: "", proveedor: "" },
+                                             ]
+                                             const updated = { ...prev, [solicitud.id]: next }
+                                             guardarMaterialesOrden(solicitud.id, next)
+                                             return updated
+                                           })
+                                         }}
                                         className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted mt-2"
                                       >
                                         <Plus size={10} />
@@ -2706,15 +2849,17 @@ if (!conv) return
                                               <td className="border border-gray-300 px-1">
                                                 <select
                                                   value={fase.tipo}
-                                                  onChange={(e) => {
-                                                    const newTipo = e.target.value
-                                                    setFasesOrden((prev) => ({
-                                                      ...prev,
-                                                      [solicitud.id]: (prev[solicitud.id] || []).map((f, i) =>
-                                                        i === idx ? { ...f, tipo: newTipo } : f
-                                                      ),
-                                                    }))
-                                                  }}
+                                                   onChange={(e) => {
+                                                     const newTipo = e.target.value
+                                                     setFasesOrden((prev) => {
+                                                       const next = (prev[solicitud.id] || []).map((f, i) =>
+                                                         i === idx ? { ...f, tipo: newTipo } : f
+                                                       )
+                                                       const updated = { ...prev, [solicitud.id]: next }
+                                                       guardarFasesOrden(solicitud.id, next)
+                                                       return updated
+                                                     })
+                                                   }}
                                                   className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
                                                 >
                                                   <option value="">Seleccionar fase</option>
@@ -2726,15 +2871,17 @@ if (!conv) return
                                               <td className="border border-gray-300 px-1">
                                                 <select
                                                   value={fase.estado}
-                                                  onChange={(e) => {
-                                                    const newEstado = e.target.value
-                                                    setFasesOrden((prev) => ({
-                                                      ...prev,
-                                                      [solicitud.id]: (prev[solicitud.id] || []).map((f, i) =>
-                                                        i === idx ? { ...f, estado: newEstado } : f
-                                                      ),
-                                                    }))
-                                                  }}
+                                                   onChange={(e) => {
+                                                     const newEstado = e.target.value
+                                                     setFasesOrden((prev) => {
+                                                       const next = (prev[solicitud.id] || []).map((f, i) =>
+                                                         i === idx ? { ...f, estado: newEstado } : f
+                                                       )
+                                                       const updated = { ...prev, [solicitud.id]: next }
+                                                       guardarFasesOrden(solicitud.id, next)
+                                                       return updated
+                                                     })
+                                                   }}
                                                   className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
                                                 >
                                                   <option value="pendiente">Pendiente</option>
@@ -2746,15 +2893,17 @@ if (!conv) return
                                                 <input
                                                   type="text"
                                                   value={fase.realizada_por}
-                                                  onChange={(e) => {
-                                                    const newVal = e.target.value
-                                                    setFasesOrden((prev) => ({
-                                                      ...prev,
-                                                      [solicitud.id]: (prev[solicitud.id] || []).map((f, i) =>
-                                                        i === idx ? { ...f, realizada_por: newVal } : f
-                                                      ),
-                                                    }))
-                                                  }}
+                                                   onChange={(e) => {
+                                                     const newVal = e.target.value
+                                                     setFasesOrden((prev) => {
+                                                       const next = (prev[solicitud.id] || []).map((f, i) =>
+                                                         i === idx ? { ...f, realizada_por: newVal } : f
+                                                       )
+                                                       const updated = { ...prev, [solicitud.id]: next }
+                                                       guardarFasesOrden(solicitud.id, next)
+                                                       return updated
+                                                     })
+                                                   }}
                                                   className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
                                                   placeholder="Nombre"
                                                 />
@@ -2763,15 +2912,17 @@ if (!conv) return
                                                 <input
                                                   type="date"
                                                   value={fase.fecha_finalizacion}
-                                                  onChange={(e) => {
-                                                    const newVal = e.target.value
-                                                    setFasesOrden((prev) => ({
-                                                      ...prev,
-                                                      [solicitud.id]: (prev[solicitud.id] || []).map((f, i) =>
-                                                        i === idx ? { ...f, fecha_finalizacion: newVal } : f
-                                                      ),
-                                                    }))
-                                                  }}
+                                                   onChange={(e) => {
+                                                     const newVal = e.target.value
+                                                     setFasesOrden((prev) => {
+                                                       const next = (prev[solicitud.id] || []).map((f, i) =>
+                                                         i === idx ? { ...f, fecha_finalizacion: newVal } : f
+                                                       )
+                                                       const updated = { ...prev, [solicitud.id]: next }
+                                                       guardarFasesOrden(solicitud.id, next)
+                                                       return updated
+                                                     })
+                                                   }}
                                                   className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
                                                 />
                                               </td>
@@ -2779,26 +2930,30 @@ if (!conv) return
                                                 <input
                                                   type="date"
                                                   value={fase.fecha_prueba}
-                                                  onChange={(e) => {
-                                                    const newVal = e.target.value
-                                                    setFasesOrden((prev) => ({
-                                                      ...prev,
-                                                      [solicitud.id]: (prev[solicitud.id] || []).map((f, i) =>
-                                                        i === idx ? { ...f, fecha_prueba: newVal } : f
-                                                      ),
-                                                    }))
-                                                  }}
+                                                   onChange={(e) => {
+                                                     const newVal = e.target.value
+                                                     setFasesOrden((prev) => {
+                                                       const next = (prev[solicitud.id] || []).map((f, i) =>
+                                                         i === idx ? { ...f, fecha_prueba: newVal } : f
+                                                       )
+                                                       const updated = { ...prev, [solicitud.id]: next }
+                                                       guardarFasesOrden(solicitud.id, next)
+                                                       return updated
+                                                     })
+                                                   }}
                                                   className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
                                                 />
                                               </td>
                                               <td className="border border-gray-300 px-1 text-center">
                                                 <button
-                                                  onClick={() => {
-                                                    setFasesOrden((prev) => ({
-                                                      ...prev,
-                                                      [solicitud.id]: (prev[solicitud.id] || []).filter((_, i) => i !== idx),
-                                                    }))
-                                                  }}
+                                                   onClick={() => {
+                                                     setFasesOrden((prev) => {
+                                                       const next = (prev[solicitud.id] || []).filter((_, i) => i !== idx)
+                                                       const updated = { ...prev, [solicitud.id]: next }
+                                                       guardarFasesOrden(solicitud.id, next)
+                                                       return updated
+                                                     })
+                                                   }}
                                                   className="text-red-500 hover:text-red-700"
                                                 >
                                                   <X size={10} />
@@ -2809,15 +2964,17 @@ if (!conv) return
                                         </tbody>
                                       </table>
                                       <button
-                                        onClick={() => {
-                                          setFasesOrden((prev) => ({
-                                            ...prev,
-                                            [solicitud.id]: [
-                                              ...(prev[solicitud.id] || []),
-                                              { tipo: "", estado: "pendiente", realizada_por: "", fecha_finalizacion: "", fecha_prueba: "" },
-                                            ],
-                                          }))
-                                        }}
+                                         onClick={() => {
+                                           setFasesOrden((prev) => {
+                                             const next = [
+                                               ...(prev[solicitud.id] || []),
+                                               { tipo: "", estado: "pendiente", realizada_por: "", fecha_finalizacion: "", fecha_prueba: "" },
+                                             ]
+                                             const updated = { ...prev, [solicitud.id]: next }
+                                             guardarFasesOrden(solicitud.id, next)
+                                             return updated
+                                           })
+                                         }}
                                         className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted mt-2"
                                       >
                                         <Plus size={10} />

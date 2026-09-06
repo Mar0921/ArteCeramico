@@ -850,7 +850,7 @@ export default function ClientesPage() {
                 computedStylesMap.forEach((styles, el) => {
                   const style = (el as HTMLElement).style
                   styles.forEach(({ name, value }) => {
-                    if (!value.includes("oklab") && !value.includes("lab(") && !value.includes("color-mix")) {
+                    if (!value.includes("oklab") && !value.includes("lab(") && !value.includes("color-mix") && !value.includes("oklch")) {
                       style.setProperty(name, value, "important")
                     }
                   })
@@ -1716,19 +1716,15 @@ export default function ClientesPage() {
           </div>
 
           {convenioExpanded && (
-            <div ref={convenioRef} className="relative mx-auto w-full max-w-4xl rounded-2xl border border-border/40 bg-white p-10 text-sm text-gray-800 shadow-inner">
+            <div ref={convenioRef} className="relative mx-auto w-full max-w-4xl bg-white p-10 text-sm text-gray-800">
               <div className="absolute top-6 right-6 text-[10px] text-gray-500">
                 <div>Fecha de elaboración: 01-02-2026</div>
                 <div>CODIGO: GF-AC-001</div>
                 <div>VERSION: 001</div>
               </div>
 
-              <div className="mb-6 flex justify-start">
-                <img
-                  src="/Arte_Ceramico_Logo.svg"
-                  alt="Arte Cerámico Logo"
-                  style={{ height: "2.5rem", width: "auto" }}
-                />
+              <div className="mb-2 text-left">
+                <span className="text-xs font-bold text-gray-900">ARTE CERÁMICO</span>
               </div>
 
               <p className="mb-2 text-center text-xs text-gray-500">

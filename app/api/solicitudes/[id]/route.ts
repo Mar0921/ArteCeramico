@@ -51,8 +51,10 @@ export async function PATCH(
        "guia_fabricacion",
        "manual_uso",
        "fase",
-       "orden_fabricacion_url",
-     ]
+        "orden_fabricacion_url",
+        "orden_materiales",
+        "orden_fases",
+      ]
 
     const updates: Record<string, unknown> = {}
     for (const field of allowedFields) {
@@ -114,7 +116,7 @@ export async function GET(
 
 const { data: solicitud, error: solicitudError } = await supabase
         .from("solicitudes")
-        .select("id, servicio, observaciones, estado, created_at, updated_at, cliente_id, urls_documentos, fecha_elaboracion, fecha_entrega, historia_clinica, odontologo, cc_odontologo, odontologo_direccion, odontologo_firma, paciente, cc_paciente, color, guia, prueba, terminado, chimenea, caja, codigo_trazabilidad, dientes_trabajados, piezas_enviadas, fase")
+        .select("id, servicio, observaciones, estado, created_at, updated_at, cliente_id, urls_documentos, fecha_elaboracion, fecha_entrega, historia_clinica, odontologo, cc_odontologo, odontologo_direccion, odontologo_firma, paciente, cc_paciente, color, guia, prueba, terminado, chimenea, caja, codigo_trazabilidad, dientes_trabajados, piezas_enviadas, fase, orden_fabricacion_url, orden_materiales, orden_fases")
       .eq("id", solicitudId)
       .single()
 
