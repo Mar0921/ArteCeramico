@@ -52,6 +52,16 @@ export interface Seccion {
   campos: CampoEditable[]
 }
 
+interface SolicitudCompleta {
+  id: number
+  paciente: string
+  odontologo: string | null
+  codigo_trazabilidad: string
+  dientes_trabajados: string[]
+  servicios_detalle?: { dientes: string | null }[]
+  dientes_disponibles?: string[]
+}
+
 export default function FichasTecnicasPage() {
   const params = useParams<{ id: string }>()
   const router = useRouter()
@@ -81,9 +91,7 @@ export default function FichasTecnicasPage() {
     },
   ])
 
-  const [solicitudes, setSolicitudes] = useState<
-    { id: number; paciente: string; odontologo: string | null; codigo_trazabilidad: string; dientes_trabajados: string[] }[]
-  >([])
+  const [solicitudes, setSolicitudes] = useState<SolicitudCompleta[]>([])
   const [loadingSolicitudes, setLoadingSolicitudes] = useState(true)
 
   const [showFichaModal, setShowFichaModal] = useState(false)
@@ -95,6 +103,38 @@ export default function FichasTecnicasPage() {
   const [solicitudActualId, setSolicitudActualId] = useState<number | null>(null)
   const [fichasGuardadasPorSolicitud, setFichasGuardadasPorSolicitud] = useState<Record<number, FichaTecnica[]>>({})
   const [fichaGuardadaSeleccionada, setFichaGuardadaSeleccionada] = useState<FichaTecnica | null>(null)
+  const [solicitudActual, setSolicitudActual] = useState<SolicitudCompleta | null>(null)
+  const [cargandoDientesModal, setCargandoDientesModal] = useState(false)
+
+  useEffect(() => {
+    if (showFichaModal && solicitudActualId && (!solicitudActual?.dientes_disponibles || solicitudActual?.dientes_disponibles.length === 0)) {
+      setCargandoDientesModal(true)
+      fetch(`/api/solicitudes/${solicitudActualId}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+          if (data?.solicitud) {
+            const dientesDisponibles = extraerDientesDisponibles(data.solicitud)
+            const solicitudCompleta: SolicitudCompleta = {
+              id: data.solicitud.id,
+              paciente: data.solicitud.paciente || "",
+              odontologo: data.solicitud.odontologo || null,
+              codigo_trazabilidad: data.solicitud.codigo_trazabilidad || "",
+              dientes_trabajados: (data.solicitud.dientes_detallados || []).map((d: any) => String(d.numero)),
+              servicios_detalle: data.solicitud.servicios_detalle || [],
+              dientes_disponibles: dientesDisponibles,
+            }
+            setSolicitudes((prev) => {
+              if (prev.find((s) => s.id === solicitudCompleta.id)) return prev
+              return [...prev, solicitudCompleta]
+            })
+            setSolicitudActual(solicitudCompleta)
+          }
+        })
+        .finally(() => {
+          setCargandoDientesModal(false)
+        })
+    }
+  }, [showFichaModal, solicitudActualId, solicitudActual?.dientes_disponibles])
 
   useEffect(() => {
     const loadSolicitudes = async () => {
@@ -114,6 +154,10 @@ export default function FichasTecnicasPage() {
               dientes_trabajados: s.dientes_trabajados || [],
             }))
           )
+          if (!solicitudActualId && data.length > 0) {
+            const primera = data.find((s: any) => s.paciente || s.odontologo) || data[0]
+            setSolicitudActualId(primera?.id ?? null)
+          }
         }
       } catch (err) {
         console.error("Error cargando solicitudes:", err)
@@ -131,6 +175,39 @@ export default function FichasTecnicasPage() {
       loadFichasTecnicas()
     }
   }, [solicitudActualId])
+
+  useEffect(() => {
+    if (!solicitudActualId) {
+      setSolicitudActual(null)
+      return
+    }
+    
+    const loadSolicitudCompleta = async () => {
+      const res = await fetch(`/api/solicitudes/${solicitudActualId}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data?.solicitud) {
+          const dientesDisponibles = extraerDientesDisponibles(data.solicitud)
+          const solicitudCompleta = {
+            id: data.solicitud.id,
+            paciente: data.solicitud.paciente || "",
+            odontologo: data.solicitud.odontologo || null,
+            codigo_trazabilidad: data.solicitud.codigo_trazabilidad || "",
+            dientes_trabajados: (data.solicitud.dientes_detallados || []).map((d: any) => String(d.numero)),
+            servicios_detalle: data.solicitud.servicios_detalle || [],
+            dientes_disponibles: dientesDisponibles,
+          }
+          setSolicitudes((prev) => {
+            if (prev.find((s) => s.id === solicitudCompleta.id)) return prev
+            return [...prev, solicitudCompleta]
+          })
+          setSolicitudActual(solicitudCompleta)
+        }
+      }
+    }
+    
+    loadSolicitudCompleta()
+  }, [solicitudActualId, solicitudes])
 
   const loadFichasTecnicas = async () => {
     if (!solicitudActualId) return
@@ -2222,8 +2299,45 @@ ISO 15841: alambres para uso en ortodoncia`,
     },
   ]
 
-  const handleAbrirFicha = (tipo: string = "Carilla de Disilicato Estratificada") => {
-    const ultimaSolicitud = solicitudes.find((s) => s.paciente || s.odontologo) || solicitudes[0]
+  const handleAbrirFicha = async (tipo: string = "Carilla de Disilicato Estratificada") => {
+    let ultimaSolicitud: SolicitudCompleta | null | undefined = solicitudActual || solicitudes.find((s) => s.paciente || s.odontologo) || solicitudes[0]
+    if ((!ultimaSolicitud || !(ultimaSolicitud.dientes_trabajados || []).length) && solicitudes.length === 0 && clienteId) {
+      const res = await fetch(`/api/solicitudes?cliente_id=${clienteId}&limit=1`)
+      if (res.ok) {
+        const data = await res.json()
+        const solicitud = data.data?.[0]
+        if (solicitud) {
+          ultimaSolicitud = {
+            id: solicitud.id,
+            paciente: solicitud.paciente || "",
+            odontologo: solicitud.odontologo || null,
+            codigo_trazabilidad: solicitud.codigo_trazabilidad || "",
+            dientes_trabajados: solicitud.dientes_trabajados || [],
+          }
+          setSolicitudes((prev) => {
+            if (prev.find((s) => s.id === ultimaSolicitud!.id)) return prev
+            return [...prev, ultimaSolicitud!]
+          })
+        }
+      }
+    }
+    if (ultimaSolicitud && !ultimaSolicitud.dientes_disponibles) {
+      const res = await fetch(`/api/solicitudes/${ultimaSolicitud.id}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data?.solicitud) {
+          const dientesDisponibles = extraerDientesDisponibles(data.solicitud)
+          const solicitudActualizada: SolicitudCompleta = {
+            ...ultimaSolicitud,
+            servicios_detalle: data.solicitud.servicios_detalle || [],
+            dientes_disponibles: dientesDisponibles,
+          }
+          ultimaSolicitud = solicitudActualizada
+          setSolicitudes((prev) => prev.map((s) => s.id === solicitudActualizada.id ? solicitudActualizada : s))
+          setSolicitudActual(solicitudActualizada)
+        }
+      }
+    }
     setSolicitudActualId(ultimaSolicitud?.id ?? null)
 
     let ficha: Seccion[] = []
@@ -2286,17 +2400,19 @@ ISO 15841: alambres para uso en ortodoncia`,
       ficha.forEach((seccion) => {
         seccion.campos.forEach((campo) => {
           if (campo.label === "Nombre del paciente") {
-            campo.value = ultimaSolicitud.paciente || ""
+            campo.value = ultimaSolicitud!.paciente || ""
           }
           if (campo.label === "Prescriptor") {
-            campo.value = ultimaSolicitud.odontologo || ""
+            campo.value = ultimaSolicitud!.odontologo || ""
           }
           if (campo.label === "Número de Serie o identificación del dispositivo") {
-            const diente = (ultimaSolicitud.dientes_trabajados && ultimaSolicitud.dientes_trabajados[0]) || ""
-            const codigoRaw = ultimaSolicitud.codigo_trazabilidad || ""
+            const dientes = ultimaSolicitud!.dientes_disponibles || ultimaSolicitud!.dientes_trabajados || []
+            const dientesLimpios = dientes.map((d: string) => String(d).split("-")[0]).filter((d: string) => d && !isNaN(Number(d)))
+            const codigoRaw = ultimaSolicitud!.codigo_trazabilidad || ""
             const partes = codigoRaw.split("-")
             const codigo = partes.length >= 2 ? `${partes[0]}-${partes[1]}` : codigoRaw
-            campo.value = codigo && diente ? `${codigo}-${diente}` : codigo || diente || ""
+            const primerDiente = dientesLimpios[0] || ""
+            campo.value = codigo && primerDiente ? `${codigo}-${primerDiente}` : codigo || ""
           }
         })
       })
@@ -2308,6 +2424,8 @@ ISO 15841: alambres para uso en ortodoncia`,
   const handleGuardarFicha = async () => {
     if (!solicitudActualId || !tipoFichaActual || !fichaActual.length) {
       setShowFichaModal(false)
+      setCargandoDientesModal(false)
+      setCargandoDientesModal(false)
       return
     }
 
@@ -2352,19 +2470,113 @@ ISO 15841: alambres para uso en ortodoncia`,
     setShowFichaModal(false)
   }
 
-  const handleVerFichaGuardada = (ficha: FichaTecnica) => {
+    const inicializarNumeroSerie = (secciones: Seccion[], solicitud: SolicitudCompleta | null | undefined): Seccion[] => {
+    if (!solicitud) return secciones
+    const dientes = solicitud.dientes_disponibles || solicitud.dientes_trabajados || []
+    const dientesLimpios = dientes.map((d: string) => String(d).split("-")[0]).filter((d: string) => d && !isNaN(Number(d)))
+    const codigoRaw = solicitud.codigo_trazabilidad || ""
+    const partes = codigoRaw.split("-")
+    const codigo = partes.length >= 2 ? `${partes[0]}-${partes[1]}` : codigoRaw
+    const valorNumeroSerie = codigo && dientesLimpios.length > 0 ? `${codigo}-${dientesLimpios[0]}` : codigo || ""
+
+    return secciones.map((seccion) => ({
+      ...seccion,
+      campos: seccion.campos.map((campo) =>
+        campo.label === "Número de Serie o identificación del dispositivo" && !campo.value
+          ? { ...campo, value: valorNumeroSerie }
+          : campo
+      ),
+    }))
+  }
+
+  const extraerDientesDisponibles = (solicitudData: any): string[] => {
+    const servicios = solicitudData.servicios_detalle || []
+    const dientesDeServicios = servicios
+      .map((s: any) => s.dientes)
+      .filter((d: any) => d != null)
+    
+    if (dientesDeServicios.length > 0) {
+      return dientesDeServicios
+        .join(",")
+        .split(",")
+        .map((d: string) => String(d).split("-")[0])
+        .filter((d: string) => d && !isNaN(Number(d)))
+    }
+    
+    return (solicitudData.dientes_detallados || []).map((d: any) => String(d.numero))
+  }
+
+   const handleVerFichaGuardada = async (ficha: FichaTecnica) => {
     setFichaGuardadaSeleccionada(ficha)
-    setFichaActual(ficha.secciones || [])
+    let solicitud = solicitudActual || solicitudes.find((s) => s.id === solicitudActualId) || solicitudes[0] || null
+    if (!solicitud && solicitudActualId) {
+      const res = await fetch(`/api/solicitudes/${solicitudActualId}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data?.solicitud) {
+          const dientesDisponibles = extraerDientesDisponibles(data.solicitud)
+          const nuevaSolicitud: SolicitudCompleta = {
+            id: data.solicitud.id,
+            paciente: data.solicitud.paciente || "",
+            odontologo: data.solicitud.odontologo || null,
+            codigo_trazabilidad: data.solicitud.codigo_trazabilidad || "",
+            dientes_trabajados: (data.solicitud.dientes_detallados || []).map((d: any) => String(d.numero)),
+            servicios_detalle: data.solicitud.servicios_detalle || [],
+            dientes_disponibles: dientesDisponibles,
+          }
+          setSolicitudes((prev) => {
+            if (prev.find((s) => s.id === nuevaSolicitud.id)) return prev
+            return [...prev, nuevaSolicitud]
+          })
+          solicitud = nuevaSolicitud
+          setSolicitudActual(nuevaSolicitud)
+        }
+      }
+    }
+    const seccionesActualizadas = inicializarNumeroSerie(ficha.secciones || [], solicitud)
+    const numeroSerieVacio = seccionesActualizadas.some((seccion) =>
+      seccion.campos.some((campo) => campo.label === "Número de Serie o identificación del dispositivo" && !campo.value)
+    )
+    setFichaActual(seccionesActualizadas)
     setTipoFichaActual(ficha.tipo)
-    setEditingFicha(false)
+    setEditingFicha(numeroSerieVacio)
     setShowFichaModal(true)
   }
 
   const handleDescargarFichaGuardada = async (ficha: FichaTecnica) => {
     setFichaGuardadaSeleccionada(ficha)
-    setFichaActual(ficha.secciones || [])
+    let solicitud = solicitudActual || solicitudes.find((s) => s.id === solicitudActualId) || solicitudes[0] || null
+    if (!solicitud && solicitudActualId) {
+      const res = await fetch(`/api/solicitudes/${solicitudActualId}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data?.solicitud) {
+          const dientesDisponibles = extraerDientesDisponibles(data.solicitud)
+          const nuevaSolicitud: SolicitudCompleta = {
+            id: data.solicitud.id,
+            paciente: data.solicitud.paciente || "",
+            odontologo: data.solicitud.odontologo || null,
+            codigo_trazabilidad: data.solicitud.codigo_trazabilidad || "",
+            dientes_trabajados: (data.solicitud.dientes_detallados || []).map((d: any) => String(d.numero)),
+            servicios_detalle: data.solicitud.servicios_detalle || [],
+            dientes_disponibles: dientesDisponibles,
+          }
+          setSolicitudes((prev) => {
+            if (prev.find((s) => s.id === nuevaSolicitud.id)) return prev
+            return [...prev, nuevaSolicitud]
+          })
+          solicitud = nuevaSolicitud
+          setSolicitudActual(nuevaSolicitud)
+        }
+      }
+    }
+    const seccionesActualizadas = inicializarNumeroSerie(ficha.secciones || [], solicitud)
+    const numeroSerieVacio = seccionesActualizadas.some((seccion) =>
+      seccion.campos.some((campo) => campo.label === "Número de Serie o identificación del dispositivo" && !campo.value)
+    )
+    setFichaActual(seccionesActualizadas)
     setTipoFichaActual(ficha.tipo)
-    setEditingFicha(false)
+    setEditingFicha(numeroSerieVacio)
     setShowFichaModal(true)
     await new Promise((r) => setTimeout(r, 100))
     await handleDownloadPdf()
@@ -3171,21 +3383,47 @@ ISO 15841: alambres para uso en ortodoncia`,
                 {tipoFichaActual === "Carilla de Disilicato Monolitica" ? "Carilla de Disilicato Monolítica" : tipoFichaActual === "Carilla de Disilicato Impresa en Resina" ? "Carilla de Disilicato Impresa en Resina" : tipoFichaActual === "Ceramica de Encia" ? "Cerámica de Encía" : tipoFichaActual === "Colado de UCLA" ? "Colado de UCLA" : tipoFichaActual === "Corona Disilicato Estratificada" ? "Corona en Disilicato de litio estratificada" : tipoFichaActual === "Corona Disilicato Monolitica" ? "Corona en Disilicato de litio monolítica" : tipoFichaActual === "Corona Disilicato Sobre Implante" ? "Corona en Disilicato de litio sobre implante" : tipoFichaActual === "Corona Zirconio Estratificada" ? "Corona en zirconio estratificada" : tipoFichaActual === "Corona Zirconio Monolitica" ? "Corona en zirconio monolítica" : tipoFichaActual === "Incrustacion Disilicato" ? "Incrustación en Disilicato de litio" : tipoFichaActual === "Incrustacion Metal" ? "Incrustación en metal" : tipoFichaActual === "Nucleo NPG" ? "Núcleo NPG" : tipoFichaActual === "Protesis Hibrida All on Four" ? "Prótesis hibrida all on four" : tipoFichaActual === "Provisional PMMA Sobre implante" ? "Provisional en PMMA Sobre implante" : tipoFichaActual === "Provisional PMMA" ? "Provisional en PMMA" : tipoFichaActual === "Provisional Resina Impresa" ? "Provisional en resina impresa" : "Carilla de Disilicato Estratificada"}
               </h3>
               <button
-                onClick={() => setShowFichaModal(false)}
+                 onClick={() => { setShowFichaModal(false); setCargandoDientesModal(false); }}
                 className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
               >
                 <X size={18} />
               </button>
             </div>
-             <div className="flex-1 overflow-y-auto bg-neutral-200">
-               {(function() {
-                 const solicitudActual = solicitudes.find((s) => s.id === solicitudActualId) || solicitudes[0]
-                 const dientesDisponibles = (solicitudActual?.dientes_trabajados || [])
-                   .map((d: string) => String(d).split("-")[0])
-                   .filter((d: string) => d && !isNaN(Number(d)))
-                 const codigoRaw = solicitudActual?.codigo_trazabilidad || ""
-                 const partes = codigoRaw.split("-")
-                 const codigoTrazabilidad = partes.length >= 2 ? `${partes[0]}-${partes[1]}` : codigoRaw
+                <div className="flex-1 overflow-y-auto bg-neutral-200">
+                  {(function() {
+                     const solicitudActualSrc = solicitudActual || solicitudes.find((s) => s.id === solicitudActualId) || solicitudes[0]
+                     const dientesDisponibles = (solicitudActualSrc as any)?.dientes_disponibles || ((solicitudActualSrc as any)?.dientes_detallados || solicitudActualSrc?.dientes_trabajados || [])
+                       .map((d: any) => typeof d === 'string' ? String(d).split("-")[0] : String(d.numero || d))
+                       .filter((d: string) => d && !isNaN(Number(d)))
+                     const servicios = (solicitudActualSrc as any)?.servicios_detalle || []
+                     const dientesCrudosServicios = servicios
+                       .map((s: any) => s.dientes)
+                       .filter((d: any) => d != null)
+                    const codigoRaw = solicitudActualSrc?.codigo_trazabilidad || ""
+                    const partes = codigoRaw.split("-")
+                    const codigoTrazabilidad = partes.length >= 2 ? `${partes[0]}-${partes[1]}` : codigoRaw
+
+                    if (cargandoDientesModal) {
+                      return (
+                        <div className="flex h-64 items-center justify-center text-neutral-500 text-sm">
+                        Cargando dientes de la solicitud...
+                      </div>
+                      )
+                    }
+
+                    if (editingFicha && dientesDisponibles.length === 0) {
+                      return (
+                        <div className="p-6 text-sm text-neutral-600 space-y-2">
+                          <p className="font-semibold">No se pudieron cargar los dientes para esta ficha.</p>
+                          <p>Solicitud actual ID: {solicitudActualId ?? "ninguna"}</p>
+                          <p>Código trazabilidad: {codigoRaw || "sin valor"}</p>
+                          <p>Servicios encontrados: {servicios.length}</p>
+                          <p>Dientes crudos en servicios: {JSON.stringify(dientesCrudosServicios)}</p>
+                          <p>dientes_disponibles: {JSON.stringify((solicitudActualSrc as any)?.dientes_disponibles)}</p>
+                          <p>Revisá que la solicitud tenga servicios con la columna dientes cargada.</p>
+                        </div>
+                      )
+                    }
 
                  return tipoFichaActual === "Carilla de Disilicato Monolitica" ? (
                    <FichaTecnicaMonolitica
@@ -3396,7 +3634,7 @@ ISO 15841: alambres para uso en ortodoncia`,
              </div>
             <div className="flex items-center justify-end gap-3 p-6 border-t border-border">
               <button
-                onClick={() => setShowFichaModal(false)}
+                 onClick={() => { setShowFichaModal(false); setCargandoDientesModal(false); }}
                 className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
               >
                 Cerrar

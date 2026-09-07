@@ -293,35 +293,74 @@ export function FichaTecnicaColadoUcla({
 
                   const isLargeField = isMateriales || isNormas || isRiesgos || isAdvertencias || isInstruccionesUso || isInstruccionesMantenimiento || isGarantia || isDescripcion || isUsoPrevisto || isVidaUtil
                   const isNumeroSerie = campo.label === "Número de Serie o identificación del dispositivo"
-                  const selectedDientes = isNumeroSerie && campo.value && codigoTrazabilidad ? String(campo.value).split(",").map(v => v.replace(`${codigoTrazabilidad}-`, "")).filter(Boolean) : []
-                  return (
-                    <InfoRow
-                      key={campo.label}
-                      label={campo.label}
-                      value={campo.value}
-                      seccionIndex={seccionIndex}
-                      campoIndex={campoIndex}
-                      editing={editing && isCampoEditable}
-                      onCampoChange={isCampoEditable && !isNumeroSerie ? onCampoChange : undefined}
-                      customEditor={isNumeroSerie && editing && isCampoEditable && dientes && dientes.length > 0 ? () => (
-                        <select
-                          multiple
-                          size={5}
-                          value={selectedDientes}
-                          onChange={(e) => {
-                            const selected = Array.from(e.target.selectedOptions, option => option.value).filter(Boolean)
-                            const newValue = selected.length > 0 ? selected.map(d => `${codigoTrazabilidad}-${d}`).join(",") : ""
-                            onCampoChange(seccionIndex, campoIndex, newValue)
-                          }}
-                          className={"w-full rounded border border-amber-300 bg-amber-50 p-2 text-[11px] text-neutral-900 focus:border-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-200"}
-                        >
-                          <option value={""}>Seleccionar diente...</option>
-                          {dientes!.map((d) => (
-                            <option key={d} value={d}>{d}</option>
-                          ))}
-                        </select>
-                      ) : undefined}
-                    >
+                  let selectedDientes: string[] = []
+                  if (isNumeroSerie && campo.value && codigoTrazabilidad) {
+                    const raw = String(campo.value)
+                    const prefix = `${codigoTrazabilidad}-`
+                    if (raw.startsWith(prefix)) {
+                      const rest = raw.slice(prefix.length)
+                      if (rest.includes(",")) {
+                        selectedDientes = rest.split(",").map(v => v.replace(`${codigoTrazabilidad}-`, "")).filter(Boolean)
+                      } else {
+                        selectedDientes = rest.split("-").filter(Boolean)
+                      }
+                    }
+                  }
+                  const isCampoEditableReal = isCampoEditable
+                  const customEditorNumeroSerie = isNumeroSerie && editing && isCampoEditableReal
+                    ? () =>
+                        dientes && dientes.length > 0 ? (
+                          <div className="space-y-1">
+                            {dientes!.length > 1 && (
+                              <label className="flex items-center gap-2 text-[11px]">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedDientes.length === dientes!.length}
+                                  onChange={(e) => {
+                                    const newValue = e.target.checked
+                                      ? `${codigoTrazabilidad}-${dientes!.join("-")}`
+                                      : ""
+                                    onCampoChange(seccionIndex, campoIndex, newValue)
+                                  }}
+                                />
+                                <span> Todos ({dientes!.join("-")})</span>
+                              </label>
+                            )}
+                            {dientes!.map((d) => (
+                              <label key={d} className="flex items-center gap-2 text-[11px]">
+                                <input
+                                  type="checkbox"
+                                  checked={selectedDientes.includes(d)}
+                                  onChange={(e) => {
+                                    const newSelected = e.target.checked
+                                      ? [...selectedDientes, d]
+                                      : selectedDientes.filter((x) => x !== d)
+                                    const newValue = newSelected.length > 0
+                                      ? `${codigoTrazabilidad}-${newSelected.join("-")}`
+                                      : ""
+                                    onCampoChange(seccionIndex, campoIndex, newValue)
+                                  }}
+                                />
+                                <span>{d}</span>
+                              </label>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-neutral-400 text-[11px]">Sin dientes disponibles en la solicitud</div>
+                        )
+                    : undefined
+
+                    return (
+                      <InfoRow
+                        key={campo.label}
+                        label={campo.label}
+                        value={campo.value}
+                        seccionIndex={seccionIndex}
+                        campoIndex={campoIndex}
+                        editing={editing && isCampoEditable}
+                        onCampoChange={onCampoChange}
+                        customEditor={customEditorNumeroSerie}
+                      >
                       {isLargeField ? (
                         <div className="whitespace-pre-line">
                           {renderParagraphs(campo.value)}
