@@ -1,6 +1,6 @@
 "use client"
 
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { supabase } from "@/lib/supabase"
@@ -170,13 +170,21 @@ export default function FichasTecnicasPage() {
     loadFichasTecnicas()
   }, [clienteId])
 
-  useEffect(() => {
-    if (solicitudActualId) {
-      loadFichasTecnicas()
-    }
-  }, [solicitudActualId])
+   useEffect(() => {
+     if (solicitudActualId) {
+       loadFichasTecnicas()
+     }
+   }, [solicitudActualId])
 
-  useEffect(() => {
+   useEffect(() => {
+     const searchParams = new URLSearchParams(window.location.search)
+     const solicitudIdParam = searchParams.get("solicitud_id")
+     if (solicitudIdParam && !isNaN(parseInt(solicitudIdParam))) {
+       setSolicitudActualId(parseInt(solicitudIdParam))
+     }
+   }, [])
+
+   useEffect(() => {
     if (!solicitudActualId) {
       setSolicitudActual(null)
       return

@@ -36,6 +36,7 @@ import {
   ChevronUp,
   Shield,
   Download,
+  Printer,
 } from "lucide-react"
 
 import { Navbar } from "@/components/navbar"
@@ -43,6 +44,43 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { WhatsAppButton } from "@/components/whatsapp-button"
 import { SurveyForm } from "@/components/survey-form"
 import { ComplaintsSurvey } from "@/components/complaints-survey"
+import { FichaTecnicaDisilicato } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-disilicato"
+import { FichaTecnicaMonolitica } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-monolitica"
+import { FichaTecnicaResina } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-resina"
+import { FichaTecnicaCeramicaEncia } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-ceramica-encia"
+import { FichaTecnicaColadoUcla } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-colado-ucla"
+import { FichaTecnicaCoronaDisilicatoEstratificada } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-corona-disilicato-estratificada"
+import { FichaTecnicaCoronaDisilicatoMonolitica } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-corona-disilicato-monolitica"
+import { FichaTecnicaCoronaDisilicatoImplante } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-corona-disilicato-implante"
+import { FichaTecnicaCoronaZirconioEstratificada } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-corona-zirconio-estratificada"
+import { FichaTecnicaCoronaZirconioMonolitica } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-corona-zirconio-monolitica"
+import { FichaTecnicaCoronaZirconioImplante } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-corona-zirconio-implante"
+import { FichaTecnicaIncrustacionDisilicato } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-incrustacion-disilicato"
+import { FichaTecnicaIncrustacionMetal } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-incrustacion-metal"
+import { FichaTecnicaNucleoNPG } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-nucleo-npg"
+import { FichaTecnicaProtesisHibridaAllOnFour } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-protesis-hibrida-all-on-four"
+import { FichaTecnicaProvisionalPmmaImplante } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-provisional-pmma-implante"
+import { FichaTecnicaProvisionalPmma } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-provisional-pmma"
+import { FichaTecnicaProvisionalResinaImpresa } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-provisional-resina-impresa"
+
+interface CampoEditable {
+  label: string
+  value: string
+}
+
+interface Seccion {
+  titulo: string
+  campos: CampoEditable[]
+}
+
+interface FichaTecnica {
+  id: number
+  nombre: string
+  tipo: string
+  fecha: string
+  url: string
+  secciones?: Seccion[]
+}
 
 interface Servicio {
   id: number
@@ -180,6 +218,14 @@ export default function ClientesPage() {
   const [loadingDetalle, setLoadingDetalle] = useState(false)
   const [fichasTecnicas, setFichasTecnicas] = useState<Record<number, any[]>>({})
   const [loadingFichas, setLoadingFichas] = useState<Record<number, boolean>>({})
+  const [modalFichaVisible, setModalFichaVisible] = useState(false)
+  const [fichaModalSecciones, setFichaModalSecciones] = useState<Seccion[]>([])
+  const [tipoFichaModal, setTipoFichaModal] = useState<string>("")
+  const [editingFichaModal, setEditingFichaModal] = useState(false)
+  const [downloadingFichaModal, setDownloadingFichaModal] = useState(false)
+  const [solicitudModalId, setSolicitudModalId] = useState<number | null>(null)
+  const [fichaModalSeleccionada, setFichaModalSeleccionada] = useState<any | null>(null)
+  const [solicitudModalActual, setSolicitudModalActual] = useState<any>(null)
   const [servicioDocs, setServicioDocs] = useState<Record<number, { declaracion_conformidad: File | null; guia_fabricacion: File | null; manual_uso: File | null }>>({})
   const [solicitudDocs, setSolicitudDocs] = useState<{ terminos_garantia: File | null }>({
     terminos_garantia: null,
@@ -619,6 +665,130 @@ export default function ClientesPage() {
     } finally {
       setLoadingFichas((prev) => ({ ...prev, [solicitudId]: false }))
     }
+  }
+
+  const extraerDientesDisponibles = (solicitudData: any): string[] => {
+    if (!solicitudData) return []
+    const dientesDeServicios = (solicitudData.servicios_detalle || [])
+      .map((s: any) => s.dientes)
+      .filter((d: any) => d != null)
+      .join(",")
+    if (dientesDeServicios) {
+      return dientesDeServicios
+        .split(",")
+        .map((d: string) => String(d).split("-")[0])
+        .filter((d: string) => d && !isNaN(Number(d)))
+    }
+    return (solicitudData.dientes_detallados || []).map((d: any) => String(d.numero))
+  }
+
+  const inicializarNumeroSerie = (secciones: Seccion[], solicitud: any): Seccion[] => {
+    if (!solicitud) return secciones
+    const dientes = extraerDientesDisponibles(solicitud)
+    const dientesLimpios = dientes.map((d: string) => String(d).split("-")[0]).filter((d: string) => d && !isNaN(Number(d)))
+    const codigoRaw = solicitud.codigo_trazabilidad || ""
+    const partes = codigoRaw.split("-")
+    const codigo = partes.length >= 2 ? `${partes[0]}-${partes[1]}` : codigoRaw
+    const valorNumeroSerie = codigo && dientesLimpios.length > 0 ? `${codigo}-${dientesLimpios[0]}` : codigo || ""
+
+    return secciones.map((seccion) => ({
+      ...seccion,
+      campos: seccion.campos.map((campo) =>
+        campo.label === "Número de Serie o identificación del dispositivo" && !campo.value
+          ? { ...campo, value: valorNumeroSerie }
+          : campo
+      ),
+    }))
+  }
+
+  const handleVerFichaGuardadaPageClientes = async (ficha: any, solicitudId: number) => {
+    setFichaModalSeleccionada(ficha)
+    setSolicitudModalId(solicitudId)
+    let solicitud = solicitudModalActual || solicitudes.find((s) => s.id === solicitudId) || solicitudes[0] || null
+    if (!solicitud && solicitudId) {
+      const res = await fetch(`/api/solicitudes/${solicitudId}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data?.solicitud) {
+          const dientesDisponibles = extraerDientesDisponibles(data.solicitud)
+          solicitud = {
+            id: data.solicitud.id,
+            paciente: data.solicitud.paciente || "",
+            odontologo: data.solicitud.odontologo || null,
+            codigo_trazabilidad: data.solicitud.codigo_trazabilidad || "",
+            dientes_trabajados: (data.solicitud.dientes_detallados || []).map((d: any) => String(d.numero)),
+            servicios_detalle: data.solicitud.servicios_detalle || [],
+            dientes_disponibles: dientesDisponibles,
+          }
+          setSolicitudes((prev) => {
+            if (prev.find((s) => s.id === solicitud.id)) return prev
+            return [...prev, solicitud]
+          })
+          setSolicitudModalActual(solicitud)
+        }
+      }
+    }
+    const seccionesActualizadas = inicializarNumeroSerie(ficha.secciones || [], solicitud)
+    const numeroSerieVacio = seccionesActualizadas.some((seccion) =>
+      seccion.campos.some((campo: any) => campo.label === "Número de Serie o identificación del dispositivo" && !campo.value)
+    )
+    setFichaModalSecciones(seccionesActualizadas)
+    setTipoFichaModal(ficha.tipo)
+    setEditingFichaModal(numeroSerieVacio)
+    setModalFichaVisible(true)
+  }
+
+  const handleDownloadPdfModal = async () => {
+    setDownloadingFichaModal(true)
+    setEditingFichaModal(false)
+    await new Promise((r) => setTimeout(r, 50))
+
+    try {
+      const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+        import("jspdf"),
+        import("html2canvas"),
+      ])
+
+      const elemento = document.getElementById("ficha-tecnica-modal-contenido")
+      if (!elemento) return
+
+      const canvas = await html2canvas(elemento, {
+        background: "#ffffff",
+        logging: false,
+        allowTaint: true,
+        useCORS: false,
+      })
+
+      const imgData = canvas.toDataURL("image/png")
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "px",
+        format: [canvas.width, canvas.height],
+      })
+
+      pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height)
+      const fileName = tipoFichaModal
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, "")
+        .replace(/\s+/g, "-")
+        .replace(/-+/g, "-")
+      pdf.save(`${fileName}.pdf`)
+    } catch (err) {
+      console.error("Error generando PDF:", err)
+      alert("No se pudo generar el PDF.")
+    } finally {
+      setDownloadingFichaModal(false)
+    }
+  }
+
+  const handleCerrarModalFicha = () => {
+    setModalFichaVisible(false)
+    setFichaModalSecciones([])
+    setTipoFichaModal("")
+    setEditingFichaModal(false)
+    setFichaModalSeleccionada(null)
+    setSolicitudModalId(null)
+    setSolicitudModalActual(null)
   }
 
   const handleAbrirNotificacion = async (notificacion: any) => {
@@ -2740,41 +2910,38 @@ export default function ClientesPage() {
                                      </div>
                                    ) : (fichasTecnicas[solicitud.id]?.length ?? 0) === 0 ? (
                                      <span className="text-[10px] text-muted-foreground">Sin fichas técnicas registradas.</span>
-                                   ) : (
-                                     <div className="space-y-1">
-                                       {(fichasTecnicas[solicitud.id] || []).map((ficha: any) => (
-                                         <div key={ficha.id} className="flex items-center justify-between rounded border border-border bg-white px-3 py-2">
-                                           <div>
-                                             <p className="text-[11px] font-medium text-foreground">{ficha.tipo || "Ficha técnica"}</p>
-                                             <p className="text-[10px] text-muted-foreground">{ficha.nombre || ""}</p>
-                                           </div>
-                                           <div className="flex items-center gap-2">
-                                             {ficha.url && (
-                                               <a
-                                                 href={ficha.url}
-                                                 target="_blank"
-                                                 rel="noreferrer"
-                                                 className="inline-flex items-center gap-1 rounded-md border border-border bg-card/50 px-2 py-1 text-[10px] font-medium text-muted-foreground transition-all hover:border-primary/60 hover:bg-primary/10 hover:text-primary"
-                                               >
-                                                 <Eye size={12} />
-                                                 Ver
-                                               </a>
-                                             )}
-                                             {ficha.url && (
-                                               <a
-                                                 href={ficha.url}
-                                                 download
-                                                 className="inline-flex items-center gap-1 rounded-md border border-border bg-card/50 px-2 py-1 text-[10px] font-medium text-muted-foreground transition-all hover:border-primary/60 hover:bg-primary/10 hover:text-primary"
-                                               >
-                                                 <Download size={12} />
-                                                 Descargar
-                                               </a>
-                                             )}
-                                           </div>
-                                         </div>
-                                       ))}
-                                     </div>
-                                   )}
+                                    ) : (
+                                      <div className="space-y-1">
+                                        {(fichasTecnicas[solicitud.id] || []).map((ficha: any) => (
+                                          <div key={ficha.id} className="flex items-center justify-between rounded border border-border bg-white px-3 py-2">
+                                            <div>
+                                              <p className="text-[11px] font-medium text-foreground">{ficha.tipo || "Ficha técnica"}</p>
+                                              <p className="text-[10px] text-muted-foreground">{ficha.nombre || ""}</p>
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                              <button
+                                                onClick={() => handleVerFichaGuardadaPageClientes(ficha, solicitud.id)}
+                                                className="inline-flex items-center gap-1 rounded-md border border-border bg-card/50 px-2 py-1 text-[10px] font-medium text-muted-foreground transition-all hover:border-primary/60 hover:bg-primary/10 hover:text-primary"
+                                              >
+                                                <Eye size={12} />
+                                                Ver
+                                              </button>
+                                              {ficha.url && (
+                                                <a
+                                                  href={ficha.url}
+                                                  target="_blank"
+                                                  rel="noreferrer"
+                                                  className="inline-flex items-center gap-1 rounded-md border border-border bg-card/50 px-2 py-1 text-[10px] font-medium text-muted-foreground transition-all hover:border-primary/60 hover:bg-primary/10 hover:text-primary"
+                                                >
+                                                  <Download size={12} />
+                                                  Descargar
+                                                </a>
+                                              )}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
                                  </div>
 
                                    {solicitud.urls_documentos && solicitud.urls_documentos.length > 0 && (
@@ -3142,6 +3309,279 @@ export default function ClientesPage() {
 
         <WhatsAppButton />
       </main>
+
+      {modalFichaVisible && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 overflow-y-auto">
+          <div className="rounded-xl bg-card shadow-xl w-full max-w-[850px] my-8 flex flex-col max-h-[90vh]">
+            <div className="flex items-center justify-between p-6 border-b border-border">
+              <h3 className="text-lg font-semibold text-foreground">
+                {tipoFichaModal === "Carilla de Disilicato Monolitica" ? "Carilla de Disilicato Monolítica" : tipoFichaModal === "Carilla de Disilicato Impresa en Resina" ? "Carilla de Disilicato Impresa en Resina" : tipoFichaModal === "Ceramica de Encia" ? "Cerámica de Encía" : tipoFichaModal === "Colado de UCLA" ? "Colado de UCLA" : tipoFichaModal === "Corona Disilicato Estratificada" ? "Corona en Disilicato de litio estratificada" : tipoFichaModal === "Corona Disilicato Monolitica" ? "Corona en Disilicato de litio monolítica" : tipoFichaModal === "Corona Disilicato Sobre Implante" ? "Corona en Disilicato de litio sobre implante" : tipoFichaModal === "Corona Zirconio Estratificada" ? "Corona en zirconio estratificada" : tipoFichaModal === "Corona Zirconio Monolitica" ? "Corona en zirconio monolítica" : tipoFichaModal === "Incrustacion Disilicato" ? "Incrustación en Disilicato de litio" : tipoFichaModal === "Incrustacion Metal" ? "Incrustación en metal" : tipoFichaModal === "Nucleo NPG" ? "Núcleo NPG" : tipoFichaModal === "Protesis Hibrida All on Four" ? "Prótesis hibrida all on four" : tipoFichaModal === "Provisional PMMA Sobre implante" ? "Provisional en PMMA Sobre implante" : tipoFichaModal === "Provisional PMMA" ? "Provisional en PMMA" : tipoFichaModal === "Provisional Resina Impresa" ? "Provisional en resina impresa" : "Carilla de Disilicato Estratificada"}
+              </h3>
+              <button
+                onClick={handleCerrarModalFicha}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto bg-neutral-200">
+              <div id="ficha-tecnica-modal-contenido">
+                {(function () {
+                  const solicitudSrc = solicitudModalActual || solicitudes.find((s) => s.id === solicitudModalId) || solicitudes[0]
+                  const dientesDisponibles = solicitudSrc?.dientes_disponibles || extraerDientesDisponibles(solicitudSrc)
+                  const servicios = solicitudSrc?.servicios_detalle || []
+                  const dientesCrudosServicios = servicios
+                    .map((s: any) => s.dientes)
+                    .filter((d: any) => d != null)
+                  const codigoRaw = solicitudSrc?.codigo_trazabilidad || ""
+                  const partes = codigoRaw.split("-")
+                  const codigoTrazabilidad = partes.length >= 2 ? `${partes[0]}-${partes[1]}` : codigoRaw
+
+                  if (editingFichaModal && dientesDisponibles.length === 0) {
+                    return (
+                      <div className="p-6 text-sm text-neutral-600 space-y-2">
+                        <p className="font-semibold">No se pudieron cargar los dientes para esta ficha.</p>
+                        <p>Solicitud actual ID: {solicitudModalId ?? "ninguna"}</p>
+                        <p>Código trazabilidad: {codigoRaw || "sin valor"}</p>
+                        <p>Servicios encontrados: {servicios.length}</p>
+                        <p>Dientes crudos en servicios: {JSON.stringify(dientesCrudosServicios)}</p>
+                        <p>dientes_disponibles: {JSON.stringify(solicitudSrc?.dientes_disponibles)}</p>
+                        <p>Revisá que la solicitud tenga servicios con la columna dientes cargada.</p>
+                      </div>
+                    )
+                  }
+
+                  return tipoFichaModal === "Carilla de Disilicato Monolitica" ? (
+                    <FichaTecnicaMonolitica
+                      secciones={fichaModalSecciones}
+                      onCampoChange={() => {}}
+                      editing={false}
+                      onToggleEditing={() => {}}
+                      onDownload={handleDownloadPdfModal}
+                      downloading={downloadingFichaModal}
+                      showToolbar={false}
+                      dientes={dientesDisponibles}
+                      codigoTrazabilidad={codigoTrazabilidad}
+                    />
+                  ) : tipoFichaModal === "Carilla de Disilicato Impresa en Resina" ? (
+                    <FichaTecnicaResina
+                      secciones={fichaModalSecciones}
+                      onCampoChange={() => {}}
+                      editing={false}
+                      onToggleEditing={() => {}}
+                      onDownload={handleDownloadPdfModal}
+                      downloading={downloadingFichaModal}
+                      showToolbar={false}
+                      dientes={dientesDisponibles}
+                      codigoTrazabilidad={codigoTrazabilidad}
+                    />
+                  ) : tipoFichaModal === "Ceramica de Encia" ? (
+                    <FichaTecnicaCeramicaEncia
+                      secciones={fichaModalSecciones}
+                      onCampoChange={() => {}}
+                      editing={false}
+                      onToggleEditing={() => {}}
+                      onDownload={handleDownloadPdfModal}
+                      downloading={downloadingFichaModal}
+                      showToolbar={false}
+                      dientes={dientesDisponibles}
+                      codigoTrazabilidad={codigoTrazabilidad}
+                    />
+                  ) : tipoFichaModal === "Colado de UCLA" ? (
+                    <FichaTecnicaColadoUcla
+                      secciones={fichaModalSecciones}
+                      onCampoChange={() => {}}
+                      editing={false}
+                      onToggleEditing={() => {}}
+                      onDownload={handleDownloadPdfModal}
+                      downloading={downloadingFichaModal}
+                      showToolbar={false}
+                      dientes={dientesDisponibles}
+                      codigoTrazabilidad={codigoTrazabilidad}
+                    />
+                  ) : tipoFichaModal === "Corona Disilicato Estratificada" ? (
+                    <FichaTecnicaCoronaDisilicatoEstratificada
+                      secciones={fichaModalSecciones}
+                      onCampoChange={() => {}}
+                      editing={false}
+                      onToggleEditing={() => {}}
+                      onDownload={handleDownloadPdfModal}
+                      downloading={downloadingFichaModal}
+                      showToolbar={false}
+                      dientes={dientesDisponibles}
+                      codigoTrazabilidad={codigoTrazabilidad}
+                    />
+                  ) : tipoFichaModal === "Corona Disilicato Monolitica" ? (
+                    <FichaTecnicaCoronaDisilicatoMonolitica
+                      secciones={fichaModalSecciones}
+                      onCampoChange={() => {}}
+                      editing={false}
+                      onToggleEditing={() => {}}
+                      onDownload={handleDownloadPdfModal}
+                      downloading={downloadingFichaModal}
+                      showToolbar={false}
+                      dientes={dientesDisponibles}
+                      codigoTrazabilidad={codigoTrazabilidad}
+                    />
+                  ) : tipoFichaModal === "Corona Disilicato Sobre Implante" ? (
+                    <FichaTecnicaCoronaDisilicatoImplante
+                      secciones={fichaModalSecciones}
+                      onCampoChange={() => {}}
+                      editing={false}
+                      onToggleEditing={() => {}}
+                      onDownload={handleDownloadPdfModal}
+                      downloading={downloadingFichaModal}
+                      showToolbar={false}
+                      dientes={dientesDisponibles}
+                      codigoTrazabilidad={codigoTrazabilidad}
+                    />
+                  ) : tipoFichaModal === "Corona Zirconio Estratificada" ? (
+                    <FichaTecnicaCoronaZirconioEstratificada
+                      secciones={fichaModalSecciones}
+                      onCampoChange={() => {}}
+                      editing={false}
+                      onToggleEditing={() => {}}
+                      onDownload={handleDownloadPdfModal}
+                      downloading={downloadingFichaModal}
+                      showToolbar={false}
+                      dientes={dientesDisponibles}
+                      codigoTrazabilidad={codigoTrazabilidad}
+                    />
+                  ) : tipoFichaModal === "Corona Zirconio Monolitica" ? (
+                    <FichaTecnicaCoronaZirconioMonolitica
+                      secciones={fichaModalSecciones}
+                      onCampoChange={() => {}}
+                      editing={false}
+                      onToggleEditing={() => {}}
+                      onDownload={handleDownloadPdfModal}
+                      downloading={downloadingFichaModal}
+                      showToolbar={false}
+                      dientes={dientesDisponibles}
+                      codigoTrazabilidad={codigoTrazabilidad}
+                    />
+                  ) : tipoFichaModal === "Incrustacion Disilicato" ? (
+                    <FichaTecnicaIncrustacionDisilicato
+                      secciones={fichaModalSecciones}
+                      onCampoChange={() => {}}
+                      editing={false}
+                      onToggleEditing={() => {}}
+                      onDownload={handleDownloadPdfModal}
+                      downloading={downloadingFichaModal}
+                      showToolbar={false}
+                      dientes={dientesDisponibles}
+                      codigoTrazabilidad={codigoTrazabilidad}
+                    />
+                  ) : tipoFichaModal === "Incrustacion Metal" ? (
+                    <FichaTecnicaIncrustacionMetal
+                      secciones={fichaModalSecciones}
+                      onCampoChange={() => {}}
+                      editing={false}
+                      onToggleEditing={() => {}}
+                      onDownload={handleDownloadPdfModal}
+                      downloading={downloadingFichaModal}
+                      showToolbar={false}
+                      dientes={dientesDisponibles}
+                      codigoTrazabilidad={codigoTrazabilidad}
+                    />
+                  ) : tipoFichaModal === "Nucleo NPG" ? (
+                    <FichaTecnicaNucleoNPG
+                      secciones={fichaModalSecciones}
+                      onCampoChange={() => {}}
+                      editing={false}
+                      onToggleEditing={() => {}}
+                      onDownload={handleDownloadPdfModal}
+                      downloading={downloadingFichaModal}
+                      showToolbar={false}
+                      dientes={dientesDisponibles}
+                      codigoTrazabilidad={codigoTrazabilidad}
+                    />
+                  ) : tipoFichaModal === "Protesis Hibrida All on Four" ? (
+                    <FichaTecnicaProtesisHibridaAllOnFour
+                      secciones={fichaModalSecciones}
+                      onCampoChange={() => {}}
+                      editing={false}
+                      onToggleEditing={() => {}}
+                      onDownload={handleDownloadPdfModal}
+                      downloading={downloadingFichaModal}
+                      showToolbar={false}
+                      dientes={dientesDisponibles}
+                      codigoTrazabilidad={codigoTrazabilidad}
+                    />
+                  ) : tipoFichaModal === "Provisional PMMA Sobre implante" ? (
+                    <FichaTecnicaProvisionalPmmaImplante
+                      secciones={fichaModalSecciones}
+                      onCampoChange={() => {}}
+                      editing={false}
+                      onToggleEditing={() => {}}
+                      onDownload={handleDownloadPdfModal}
+                      downloading={downloadingFichaModal}
+                      showToolbar={false}
+                      dientes={dientesDisponibles}
+                      codigoTrazabilidad={codigoTrazabilidad}
+                    />
+                  ) : tipoFichaModal === "Provisional PMMA" ? (
+                    <FichaTecnicaProvisionalPmma
+                      secciones={fichaModalSecciones}
+                      onCampoChange={() => {}}
+                      editing={false}
+                      onToggleEditing={() => {}}
+                      onDownload={handleDownloadPdfModal}
+                      downloading={downloadingFichaModal}
+                      showToolbar={false}
+                      dientes={dientesDisponibles}
+                      codigoTrazabilidad={codigoTrazabilidad}
+                    />
+                  ) : tipoFichaModal === "Provisional Resina Impresa" ? (
+                    <FichaTecnicaProvisionalResinaImpresa
+                      secciones={fichaModalSecciones}
+                      onCampoChange={() => {}}
+                      editing={false}
+                      onToggleEditing={() => {}}
+                      onDownload={handleDownloadPdfModal}
+                      downloading={downloadingFichaModal}
+                      showToolbar={false}
+                      dientes={dientesDisponibles}
+                      codigoTrazabilidad={codigoTrazabilidad}
+                    />
+                  ) : (
+                    <FichaTecnicaDisilicato
+                      secciones={fichaModalSecciones}
+                      onCampoChange={() => {}}
+                      editing={false}
+                      onToggleEditing={() => {}}
+                      onDownload={handleDownloadPdfModal}
+                      downloading={downloadingFichaModal}
+                      showToolbar={false}
+                      dientes={dientesDisponibles}
+                      codigoTrazabilidad={codigoTrazabilidad}
+                    />
+                  )
+                })()}
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3 p-6 border-t border-border">
+              <button
+                onClick={handleCerrarModalFicha}
+                className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+              >
+                Cerrar
+              </button>
+              <button
+                onClick={handleDownloadPdfModal}
+                disabled={downloadingFichaModal}
+                className="rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-dark disabled:opacity-50"
+              >
+                {downloadingFichaModal ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Download size={16} />
+                )}
+                Descargar PDF
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

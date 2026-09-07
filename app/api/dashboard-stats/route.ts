@@ -12,7 +12,7 @@ export async function GET(request: Request) {
 
     const { data: solicitudes, error } = await supabase
       .from("solicitudes")
-      .select("id, estado, created_at, cliente_id, precio")
+      .select("id, estado, created_at, cliente_id")
       .order("created_at", { ascending: false })
       .limit(1000)
 

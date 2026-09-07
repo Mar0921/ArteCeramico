@@ -232,6 +232,8 @@ export default function ClientePerfilPage() {
   const [pagoStatusUpdating, setPagoStatusUpdating] = useState<{ [itemId: number]: boolean }>({})
   const [encuestasPostAdaptacion, setEncuestasPostAdaptacion] = useState<Record<number, EncuestaPostAdaptacion[]>>({})
   const [buzonQuejas, setBuzonQuejas] = useState<Record<number, BuzonQueja[]>>({})
+  const [fichasTecnicasPorSolicitud, setFichasTecnicasPorSolicitud] = useState<Record<number, any[]>>({})
+  const [loadingFichasTecnicas, setLoadingFichasTecnicas] = useState<Record<number, boolean>>({})
 
   const [solicitudDocs, setSolicitudDocs] = useState<{ terminos_garantia: File | null }>({
     terminos_garantia: null,
@@ -531,6 +533,25 @@ export default function ClientePerfilPage() {
       setLoadingDetalle(false)
     }
   }
+
+  useEffect(() => {
+    if (!expandedSolicitud) return
+    if (fichasTecnicasPorSolicitud[expandedSolicitud]) return
+    setLoadingFichasTecnicas((prev) => ({ ...prev, [expandedSolicitud]: true }))
+    fetch(`/api/fichas-tecnicas?solicitud_id=${expandedSolicitud}`)
+      .then(res => res.ok ? res.json() : { data: [] })
+      .then(result => {
+        const fichas = result.data || []
+        setFichasTecnicasPorSolicitud((prev) => ({
+          ...prev,
+          [expandedSolicitud]: fichas,
+        }))
+      })
+      .catch(err => console.error("Error cargando fichas técnicas:", err))
+      .finally(() => {
+        setLoadingFichasTecnicas((prev) => ({ ...prev, [expandedSolicitud]: false }))
+      })
+  }, [expandedSolicitud])
 
   const handleCerrarDetalle = () => {
     setSelectedSolicitud(null)
@@ -2474,9 +2495,54 @@ if (!conv) return
                                         Subir
                                       </button>
                                     </div>
-                                  </div>
+                                   </div>
 
-                                  {/* Documentos adjuntos del cliente */}
+                                    {isSolicitudExpanded && (
+                                      <div className="mt-3">
+                                        <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Fichas técnicas</p>
+                                        {loadingFichasTecnicas[solicitud.id] ? (
+                                          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                            <Loader2 className="h-3 w-3 animate-spin" />
+                                            Cargando fichas...
+                                          </div>
+                                        ) : (fichasTecnicasPorSolicitud[solicitud.id]?.length ?? 0) === 0 ? (
+                                          <span className="text-[10px] text-muted-foreground">Sin fichas técnicas registradas.</span>
+                                        ) : (
+                                          <div className="space-y-1">
+                                            {(fichasTecnicasPorSolicitud[solicitud.id] || []).map((ficha: any) => (
+                                              <div key={ficha.id} className="flex items-center justify-between rounded border border-border bg-white px-3 py-2">
+                                                <div>
+                                                  <p className="text-[11px] font-medium text-foreground">{ficha.tipo || "Ficha técnica"}</p>
+                                                  <p className="text-[10px] text-muted-foreground">{ficha.nombre || ""}</p>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                  <button
+                                                    onClick={() => router.push(`/dashboard/clientes/${client.id}/fichas-tecnicas?solicitud_id=${solicitud.id}`)}
+                                                    className="inline-flex items-center gap-1 rounded-md border border-border bg-card/50 px-2 py-1 text-[10px] font-medium text-muted-foreground transition-all hover:border-primary/60 hover:bg-primary/10 hover:text-primary"
+                                                  >
+                                                    <Eye size={12} />
+                                                    Ver
+                                                  </button>
+                                                  {ficha.url && (
+                                                    <a
+                                                      href={ficha.url}
+                                                      target="_blank"
+                                                      rel="noreferrer"
+                                                      className="inline-flex items-center gap-1 rounded-md border border-border bg-card/50 px-2 py-1 text-[10px] font-medium text-muted-foreground transition-all hover:border-primary/60 hover:bg-primary/10 hover:text-primary"
+                                                    >
+                                                      <Download size={12} />
+                                                      Descargar
+                                                    </a>
+                                                  )}
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+
+                                   {/* Documentos adjuntos del cliente */}
                                  {solicitud.urls_documentos && solicitud.urls_documentos.length > 0 && (
                                    <div className="mt-4 pt-3 border-t border-border">
                                      <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">Archivos Adjuntos</p>
