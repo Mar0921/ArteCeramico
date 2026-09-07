@@ -2439,7 +2439,11 @@ ISO 15841: alambres para uso en ortodoncia`,
     }
 
     try {
-      const response = await fetch("/api/fichas-tecnicas", {
+      const timeoutPromise = new Promise<Response>((_, reject) =>
+        setTimeout(() => reject(new Error("Tiempo de espera agotado al guardar la ficha")), 30_000)
+      )
+
+      const fetchPromise = fetch("/api/fichas-tecnicas", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -2452,6 +2456,8 @@ ISO 15841: alambres para uso en ortodoncia`,
         }),
       })
 
+      const response = await Promise.race([fetchPromise, timeoutPromise])
+
       if (response.ok) {
         const result = await response.json()
         const fichaDb = result.data
@@ -2461,10 +2467,13 @@ ISO 15841: alambres para uso en ortodoncia`,
           [solicitudActualId]: [...(prev[solicitudActualId] || []), fichaGuardada],
         }))
       } else {
-        console.error("Error guardando ficha en BD")
+        const errorText = await response.text()
+        console.error("Error guardando ficha en BD", response.status, response.statusText, errorText)
+        alert(`Error al guardar: ${response.status} - ${response.statusText}\n${errorText}`)
       }
     } catch (err) {
       console.error("Error guardando ficha:", err)
+      alert("No se pudo guardar la ficha técnica. Verificá la conexión con Supabase o el estado del servidor.")
     }
 
     setShowFichaModal(false)

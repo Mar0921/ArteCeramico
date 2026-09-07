@@ -329,6 +329,59 @@ export default function ClientesPage() {
     }
   }, [clientData?.id])
 
+  useEffect(() => {
+    if (!clientData?.id) return
+
+    const channel = supabase
+      .channel(`solicitudes-realtime-${clientData.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "solicitudes",
+          filter: `cliente_id=eq.${clientData.id}`,
+        },
+        (payload) => {
+          const nuevaSolicitud = payload.new as any
+          setSolicitudes((prev) => [...prev, nuevaSolicitud])
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "solicitudes",
+          filter: `cliente_id=eq.${clientData.id}`,
+        },
+        (payload) => {
+          const actualizada = payload.new as any
+          setSolicitudes((prev) =>
+            prev.map((s) => (s.id === actualizada.id ? actualizada : s))
+          )
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "solicitudes",
+          filter: `cliente_id=eq.${clientData.id}`,
+        },
+        (payload) => {
+          const eliminada = payload.old as any
+          setSolicitudes((prev) => prev.filter((s) => s.id !== eliminada.id))
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [clientData?.id])
+
   const cargarSolicitudes = async (clienteId: number) => {
     setLoadingSolicitudes(true)
     try {
@@ -2377,14 +2430,6 @@ export default function ClientesPage() {
                                </p>
                              </div>
                            )}
-
-                           {/* Estado */}
-                           <div className="mt-2">
-                             <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Estado</p>
-                             <span className="inline-flex rounded-full px-2.5 py-1 text-[10px] font-medium bg-primary/10 text-primary capitalize">
-                               {(solicitud as any).estado?.replace("_", " ") || "Pendiente"}
-                             </span>
-                           </div>
 
                             {/* Estado */}
                             <div className="mt-2">

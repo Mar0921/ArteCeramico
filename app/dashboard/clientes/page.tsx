@@ -204,14 +204,52 @@ export default function ClientesPage() {
             prev.map((cliente) =>
               cliente.id === nuevaSolicitud.cliente_id
                 ? {
-                  ...cliente,
-                  solicitudes: [
-                    nuevaSolicitud,
-                    ...(cliente.solicitudes || []),
-                  ],
-                }
+                    ...cliente,
+                    solicitudes: [
+                      nuevaSolicitud,
+                      ...(cliente.solicitudes || []),
+                    ],
+                  }
                 : cliente
             )
+          )
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "solicitudes",
+        },
+        (payload) => {
+          const solicitudActualizada = payload.new as Solicitud
+          setClientes((prev) =>
+            prev.map((cliente) => ({
+              ...cliente,
+              solicitudes: (cliente.solicitudes || []).map((s) =>
+                s.id === solicitudActualizada.id ? solicitudActualizada : s
+              ),
+            }))
+          )
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "solicitudes",
+        },
+        (payload) => {
+          const solicitudEliminada = payload.old as Solicitud
+          setClientes((prev) =>
+            prev.map((cliente) => ({
+              ...cliente,
+              solicitudes: (cliente.solicitudes || []).filter(
+                (s) => s.id !== solicitudEliminada.id
+              ),
+            }))
           )
         }
       )
