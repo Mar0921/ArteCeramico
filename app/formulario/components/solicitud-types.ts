@@ -32,6 +32,8 @@ export interface SolicitudFormData {
   piezasEnviadas: string[]
   codigoTrazabilidad: string
   productos: ProductoLine[]
+  historiaClinica: string
+  historiaClinicaPaciente: string
 }
 
 export interface UploadedFile {
@@ -105,6 +107,8 @@ export function createDefaultSolicitud(options?: {
       piezasEnviadas: [],
       codigoTrazabilidad: generateCodigoTrazabilidad(),
       productos: [],
+      historiaClinica: "",
+      historiaClinicaPaciente: "",
     },
   }
 }

@@ -54,6 +54,7 @@ function buildFormDataPayload(
   payload.append("fechaElaboracion", formatFecha(formData.fechaElaboracion))
   payload.append("fechaEntrega", formatFecha(formData.fechaEntrega))
   payload.append("historiaClinica", formData.historiaClinica || "")
+  payload.append("historiaClinicaPaciente", formData.historiaClinicaPaciente || "")
   payload.append("tiposTrabajo", JSON.stringify(formData.tiposTrabajo))
   payload.append("materiales", JSON.stringify(formData.materiales))
   payload.append("productos", JSON.stringify(formData.productos))

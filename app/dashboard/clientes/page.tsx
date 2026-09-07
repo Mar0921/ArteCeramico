@@ -58,6 +58,7 @@ interface Solicitud {
   fecha_elaboracion: string | null
   fecha_entrega: string | null
   historia_clinica: string | null
+  historia_clinica_paciente: string | null
   odontologo: string | null
   cc_odontologo: string | null
   odontologo_registro_medico: string | null
@@ -1104,14 +1105,18 @@ export default function ClientesPage() {
                                            <span className="text-gray-500">Entrega:</span>{" "}
                                            <span className="text-gray-800">{(solicitud as any).fecha_entrega || "-"}</span>
                                          </div>
-                                         <div>
-                                           <span className="text-gray-500">Historia Clínica:</span>{" "}
-                                           <span className="text-gray-800">#{(solicitud as any).historia_clinica || "-"}</span>
-                                         </div>
-                                         <div>
-                                           <span className="text-gray-500">Caja:</span>{" "}
-                                           <span className="text-gray-800">#{(solicitud as any).caja || "-"}</span>
-                                         </div>
+                                          <div>
+                                            <span className="text-gray-500">Historia Clínica:</span>{" "}
+                                            <span className="text-gray-800">#{(solicitud as any).historia_clinica || "-"}</span>
+                                          </div>
+                                          <div>
+                                            <span className="text-gray-500">Historia Clínica Paciente:</span>{" "}
+                                            <span className="text-gray-800">#{(solicitud as any).historia_clinica_paciente || "-"}</span>
+                                          </div>
+                                          <div>
+                                            <span className="text-gray-500">Caja:</span>{" "}
+                                            <span className="text-gray-800">#{(solicitud as any).caja || "-"}</span>
+                                          </div>
                                          <div>
                                            <span className="text-gray-500">Trazabilidad:</span>{" "}
                                            <span className="text-gray-800">#{(solicitud as any).codigo_trazabilidad || "-"}</span>

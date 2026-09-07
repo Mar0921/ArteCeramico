@@ -63,6 +63,7 @@ interface Solicitud {
   fecha_elaboracion: string | null
   fecha_entrega: string | null
   historia_clinica: string | null
+  historia_clinica_paciente: string | null
   odontologo: string | null
   cc_odontologo: string | null
   odontologo_registro_medico: string | null
@@ -301,7 +302,7 @@ export default function ClientePerfilPage() {
         fecha_entrega: selectedSolicitud.fecha_entrega,
         estado: selectedSolicitud.estado,
       }
-        ;["chimenea", "prueba", "terminado", "color", "guia", "caja", "codigo_trazabilidad", "piezas_enviadas", "historia_clinica", "fecha_elaboracion", "odontologo_registro_medico", "terminos_garantia", "fase"].forEach((campo) => {
+        ;["chimenea", "prueba", "terminado", "color", "guia", "caja", "codigo_trazabilidad", "piezas_enviadas", "historia_clinica", "historia_clinica_paciente", "fecha_elaboracion", "odontologo_registro_medico", "terminos_garantia", "fase"].forEach((campo) => {
           const val = (selectedSolicitud as any)[campo]
           if (val !== undefined && val !== null) {
             payload[campo] = val
@@ -512,7 +513,6 @@ export default function ClientePerfilPage() {
   }, [])
 
   const handleVerSolicitud = async (solicitud: Solicitud) => {
-    setSelectedSolicitud(solicitud)
     setLoadingDetalle(true)
     try {
       const response = await fetch(`/api/solicitudes/${solicitud.id}`)
@@ -520,10 +520,13 @@ export default function ClientePerfilPage() {
       const servicios = result.data?.solicitud?.servicios_detalle || result.data?.servicios || []
       setServiciosDetalle(servicios as Servicio[])
       if (result.data?.solicitud) {
-        setSelectedSolicitud(result.data.solicitud as Solicitud)
+        const refreshed = result.data.solicitud as Solicitud
+        setSelectedSolicitud(refreshed)
+        setSolicitudes((prev) => prev.map((s) => (s.id === refreshed.id ? refreshed : s)))
       }
     } catch (err) {
       console.error("Error cargando detalle de solicitud:", err)
+      setSelectedSolicitud(solicitud)
     } finally {
       setLoadingDetalle(false)
     }
@@ -1716,80 +1719,100 @@ if (!conv) return
                           {tabActiva === "detalle" && (
                             <div className="bg-gray-50 p-4">
                               {/* Datos principales */}
-                              <div className="grid grid-cols-2 gap-3 text-xs mb-4">
-                                {solicitud.historia_clinica && (
-                                  <div>
-                                    <span className="text-gray-500">Historia Clínica:</span>
-                                    <span className="ml-1 font-medium text-gray-800">
-                                      #{solicitud.historia_clinica}
-                                    </span>
-                                  </div>
-                                )}
-                                <div className="flex items-center gap-1">
-                                  <Calendar size={12} className="text-gray-400" />
-                                  <span className="text-gray-500">Elaboración:</span>
-                                  <span className="font-medium text-gray-800">
-                                    {solicitud.fecha_elaboracion || "-"}
-                                  </span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <Calendar size={12} className="text-gray-400" />
-                                  <span className="text-gray-500">Entrega:</span>
-                                  <span className="font-medium text-gray-800">
-                                    {solicitud.fecha_entrega || "-"}
-                                  </span>
-                                </div>
-                              </div>
+                               <div className="grid grid-cols-2 gap-3 text-xs mb-4">
+                                 {solicitud.historia_clinica && (
+                                   <div>
+                                     <span className="text-gray-500">Historia Clínica:</span>
+                                     <span className="ml-1 font-medium text-gray-800">
+                                       #{solicitud.historia_clinica}
+                                     </span>
+                                   </div>
+                                 )}
+                                 {solicitud.historia_clinica_paciente && (
+                                   <div>
+                                     <span className="text-gray-500">Historia Clínica Paciente:</span>
+                                     <span className="ml-1 font-medium text-gray-800">
+                                       #{solicitud.historia_clinica_paciente}
+                                     </span>
+                                   </div>
+                                 )}
+                                 <div className="flex items-center gap-1">
+                                   <Calendar size={12} className="text-gray-400" />
+                                   <span className="text-gray-500">Elaboración:</span>
+                                   <span className="font-medium text-gray-800">
+                                     {solicitud.fecha_elaboracion || "-"}
+                                   </span>
+                                 </div>
+                                 <div className="flex items-center gap-1">
+                                   <Calendar size={12} className="text-gray-400" />
+                                   <span className="text-gray-500">Entrega:</span>
+                                   <span className="font-medium text-gray-800">
+                                     {solicitud.fecha_entrega || "-"}
+                                   </span>
+                                 </div>
+                               </div>
 
                               {/* Datos Odontólogo y Paciente */}
                               <div className="space-y-2 text-xs mb-4">
-                                {solicitud.odontologo && (
-                                  <div className="flex items-center gap-4">
-                                    <div className="flex items-center gap-1 flex-1">
-                                      <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">ODONTÓLOGO(A):</span>
-                                      <span className="text-sm text-gray-800">{solicitud.odontologo || "-"}</span>
+                                 {solicitud.odontologo && (
+                                   <div className="flex items-center gap-4">
+                                     <div className="flex items-center gap-1 flex-1">
+                                       <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">ODONTÓLOGO(A):</span>
+                                       <span className="text-sm text-gray-800">{solicitud.odontologo || "-"}</span>
+                                     </div>
+                                     <div className="flex items-center gap-1 flex-1">
+                                       <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">REGISTRO MÉDICO:</span>
+                                       <span className="text-sm text-gray-800">
+                                         {solicitud.odontologo_registro_medico || "-"}
+                                       </span>
+                                     </div>
+                                   </div>
+                                 )}
+                                 {solicitud.paciente && (
+                                   <div className="flex items-center gap-4">
+                                     <div className="flex items-center gap-1 flex-1">
+                                       <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">PACIENTE:</span>
+                                       <span className="text-sm text-gray-800">{solicitud.paciente || "-"}</span>
+                                     </div>
+                                     <div className="flex items-center gap-1 flex-1">
+                                       <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">CC.:</span>
+                                       <span className="text-sm text-gray-800">{solicitud.cc_paciente || "-"}</span>
+                                     </div>
+                                   </div>
+                                 )}
+                                 {solicitud.direccion && (
+                                   <div className="flex items-center gap-1">
+                                     <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">DIRECCIÓN:</span>
+                                     <span className="text-sm text-gray-800">{solicitud.direccion || "-"}</span>
+                                   </div>
+                                 )}
+                                  {client?.correo && (
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">CORREO:</span>
+                                      <span className="text-sm text-gray-800">{client.correo}</span>
                                     </div>
-                                    <div className="flex items-center gap-1 flex-1">
-                                      <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">REGISTRO MÉDICO:</span>
-                                      <span className="text-sm text-gray-800">
-                                        {solicitud.odontologo_registro_medico || "-"}
-                                      </span>
+                                  )}
+                                  {client?.telefono && (
+                                    <div className="flex items-center gap-1">
+                                      <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">TELÉFONO:</span>
+                                      <span className="text-sm text-gray-800">{client.telefono}</span>
                                     </div>
-                                  </div>
-                                )}
-                                {solicitud.paciente && (
-                                  <div className="flex items-center gap-4">
-                                    <div className="flex items-center gap-1 flex-1">
-                                      <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">PACIENTE:</span>
-                                      <span className="text-sm text-gray-800">{solicitud.paciente || "-"}</span>
-                                    </div>
-                                    <div className="flex items-center gap-1 w-32">
-                                      <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">CC.:</span>
-                                      <span className="text-sm text-gray-800">{solicitud.cc_paciente || "-"}</span>
-                                    </div>
-                                  </div>
-                                )}
-                                {solicitud.direccion && (
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">DIRECCIÓN:</span>
-                                    <span className="text-sm text-gray-800">{solicitud.direccion || "-"}</span>
-                                  </div>
-                                )}
-                                {solicitud.odontologo_firma && (
-                                  <div className="flex items-center gap-1">
-                                    <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">FIRMA:</span>
-                                    {String(solicitud.odontologo_firma).startsWith("data:image") ? (
-                                      <img
-                                        src={solicitud.odontologo_firma}
-                                        alt="Firma"
-                                        className="h-12 w-auto rounded border border-gray-300 bg-white"
-                                      />
-                                    ) : (
-                                      <span className="text-sm text-gray-800">{solicitud.odontologo_firma || "-"}</span>
-                                    )}
-                                  </div>
-                                )}
-                              </div>
+                                  )}
+                                 {solicitud.odontologo_firma && (
+                                   <div className="flex items-center gap-1">
+                                     <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">FIRMA:</span>
+                                     {String(solicitud.odontologo_firma).startsWith("data:image") ? (
+                                       <img
+                                         src={solicitud.odontologo_firma}
+                                         alt="Firma"
+                                         className="h-12 w-auto rounded border border-gray-300 bg-white"
+                                       />
+                                     ) : (
+                                       <span className="text-sm text-gray-800">{solicitud.odontologo_firma || "-"}</span>
+                                     )}
+                                   </div>
+                                 )}
+                               </div>
 
                               {/* Opciones adicionales */}
                               {solicitud.chimenea === "Si" || solicitud.prueba === "Si" || solicitud.terminado === "Si" || solicitud.color || solicitud.guia || (solicitud.dientes_trabajados && solicitud.dientes_trabajados.length > 0) ? (
@@ -2065,16 +2088,26 @@ if (!conv) return
                                        placeholder="32-Híbrida metal-acrílico (Duratone)-pilar&#10;11-Encerado guía-normal"
                                      />
                                   </div>
-                                  <div>
-                                    <label className="text-[10px] font-medium text-foreground mb-1 block">Observaciones</label>
-                                    <textarea
-                                      value={selectedSolicitud?.observaciones || ""}
-                                      onChange={(e) => setSelectedSolicitud(prev => prev ? { ...prev, observaciones: e.target.value } : null)}
-                                      rows={3}
-                                      className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs"
-                                      placeholder="Observaciones adicionales..."
-                                    />
-                                  </div>
+                                   <div>
+                                     <label className="text-[10px] font-medium text-foreground mb-1 block">Observaciones</label>
+                                     <textarea
+                                       value={selectedSolicitud?.observaciones || ""}
+                                       onChange={(e) => setSelectedSolicitud(prev => prev ? { ...prev, observaciones: e.target.value } : null)}
+                                       rows={3}
+                                       className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs"
+                                       placeholder="Observaciones adicionales..."
+                                     />
+                                   </div>
+                                   <div>
+                                     <label className="text-[10px] font-medium text-foreground mb-1 block">Historia Clínica Paciente</label>
+                                     <textarea
+                                       value={selectedSolicitud?.historia_clinica_paciente || ""}
+                                       onChange={(e) => setSelectedSolicitud(prev => prev ? { ...prev, historia_clinica_paciente: e.target.value } : null)}
+                                       rows={3}
+                                       className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-xs"
+                                       placeholder="Historia clínica del paciente..."
+                                     />
+                                   </div>
                                   <div>
                                     <label className="text-[10px] font-medium text-foreground mb-1 block">Fecha de Entrega</label>
                                     <input

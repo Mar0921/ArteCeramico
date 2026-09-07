@@ -443,22 +443,32 @@ export function SolicitudSection({
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
-          <Label className="text-xs whitespace-nowrap">DIRECCIÓN:</Label>
-          <Input
-            className="flex-1 h-6 border-b border-gray-400 rounded-none border-t-0 border-l-0 border-r-0 text-xs"
-            value={formData.direccion}
-            onChange={(e) => onFormDataChange({ direccion: e.target.value })}
-          />
-        </div>
+         <div className="flex items-center gap-1">
+           <Label className="text-xs whitespace-nowrap">DIRECCIÓN:</Label>
+           <Input
+             className="flex-1 h-6 border-b border-gray-400 rounded-none border-t-0 border-l-0 border-r-0 text-xs"
+             value={formData.direccion}
+             onChange={(e) => onFormDataChange({ direccion: e.target.value })}
+           />
+         </div>
 
-        <div className="flex flex-col gap-1">
-          <Label className="text-xs whitespace-nowrap">FIRMA DE ODONTÓLOGO (A):</Label>
-          <SignaturePad
-            value={formData.firma}
-            onChange={(dataUrl) => onFormDataChange({ firma: dataUrl })}
-          />
-        </div>
+         <div className="flex flex-col gap-1">
+           <Label className="text-xs whitespace-nowrap">HISTORIA CLÍNICA DEL PACIENTE:</Label>
+           <Textarea
+             className="w-full min-h-[60px] border border-gray-300 text-xs"
+             placeholder="Historia clínica del paciente..."
+             value={formData.historiaClinicaPaciente}
+             onChange={(e) => onFormDataChange({ historiaClinicaPaciente: e.target.value })}
+           />
+         </div>
+
+         <div className="flex flex-col gap-1">
+           <Label className="text-xs whitespace-nowrap">FIRMA DE ODONTÓLOGO (A):</Label>
+           <SignaturePad
+             value={formData.firma}
+             onChange={(dataUrl) => onFormDataChange({ firma: dataUrl })}
+           />
+         </div>
       </div>
 
       {/* Tipo de trabajo principal */}

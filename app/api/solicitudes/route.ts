@@ -329,6 +329,7 @@ export async function POST(request: Request) {
     const fechaElaboracion = String(formData.get("fechaElaboracion") || "").trim()
     const fechaEntrega = String(formData.get("fechaEntrega") || "").trim()
     const historiaClinica = String(formData.get("historiaClinica") || "").trim()
+    const historiaClinicaPaciente = String(formData.get("historiaClinicaPaciente") || "").trim()
 
     const convertirFecha = (fechaStr: string): string | null => {
       if (!fechaStr) return null
@@ -635,6 +636,7 @@ export async function POST(request: Request) {
       fecha_elaboracion: fechaElaboracionFormateada,
       fecha_entrega: fechaEntregaFormateada,
       historia_clinica: historiaClinica || null,
+      historia_clinica_paciente: historiaClinicaPaciente || null,
       odontologo: formData.get("odontologo")?.toString() || null,
        odontologo_registro_medico: registroMedico || null,
        odontologo_direccion: direccion || null,
@@ -797,7 +799,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const clienteId = searchParams.get("cliente_id")
   const estado = searchParams.get("estado")
-  const limit = parseInt(searchParams.get("limit") || "50")
+  const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100)
 
   try {
     const supabase = createClient(
@@ -807,7 +809,7 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from("solicitudes")
-      .select("id, servicio, estado, created_at, cliente_id, dientes_trabajados, odontologo, cc_odontologo, paciente, cc_paciente, odontologo_registro_medico, fecha_elaboracion, fecha_entrega, odontologo_firma, color, guia, tipos_trabajo, materiales, urls_documentos, dibujo_odontologo, codigo_trazabilidad, fase, orden_fabricacion_url, orden_materiales, orden_fases")
+      .select("id, servicio, estado, created_at, cliente_id, dientes_trabajados, odontologo, cc_odontologo, paciente, cc_paciente, odontologo_registro_medico, fecha_elaboracion, fecha_entrega, odontologo_firma, color, guia, tipos_trabajo, materiales, urls_documentos, dibujo_odontologo, codigo_trazabilidad, fase, orden_fabricacion_url, orden_materiales, orden_fases, terminos_garantia, fichas_tecnicas, historia_clinica_paciente")
       .order("created_at", { ascending: false })
       .limit(limit)
 
@@ -819,12 +821,17 @@ export async function GET(request: Request) {
       query = query.eq("estado", estado)
     }
 
-    const { data: solicitudes, error } = await query
+    const { data: solicitudes, error } = await Promise.race([
+      query,
+      new Promise<{ data: any[]; error: any }>((_, reject) =>
+        setTimeout(() => reject(new Error("Tiempo de espera agotado al obtener solicitudes")), 30_000)
+      ),
+    ])
 
     if (error) {
       console.error("Error obteniendo solicitudes:", error)
       return NextResponse.json(
-        { message: "Error al obtener solicitudes." },
+        { message: "Error al obtener solicitudes.", details: error.message },
         { status: 500 }
       )
     }
@@ -1010,8 +1017,9 @@ export async function GET(request: Request) {
     return NextResponse.json({ data: formatted })
   } catch (error) {
     console.error("Error inesperado en GET:", error)
+    const details = error instanceof Error ? error.message : "Error interno del servidor."
     return NextResponse.json(
-      { message: "Error interno del servidor." },
+      { message: "Error interno del servidor.", details },
       { status: 500 }
     )
   }

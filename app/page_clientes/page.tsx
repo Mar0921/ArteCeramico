@@ -73,6 +73,7 @@ interface Solicitud {
   fecha_elaboracion: string | null
   fecha_entrega: string | null
   historia_clinica: string | null
+  historia_clinica_paciente: string | null
   odontologo: string | null
   cc_odontologo: string | null
   odontologo_registro_medico: string | null
@@ -177,6 +178,8 @@ export default function ClientesPage() {
   const [selectedSolicitud, setSelectedSolicitud] = useState<Solicitud | null>(null)
   const [serviciosDetalle, setServiciosDetalle] = useState<Servicio[]>([])
   const [loadingDetalle, setLoadingDetalle] = useState(false)
+  const [fichasTecnicas, setFichasTecnicas] = useState<Record<number, any[]>>({})
+  const [loadingFichas, setLoadingFichas] = useState<Record<number, boolean>>({})
   const [servicioDocs, setServicioDocs] = useState<Record<number, { declaracion_conformidad: File | null; guia_fabricacion: File | null; manual_uso: File | null }>>({})
   const [solicitudDocs, setSolicitudDocs] = useState<{ terminos_garantia: File | null }>({
     terminos_garantia: null,
@@ -595,6 +598,26 @@ export default function ClientesPage() {
       setNotificacionesLista(data || [])
     } catch (err) {
       console.error("Error cargando lista de notificaciones:", err)
+    }
+  }
+
+  const cargarFichasTecnicas = async (solicitudId: number) => {
+    if (!solicitudId) return
+    setLoadingFichas((prev) => ({ ...prev, [solicitudId]: true }))
+    try {
+      const response = await fetch(`/api/fichas-tecnicas?solicitud_id=${solicitudId}`)
+      if (response.ok) {
+        const result = await response.json()
+        const fichas = Array.isArray(result?.data) ? result.data : []
+        setFichasTecnicas((prev) => ({ ...prev, [solicitudId]: fichas }))
+      } else {
+        setFichasTecnicas((prev) => ({ ...prev, [solicitudId]: [] }))
+      }
+    } catch (err) {
+      console.error("Error cargando fichas técnicas:", err)
+      setFichasTecnicas((prev) => ({ ...prev, [solicitudId]: [] }))
+    } finally {
+      setLoadingFichas((prev) => ({ ...prev, [solicitudId]: false }))
     }
   }
 
@@ -1045,6 +1068,7 @@ export default function ClientesPage() {
     const formData = new FormData(event.currentTarget)
     const servicio = String(formData.get("servicio") ?? "").trim()
     const observaciones = String(formData.get("observaciones") ?? "").trim()
+    const historiaClinica = String(formData.get("historiaClinica") ?? "").trim()
 
     if (!servicio) {
       setSolicitudMensaje("Debes indicar el servicio o tipo de trabajo.")
@@ -1058,6 +1082,7 @@ export default function ClientesPage() {
       const payload = new FormData()
       payload.append("servicio", servicio)
       payload.append("observaciones", observaciones)
+      payload.append("historiaClinica", historiaClinica)
       payload.append("clienteId", String(clientData.id))
 
       archivosSeleccionados.forEach((archivo) => {
@@ -2211,6 +2236,19 @@ export default function ClientesPage() {
                 />
               </div>
 
+              <div>
+                <label htmlFor="historiaClinicaPaciente" className="mb-2 block text-sm font-medium text-foreground">
+                  Historia Clínica del Paciente
+                </label>
+                <textarea
+                  id="historiaClinicaPaciente"
+                  name="historiaClinicaPaciente"
+                  rows={3}
+                  placeholder="Número o datos de la historia clínica del paciente..."
+                  className="w-full rounded-xl border border-border bg-background/60 px-4 py-3 text-sm text-foreground outline-none transition-all placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+              </div>
+
               <button
                 type="submit"
                 disabled={submittingSolicitud}
@@ -2265,10 +2303,16 @@ export default function ClientesPage() {
                       key={solicitud.id}
                       className="rounded-lg border border-border bg-white"
                     >
-                      <div
-                        className="flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50 transition-colors"
-                        onClick={() => setExpandedSolicitudId(isExpanded ? null : solicitud.id)}
-                      >
+                       <div
+                         className="flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                         onClick={() => {
+                           const nextId = isExpanded ? null : solicitud.id
+                           setExpandedSolicitudId(nextId)
+                           if (nextId) {
+                             cargarFichasTecnicas(nextId)
+                           }
+                         }}
+                       >
                         <div className="flex-1">
                           <p className="text-sm font-medium text-foreground">
                             {solicitud.codigo_trazabilidad
@@ -2310,30 +2354,42 @@ export default function ClientesPage() {
                               <span className="text-gray-500">Registro Médico:</span>{" "}
                               <span className="text-gray-800">{(solicitud as any).odontologo_registro_medico || "-"}</span>
                             </div>
-                            <div>
-                              <span className="text-gray-500">Paciente:</span>{" "}
-                              <span className="text-gray-800">{(solicitud as any).paciente || "-"}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-500">CC Paciente:</span>{" "}
-                              <span className="text-gray-800">{(solicitud as any).cc_paciente || "-"}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-500">Elaboración:</span>{" "}
-                              <span className="text-gray-800">{(solicitud as any).fecha_elaboracion || "-"}</span>
-                            </div>
+                             <div>
+                               <span className="text-gray-500">Paciente:</span>{" "}
+                               <span className="text-gray-800">{(solicitud as any).paciente || "-"}</span>
+                             </div>
+                             <div>
+                               <span className="text-gray-500">CC Paciente:</span>{" "}
+                               <span className="text-gray-800">{(solicitud as any).cc_paciente || "-"}</span>
+                             </div>
+                              <div>
+                                <span className="text-gray-500">Correo:</span>{" "}
+                                <span className="text-gray-800">{clientData?.correo || "-"}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">Teléfono:</span>{" "}
+                                <span className="text-gray-800">{clientData?.telefono || "-"}</span>
+                              </div>
+                             <div>
+                               <span className="text-gray-500">Elaboración:</span>{" "}
+                               <span className="text-gray-800">{(solicitud as any).fecha_elaboracion || "-"}</span>
+                             </div>
                             <div>
                               <span className="text-gray-500">Entrega:</span>{" "}
                               <span className="text-gray-800">{(solicitud as any).fecha_entrega || "-"}</span>
                             </div>
-                            <div>
-                              <span className="text-gray-500">Historia Clínica:</span>{" "}
-                              <span className="text-gray-800">#{(solicitud as any).historia_clinica || "-"}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-500">Caja:</span>{" "}
-                              <span className="text-gray-800">#{(solicitud as any).caja || "-"}</span>
-                            </div>
+                             <div>
+                               <span className="text-gray-500">Historia Clínica:</span>{" "}
+                               <span className="text-gray-800">#{(solicitud as any).historia_clinica || "-"}</span>
+                             </div>
+                             <div>
+                               <span className="text-gray-500">Historia Clínica Paciente:</span>{" "}
+                               <span className="text-gray-800">#{(solicitud as any).historia_clinica_paciente || "-"}</span>
+                             </div>
+                             <div>
+                               <span className="text-gray-500">Caja:</span>{" "}
+                               <span className="text-gray-800">#{(solicitud as any).caja || "-"}</span>
+                             </div>
                             <div>
                               <span className="text-gray-500">Trazabilidad:</span>{" "}
                               <span className="text-gray-800">#{(solicitud as any).codigo_trazabilidad || "-"}</span>
@@ -2419,17 +2475,17 @@ export default function ClientesPage() {
                                  <span className="text-xs text-muted-foreground">{(solicitud as any).firma}</span>
                                )}
                              </div>
-                           )}
+                            )}
 
-                           {/* Observaciones */}
-                           {(solicitud as any).observaciones && (
-                             <div className="mt-2">
-                               <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Observaciones</p>
-                               <p className="text-xs text-gray-700 bg-white p-2 rounded border border-gray-200 whitespace-pre-wrap">
-                                 {(solicitud as any).observaciones}
-                               </p>
-                             </div>
-                           )}
+                            {/* Observaciones */}
+                            {(solicitud as any).observaciones && (
+                              <div className="mt-2">
+                                <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Observaciones</p>
+                                <p className="text-xs text-gray-700 bg-white p-2 rounded border border-gray-200 whitespace-pre-wrap">
+                                  {(solicitud as any).observaciones}
+                                </p>
+                              </div>
+                            )}
 
                             {/* Estado */}
                             <div className="mt-2">
@@ -2651,29 +2707,77 @@ export default function ClientesPage() {
                             {/* Tab: Documentos */}
                             {(activeTab[solicitud.id] ?? "detalle") === "documentos" && (
                               <div className="bg-gray-50 p-4">
-                                <div className="space-y-2">
-                                <p className="text-[10px] text-gray-500 uppercase tracking-wide">Documentos de la Solicitud</p>
-                                <div className="flex items-center gap-2">
-                                  <FileText size={14} className="text-gray-500 shrink-0" />
-                                  {solicitud.guia_fabricacion ? (
-                                    <a href={solicitud.guia_fabricacion} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
-                                      Ficha Técnica
-                                    </a>
-                                  ) : (
-                                    <span className="text-xs text-gray-500">Ficha Técnica - No subido</span>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <FileText size={14} className="text-gray-500 shrink-0" />
-                                  {solicitud.terminos_garantia ? (
-                                    <a href={solicitud.terminos_garantia} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
-                                      Términos de Garantía
-                                    </a>
-                                  ) : (
-                                    <span className="text-xs text-gray-500">Términos de Garantía - No subido</span>
-                                  )}
-                                </div>
-                                  {solicitud.urls_documentos && solicitud.urls_documentos.length > 0 && (
+                                 <div className="space-y-2">
+                                 <p className="text-[10px] text-gray-500 uppercase tracking-wide">Documentos de la Solicitud</p>
+                                 <div className="flex items-center gap-2">
+                                   <FileText size={14} className="text-gray-500 shrink-0" />
+                                   {solicitud.guia_fabricacion ? (
+                                     <a href={solicitud.guia_fabricacion} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
+                                       Ficha Técnica
+                                     </a>
+                                   ) : (
+                                     <span className="text-xs text-gray-500">Ficha Técnica - No subido</span>
+                                   )}
+                                 </div>
+                                 <div className="flex items-center gap-2">
+                                   <FileText size={14} className="text-gray-500 shrink-0" />
+                                   {solicitud.terminos_garantia ? (
+                                     <a href={solicitud.terminos_garantia} target="_blank" rel="noopener noreferrer" className="text-xs text-primary hover:underline">
+                                       Términos de Garantía
+                                     </a>
+                                   ) : (
+                                     <span className="text-xs text-gray-500">Términos de Garantía - No subido</span>
+                                   )}
+                                 </div>
+
+                                 {/* Fichas técnicas */}
+                                 <div className="mt-2">
+                                   <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Fichas técnicas</p>
+                                   {loadingFichas[solicitud.id] ? (
+                                     <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                       <Loader2 className="h-3 w-3 animate-spin" />
+                                       Cargando fichas...
+                                     </div>
+                                   ) : (fichasTecnicas[solicitud.id]?.length ?? 0) === 0 ? (
+                                     <span className="text-[10px] text-muted-foreground">Sin fichas técnicas registradas.</span>
+                                   ) : (
+                                     <div className="space-y-1">
+                                       {(fichasTecnicas[solicitud.id] || []).map((ficha: any) => (
+                                         <div key={ficha.id} className="flex items-center justify-between rounded border border-border bg-white px-3 py-2">
+                                           <div>
+                                             <p className="text-[11px] font-medium text-foreground">{ficha.tipo || "Ficha técnica"}</p>
+                                             <p className="text-[10px] text-muted-foreground">{ficha.nombre || ""}</p>
+                                           </div>
+                                           <div className="flex items-center gap-2">
+                                             {ficha.url && (
+                                               <a
+                                                 href={ficha.url}
+                                                 target="_blank"
+                                                 rel="noreferrer"
+                                                 className="inline-flex items-center gap-1 rounded-md border border-border bg-card/50 px-2 py-1 text-[10px] font-medium text-muted-foreground transition-all hover:border-primary/60 hover:bg-primary/10 hover:text-primary"
+                                               >
+                                                 <Eye size={12} />
+                                                 Ver
+                                               </a>
+                                             )}
+                                             {ficha.url && (
+                                               <a
+                                                 href={ficha.url}
+                                                 download
+                                                 className="inline-flex items-center gap-1 rounded-md border border-border bg-card/50 px-2 py-1 text-[10px] font-medium text-muted-foreground transition-all hover:border-primary/60 hover:bg-primary/10 hover:text-primary"
+                                               >
+                                                 <Download size={12} />
+                                                 Descargar
+                                               </a>
+                                             )}
+                                           </div>
+                                         </div>
+                                       ))}
+                                     </div>
+                                   )}
+                                 </div>
+
+                                   {solicitud.urls_documentos && solicitud.urls_documentos.length > 0 && (
                                     <div className="mt-2 pt-2 border-t border-border">
                                       <p className="text-[10px] text-gray-500 mb-1">Archivos adjuntos:</p>
                                       <div className="flex flex-wrap gap-2">
@@ -2821,19 +2925,25 @@ export default function ClientesPage() {
                       <p className="text-sm text-foreground">{(selectedSolicitud as any).odontologo_firma}</p>
                     )}
                   </div>
-                )}
-                {(selectedSolicitud as any).historia_clinica && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Historia Clínica</p>
-                    <p className="text-sm text-foreground">#{(selectedSolicitud as any).historia_clinica}</p>
-                  </div>
-                )}
-                {(selectedSolicitud as any).fecha_elaboracion && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Fecha Elaboración</p>
-                    <p className="text-sm text-foreground">{(selectedSolicitud as any).fecha_elaboracion}</p>
-                  </div>
-                )}
+                 )}
+                 {(selectedSolicitud as any).historia_clinica && (
+                   <div>
+                     <p className="text-sm font-medium text-muted-foreground">Historia Clínica</p>
+                     <p className="text-sm text-foreground">#{(selectedSolicitud as any).historia_clinica}</p>
+                   </div>
+                 )}
+                 {(selectedSolicitud as any).historia_clinica_paciente && (
+                   <div>
+                     <p className="text-sm font-medium text-muted-foreground">Historia Clínica Paciente</p>
+                     <p className="text-sm text-foreground">#{(selectedSolicitud as any).historia_clinica_paciente}</p>
+                   </div>
+                 )}
+                 {(selectedSolicitud as any).fecha_elaboracion && (
+                   <div>
+                     <p className="text-sm font-medium text-muted-foreground">Fecha Elaboración</p>
+                     <p className="text-sm text-foreground">{(selectedSolicitud as any).fecha_elaboracion}</p>
+                   </div>
+                 )}
                 {(selectedSolicitud as any).fecha_entrega && (
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Fecha Entrega</p>

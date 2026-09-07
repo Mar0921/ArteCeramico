@@ -2,6 +2,7 @@
 alter table public.solicitudes add column if not exists fecha_elaboracion text;
 alter table public.solicitudes add column if not exists fecha_entrega text;
 alter table public.solicitudes add column if not exists historia_clinica text;
+alter table public.solicitudes add column if not exists historia_clinica_paciente text;
 alter table public.solicitudes add column if not exists odontologo text;
 alter table public.solicitudes add column if not exists cc_odontologo text;
 alter table public.solicitudes add column if not exists paciente text;

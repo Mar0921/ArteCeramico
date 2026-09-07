@@ -67,92 +67,32 @@ export default function DashboardPage() {
   const [estadoPedidos, setEstadoPedidos] = useState<EstadoPedido[]>([])
   const [actividadMensual, setActividadMensual] = useState<ActividadMensualItem[]>([])
   const [recentSolicitudes, setRecentSolicitudes] = useState<RecentOrder[]>([])
-  const [loadingStats, setLoadingStats] = useState(true)
+   const [loadingStats, setLoadingStats] = useState(true)
   const [loadingOrders, setLoadingOrders] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
 
-  useEffect(() => {
+   useEffect(() => {
     const loadAllData = async () => {
       try {
-        const response = await fetch("/api/solicitudes?limit=1000")
-        if (!response.ok) throw new Error("Failed to fetch")
+        setLoadError(null)
+        const response = await fetch("/api/dashboard-stats")
+        if (!response.ok) {
+          const errorText = await response.text()
+          throw new Error(`Error ${response.status}: ${response.statusText} - ${errorText}`)
+        }
         const result = await response.json()
-        const solicitudes: SolicitudItem[] = result.data || []
+        const stats = result.data || {}
 
-        const uniqueClientes = new Set(solicitudes.map((s) => s.cliente_id)).size
-        setTotalClientes(uniqueClientes)
-
-        const totalServicios = solicitudes.reduce(
-          (acc, s) => acc + (s.servicios_detalle?.length || 0),
-          0
-        )
-        setTotalProductos(totalServicios || solicitudes.length)
-
-        const completados = solicitudes.filter(
-          (s) => s.estado === "completado"
-        ).length
-        setTrabajosCompletados(completados)
-
-        const now = new Date()
-        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-        const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-        const endOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0)
-
-        const ingresosActual = solicitudes
-          .filter((s) => new Date(s.created_at) >= startOfMonth)
-          .reduce((acc, s) => acc + (s.precio || 0), 0)
-        setIngresosDelMes(ingresosActual)
-
-        const ingresosAnterior = solicitudes
-          .filter((s) => {
-            const fecha = new Date(s.created_at)
-            return fecha >= startOfPrevMonth && fecha <= endOfPrevMonth
-          })
-          .reduce((acc, s) => acc + (s.precio || 0), 0)
-        setIngresosMesAnterior(ingresosAnterior)
-
-        const estadoCounts = {
-          pendiente: 0,
-          en_proceso: 0,
-          aprobado: 0,
-          completado: 0,
-          cancelado: 0,
-        }
-        solicitudes.forEach((s) => {
-          if (estadoCounts.hasOwnProperty(s.estado)) {
-            estadoCounts[s.estado as keyof typeof estadoCounts]++
-          }
-        })
-        setEstadoPedidos([
-          { label: "Pendientes", value: estadoCounts.pendiente, color: "bg-amber-500" },
-          { label: "En Proceso", value: estadoCounts.en_proceso, color: "bg-blue-500" },
-          { label: "Aprobados", value: estadoCounts.aprobado, color: "bg-green-500" },
-          { label: "Completados", value: estadoCounts.completado, color: "bg-primary" },
-        ])
-
-        const meses: Record<string, number> = {}
-        for (let i = 5; i >= 0; i--) {
-          const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
-          const key = d.toLocaleDateString("es-CO", {
-            month: "short",
-            year: "2-digit",
-          })
-          meses[key] = 0
-        }
-        solicitudes.forEach((s) => {
-          const d = new Date(s.created_at)
-          const key = d.toLocaleDateString("es-CO", {
-            month: "short",
-            year: "2-digit",
-          })
-          if (meses.hasOwnProperty(key)) {
-            meses[key]++
-          }
-        })
-        setActividadMensual(
-          Object.entries(meses).map(([month, count]) => ({ month, count }))
-        )
+        setTotalClientes(stats.totalClientes ?? 0)
+        setTotalProductos(stats.totalSolicitudes ?? 0)
+        setTrabajosCompletados(stats.trabajosCompletados ?? 0)
+        setIngresosDelMes(stats.ingresosDelMes ?? 0)
+        setIngresosMesAnterior(stats.ingresosMesAnterior ?? 0)
+        setEstadoPedidos(stats.estadoPedidos ?? [])
+        setActividadMensual(stats.actividadMensual ?? [])
       } catch (err) {
         console.error("Error cargando estadísticas:", err)
+        setLoadError(err instanceof Error ? err.message : "Error cargando estadísticas")
       } finally {
         setLoadingStats(false)
       }
@@ -161,15 +101,15 @@ export default function DashboardPage() {
     loadAllData()
   }, [])
 
-  useEffect(() => {
+   useEffect(() => {
     const loadRecentOrders = async () => {
       setLoadingOrders(true)
       try {
-        const response = await fetch("/api/solicitudes?limit=5")
+        const response = await fetch("/api/dashboard-stats?recent=1")
 
         if (response.ok) {
           const result = await response.json()
-          const data = result.data || []
+          const data = result.data?.recentOrders || []
           const formatted = data.map((item: any) => ({
             id: `SOL-${String(item.id).padStart(3, "0")}`,
             client: item.cliente_nombre || "Sin cliente",
@@ -497,6 +437,11 @@ export default function DashboardPage() {
           </table>
         </div>
       </motion.div>
+      {loadError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {loadError}
+        </div>
+      )}
     </div>
   )
 }
