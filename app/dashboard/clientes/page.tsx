@@ -147,6 +147,7 @@ export default function ClientesPage() {
   const [loadingSolicitudes, setLoadingSolicitudes] = useState<{ [key: number]: boolean }>({})
   const [loadingServicios, setLoadingServicios] = useState<{ [key: number]: boolean }>({})
   const [loadingEstadoCuenta, setLoadingEstadoCuenta] = useState<{ [key: number]: boolean }>({})
+  const [vistaSolicitudes, setVistaSolicitudes] = useState<"activas" | "finalizadas">("activas")
   const [serviciosPorSolicitud, setServiciosPorSolicitud] = useState<{ [key: number]: any[] }>({})
   const [solicitudDocs, setSolicitudDocs] = useState<{
     [key: number]: {
@@ -283,12 +284,12 @@ export default function ClientesPage() {
        const elemento = document.getElementById("ficha-tecnica-modal-contenido")
        if (!elemento) return
 
-       const canvas = await html2canvas(elemento, {
-         background: "#ffffff",
-         logging: false,
-         allowTaint: true,
-         useCORS: false,
-       })
+const canvas = await html2canvas(elemento, {
+          backgroundColor: "#ffffff",
+          logging: false,
+          allowTaint: true,
+          useCORS: false,
+        })
 
        const imgData = canvas.toDataURL("image/png")
        const pdf = new jsPDF({
@@ -601,6 +602,21 @@ export default function ClientesPage() {
       return Number((solicitud as any).precio)
     }
     return 0
+  }
+
+  const esSolicitudFinalizada = (estado: string) => {
+    return estado === "finalizado" || estado === "cancelado"
+  }
+
+  const getEstadoStyle = (estado: string) => {
+    const styles: Record<string, string> = {
+      pendiente: "bg-amber-100 text-amber-700",
+      en_proceso: "bg-blue-100 text-blue-700",
+      aprobado: "bg-green-100 text-green-700",
+      finalizado: "bg-primary/10 text-primary",
+      cancelado: "bg-red-100 text-red-700",
+    }
+    return styles[estado] || "bg-gray-100 text-gray-700"
   }
 
   const handleGuardarPrecioCliente = async (solicitudId: number) => {
@@ -1201,8 +1217,15 @@ export default function ClientesPage() {
                             Sin solicitudes registradas
                           </p>
                          ) : (
-                           <div className="space-y-2">
-                             {cliente.solicitudes.map((solicitud) => {
+                           (() => {
+                             const solicitudesActivas = cliente.solicitudes.filter(
+                               (s) => !esSolicitudFinalizada(s.estado || "")
+                             )
+                             const solicitudesFinalizadas = cliente.solicitudes.filter(
+                               (s) => esSolicitudFinalizada(s.estado || "")
+                             )
+
+                             const renderSolicitud = (solicitud: Solicitud) => {
                                const isExpanded = expandedSolicitud[solicitud.id]
                                const servicios = (solicitud as any).servicios_detalle || []
                                const precioTotal = calcularPrecioSolicitud(solicitud)
@@ -1226,9 +1249,9 @@ export default function ClientesPage() {
                                            : solicitud.servicio}
                                        </p>
                                        <div className="flex items-center gap-2 mt-1">
-                                         <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary capitalize">
-                                           {solicitud.estado?.replace("_", " ") || "Pendiente"}
-                                         </span>
+                                          <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${getEstadoStyle(solicitud.estado || "")}`}>
+                                            {solicitud.estado?.replace("_", " ") || "Pendiente"}
+                                          </span>
                                          <span className="text-[10px] text-muted-foreground">
                                            {new Date(solicitud.created_at).toLocaleDateString("es-CO")}
                                          </span>
@@ -1446,12 +1469,42 @@ export default function ClientesPage() {
                                        </div>
                                      </div>
                                    )}
-                                 </div>
-                               )
-                             })}
-                           </div>
-                         )}
-                      </div>
+                                  </div>
+                                )
+                              }
+
+                              return (
+                                <div>
+                                  <div className="flex gap-2 mb-3">
+                                    <button
+                                      onClick={() => setVistaSolicitudes("activas")}
+                                      className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${vistaSolicitudes === "activas" ? "bg-primary text-primary-foreground" : "border border-border bg-muted/50 text-muted-foreground hover:bg-muted"}`}
+                                    >
+                                      <Package size={14} />
+                                      Activas / En proceso ({solicitudesActivas.length})
+                                    </button>
+                                    <button
+                                      onClick={() => setVistaSolicitudes("finalizadas")}
+                                      className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${vistaSolicitudes === "finalizadas" ? "bg-primary text-primary-foreground" : "border border-border bg-muted/50 text-muted-foreground hover:bg-muted"}`}
+                                    >
+                                      <CheckCircle size={14} />
+                                      Finalizadas ({solicitudesFinalizadas.length})
+                                    </button>
+                                  </div>
+                                  <div className="space-y-2">
+                                    {vistaSolicitudes === "activas"
+                                      ? solicitudesActivas.length === 0
+                                        ? <p className="text-[10px] text-muted-foreground text-center py-3">Sin solicitudes activas</p>
+                                        : solicitudesActivas.map(renderSolicitud)
+                                      : solicitudesFinalizadas.length === 0
+                                        ? <p className="text-[10px] text-muted-foreground text-center py-3">Sin solicitudes finalizadas</p>
+                                        : solicitudesFinalizadas.map(renderSolicitud)}
+                                  </div>
+                                </div>
+                              )
+                            })()
+                          )}
+                       </div>
                     </motion.div>
                   )}
                 </AnimatePresence>

@@ -167,6 +167,7 @@ export default function ClientePerfilPage() {
   const [loadingSolicitudes, setLoadingSolicitudes] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedSolicitud, setSelectedSolicitud] = useState<Solicitud | null>(null)
+  const [vistaSolicitudes, setVistaSolicitudes] = useState<"activas" | "finalizadas">("activas")
 
   const FASES_PROCESO = [
     "LIMPIEZA Y DESINFECCION DE ENTRADA",
@@ -1020,10 +1021,14 @@ export default function ClientePerfilPage() {
       pendiente: "bg-amber-100 text-amber-700",
       en_proceso: "bg-blue-100 text-blue-700",
       aprobado: "bg-green-100 text-green-700",
-      completado: "bg-primary/10 text-primary",
+      finalizado: "bg-primary/10 text-primary",
       cancelado: "bg-red-100 text-red-700",
     }
     return styles[estado] || "bg-gray-100 text-gray-700"
+  }
+
+  const esSolicitudFinalizada = (estado: string) => {
+    return estado === "finalizado" || estado === "cancelado"
   }
 
   const toggleSolicitud = (solicitudId: number) => {
@@ -1604,18 +1609,25 @@ if (!conv) return
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
           ) : solicitudes.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-4">
-              Este cliente aún no tiene solicitudes registradas.
-            </p>
-          ) : (
-            <div className="space-y-3">
-              {solicitudes.map((solicitud) => {
-                const isSolicitudExpanded = expandedSolicitud === solicitud.id
-                const tabActiva = activeTab[solicitud.id] ?? "detalle"
-                const noLeidos = mensajesNoLeidos[solicitud.id] ?? 0
+             <p className="text-sm text-muted-foreground text-center py-4">
+               Este cliente aún no tiene solicitudes registradas.
+             </p>
+           ) : (
+             (() => {
+               const solicitudesActivas = solicitudes.filter(
+                 (s) => !esSolicitudFinalizada(s.estado || "")
+               )
+               const solicitudesFinalizadas = solicitudes.filter(
+                 (s) => esSolicitudFinalizada(s.estado || "")
+               )
 
-                return (
-                  <div
+               const renderSolicitud = (solicitud: Solicitud) => {
+                 const isSolicitudExpanded = expandedSolicitud === solicitud.id
+                 const tabActiva = activeTab[solicitud.id] ?? "detalle"
+                 const noLeidos = mensajesNoLeidos[solicitud.id] ?? 0
+
+                 return (
+                   <div
                     key={solicitud.id}
                     className="rounded-xl border border-border bg-white overflow-hidden"
                   >
@@ -1635,7 +1647,7 @@ if (!conv) return
                                : solicitud.servicio}
                            </h5>
                           <div className="flex items-center gap-2 mt-1">
-                            <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary capitalize">
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize ${getEstadoStyle(solicitud.estado || "")}`}>
                               {solicitud.estado?.replace("_", " ") || "Pendiente"}
                             </span>
                             <span className="text-xs text-muted-foreground">
@@ -3091,11 +3103,41 @@ if (!conv) return
                             )}
                           </motion.div>
                        )}
-                     </AnimatePresence>
+                      </AnimatePresence>
+                   </div>
+                 )
+              }
+
+              return (
+                <div>
+                  <div className="flex gap-2 mb-3">
+                    <button
+                      onClick={() => setVistaSolicitudes("activas")}
+                      className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${vistaSolicitudes === "activas" ? "bg-primary text-primary-foreground" : "border border-border bg-muted/50 text-muted-foreground hover:bg-muted"}`}
+                    >
+                      <Package size={14} />
+                      Activas / En proceso ({solicitudesActivas.length})
+                    </button>
+                    <button
+                      onClick={() => setVistaSolicitudes("finalizadas")}
+                      className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${vistaSolicitudes === "finalizadas" ? "bg-primary text-primary-foreground" : "border border-border bg-muted/50 text-muted-foreground hover:bg-muted"}`}
+                    >
+                      <CheckCircle size={14} />
+                      Finalizadas ({solicitudesFinalizadas.length})
+                    </button>
                   </div>
-                )
-              })}
-            </div>
+                  <div className="space-y-3">
+                    {vistaSolicitudes === "activas"
+                      ? solicitudesActivas.length === 0
+                        ? <p className="text-xs text-muted-foreground text-center py-3">Sin solicitudes activas</p>
+                        : solicitudesActivas.map(renderSolicitud)
+                      : solicitudesFinalizadas.length === 0
+                        ? <p className="text-xs text-muted-foreground text-center py-3">Sin solicitudes finalizadas</p>
+                        : solicitudesFinalizadas.map(renderSolicitud)}
+                  </div>
+                </div>
+              )
+            })()
           )}
         </div>
       </motion.div>
