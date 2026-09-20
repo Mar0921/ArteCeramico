@@ -263,6 +263,7 @@ export default function ClientesPage() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
   const [notificacionesNoLeidas, setNotificacionesNoLeidas] = useState<Record<number, number>>({})
   const [expandedSolicitudId, setExpandedSolicitudId] = useState<number | null>(null)
+  const [vistaSolicitudes, setVistaSolicitudes] = useState<"activas" | "finalizadas">("activas")
   const [surveyResponses, setSurveyResponses] = useState<Record<number, {
     email: string
     paciente: string
@@ -1739,9 +1740,24 @@ export default function ClientesPage() {
     )
   }
 
+  const esSolicitudFinalizada = (estado: string) => {
+    return estado === "finalizado" || estado === "cancelado"
+  }
+
+  const getEstadoStyle = (estado: string) => {
+    const styles: Record<string, string> = {
+      pendiente: "bg-amber-100 text-amber-700",
+      en_proceso: "bg-blue-100 text-blue-700",
+      aprobado: "bg-green-100 text-green-700",
+      finalizado: "bg-primary/10 text-primary",
+      cancelado: "bg-red-100 text-red-700",
+    }
+    return styles[estado] || "bg-gray-100 text-gray-700"
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
-      <Navbar
+    <Navbar
         notificaciones={notificacionesLista}
         notificacionesCount={sinLeer}
         notificacionesOpen={notificacionesOpen}
@@ -2472,8 +2488,15 @@ export default function ClientesPage() {
                 </p>
               </div>
             ) : (
-              <div className="space-y-2">
-                {solicitudesFiltradas.map((solicitud) => {
+              (() => {
+                const solicitudesActivas = solicitudesFiltradas.filter(
+                  (s) => !esSolicitudFinalizada(s.estado || "")
+                )
+                const solicitudesFinalizadas = solicitudesFiltradas.filter(
+                  (s) => esSolicitudFinalizada(s.estado || "")
+                )
+
+                const renderSolicitud = (solicitud: Solicitud) => {
                   const isExpanded = expandedSolicitudId === solicitud.id
                   const servicios = (solicitud as any).servicios_detalle || []
                   const precioTotal = solicitud.precio || servicios.reduce((acc: number, serv: any) => acc + (Number(serv.precio) || 0), 0)
@@ -2503,7 +2526,7 @@ export default function ClientesPage() {
                               : solicitud.servicio}
                           </p>
                           <div className="flex items-center gap-2 mt-1">
-                            <span className="inline-flex items-center rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary capitalize">
+                            <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium capitalize ${getEstadoStyle(solicitud.estado || "")}`}>
                               {solicitud.estado?.replace("_", " ") || "Pendiente"}
                             </span>
                             <span className="text-[10px] text-muted-foreground">
@@ -3011,10 +3034,40 @@ export default function ClientesPage() {
                               )}
                           </div>
                         )}
-                      </div>
-                    )
-                  })}
-              </div>
+                    </div>
+                  )
+                }
+
+                return (
+                  <div>
+                    <div className="flex gap-2 mb-3">
+                      <button
+                        onClick={() => setVistaSolicitudes("activas")}
+                        className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${vistaSolicitudes === "activas" ? "bg-primary text-primary-foreground" : "border border-border bg-muted/50 text-muted-foreground hover:bg-muted"}`}
+                      >
+                        <Package size={14} />
+                        Activas / En proceso ({solicitudesActivas.length})
+                      </button>
+                      <button
+                        onClick={() => setVistaSolicitudes("finalizadas")}
+                        className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${vistaSolicitudes === "finalizadas" ? "bg-primary text-primary-foreground" : "border border-border bg-muted/50 text-muted-foreground hover:bg-muted"}`}
+                      >
+                        <CheckCircle2 size={14} />
+                        Finalizadas ({solicitudesFinalizadas.length})
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {vistaSolicitudes === "activas"
+                        ? solicitudesActivas.length === 0
+                          ? <p className="text-xs text-muted-foreground text-center py-3">Sin solicitudes activas</p>
+                          : solicitudesActivas.map(renderSolicitud)
+                        : solicitudesFinalizadas.length === 0
+                          ? <p className="text-xs text-muted-foreground text-center py-3">Sin solicitudes finalizadas</p>
+                          : solicitudesFinalizadas.map(renderSolicitud)}
+                    </div>
+                  </div>
+                )
+              })()
             )}
           </div>
         </section>
