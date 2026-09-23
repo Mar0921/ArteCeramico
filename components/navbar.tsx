@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Menu, X, LogOut, Users, User, Bell } from "lucide-react"
+import { Menu, X, Users, User, Bell, Calendar, CheckCircle, Package, LayoutDashboard } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -14,6 +14,15 @@ const navItems = [
   { label: "Portafolio", href: "#portafolio" },
   { label: "Nosotros", href: "#nosotros" },
   { label: "Contacto", href: "#contacto" },
+]
+
+const adminNavItems = [
+  { label: "Inicio", href: "/dashboard", icon: LayoutDashboard },
+  { label: "Trabajos", href: "/dashboard/trabajos", icon: Package },
+  { label: "Calendario", href: "/dashboard/calendario", icon: Calendar },
+  { label: "Fases", href: "/dashboard/fases", icon: CheckCircle },
+  { label: "Clientes", href: "/dashboard/clientes", icon: Users },
+  { label: "Cuenta", href: "/dashboard/cuenta", icon: User },
 ]
 
 export function Navbar({
@@ -102,11 +111,6 @@ export function Navbar({
     }
   }
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut()
-    router.push("/")
-  }
-
   const sinLeer = notificaciones.filter((n) => !n.vista).length
 
   return (
@@ -138,18 +142,36 @@ export function Navbar({
               </div>
             </Link>
 
-            {/* DESKTOP NAV */}
-            <div className="hidden items-center gap-1 lg:flex">
-              {navItems.map((item) => (
-                <button
-                  key={item.href}
-                  onClick={() => handleNavClick(item.href)}
-                  className="rounded-lg px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-primary/10 hover:text-primary"
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
+            {/* ADMIN NAV */}
+            {showClientButtons ? (
+              <div className="hidden items-center gap-2 lg:flex">
+                {adminNavItems.map((item) => {
+                  const Icon = item.icon
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className="inline-flex items-center gap-2 rounded-lg border border-primary/20 bg-card px-3 py-2 text-sm font-medium text-foreground transition-all duration-300 hover:border-primary hover:bg-primary/10 hover:text-primary"
+                    >
+                      <Icon size={16} />
+                      {item.label}
+                    </Link>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="hidden items-center gap-1 lg:flex">
+                {navItems.map((item) => (
+                  <button
+                    key={item.href}
+                    onClick={() => handleNavClick(item.href)}
+                    className="rounded-lg px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* NOTIFICATIONS - Solo para clientes */}
             {!showClientButtons && isLoggedIn && setNotificacionesOpen && (
@@ -168,56 +190,33 @@ export function Navbar({
               </div>
             )}
 
-            {/* AUTH BUTTONS - Desktop */}
-            <div className="hidden items-center gap-3 lg:flex">
-              {showClientButtons ? (
-                <>
+            {!showClientButtons && (
+              <div className="hidden items-center gap-2 lg:flex">
+                {isLoggedIn ? (
                   <Link
-                    href="/dashboard"
-                    className="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary transition-all duration-300 hover:bg-primary/10"
-                  >
-                    <User size={16} />
-                    Cuenta
-                  </Link>
-                  <Link
-                    href="/dashboard/clientes"
-                    className="inline-flex items-center gap-2 rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary transition-all duration-300 hover:bg-primary/10"
-                  >
-                    <Users size={16} />
-                    Clientes
-                  </Link>
-                  <button
-                    onClick={handleLogout}
-                    className="inline-flex items-center gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-600 transition-all duration-300 hover:bg-red-500/20"
-                  >
-                    <LogOut size={16} />
-                    Cerrar Sesión
-                  </button>
-                </>
-              ) : isLoggedIn ? (
-                <Link
-                  href="/page_clientes"
-                  className="rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary transition-all duration-300 hover:bg-primary/10"
-                >
-                  Mi Cuenta
-                </Link>
-              ) : (
-                <>
-                  <Link
-                    href="/registro"
+                    href="/page_clientes"
                     className="rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary transition-all duration-300 hover:bg-primary/10"
                   >
-                    Registrarse
+                    Mi Cuenta
                   </Link>
-                  <Link
-                    href="/login"
-                    className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all duration-300 hover:bg-primary-dark hover:shadow-lg"
-                  >
-                    Iniciar Sesión
-                  </Link>
-                </>
-              )}
-            </div>
+                ) : (
+                  <>
+                    <Link
+                      href="/registro"
+                      className="rounded-lg border border-primary px-4 py-2 text-sm font-medium text-primary transition-all duration-300 hover:bg-primary/10"
+                    >
+                      Registrarse
+                    </Link>
+                    <Link
+                      href="/login"
+                      className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all duration-300 hover:bg-primary-dark hover:shadow-lg"
+                    >
+                      Iniciar Sesión
+                    </Link>
+                  </>
+                )}
+              </div>
+            )}
 
             {/* MOBILE BUTTON */}
             <button
@@ -287,47 +286,33 @@ export function Navbar({
             className="fixed inset-x-0 top-16 z-40 bg-card/95 backdrop-blur-md shadow-lg lg:hidden"
           >
             <div className="flex flex-col px-4 py-6">
-              {navItems.map((item) => (
-                <button
-                  key={item.href}
-                  onClick={() => handleNavClick(item.href)}
-                  className="rounded-lg px-4 py-3 text-left text-base font-medium text-foreground transition-colors hover:bg-primary/10 hover:text-primary"
-                >
-                  {item.label}
-                </button>
-              ))}
+              {showClientButtons
+                ? adminNavItems.map((item) => {
+                    const Icon = item.icon
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setIsMobileMenuOpen(false)}
+                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary/20 bg-card px-4 py-3 text-left text-base font-medium text-foreground transition-all duration-300 hover:border-primary hover:bg-primary/10 hover:text-primary"
+                      >
+                        <Icon size={18} />
+                        {item.label}
+                      </Link>
+                    )
+                  })
+                : navItems.map((item) => (
+                    <button
+                      key={item.href}
+                      onClick={() => handleNavClick(item.href)}
+                      className="rounded-lg px-4 py-3 text-left text-base font-medium text-foreground transition-colors hover:bg-primary/10 hover:text-primary"
+                    >
+                      {item.label}
+                    </button>
+                  ))}
 
                 <div className="mt-4 flex flex-col gap-3">
-                  {showClientButtons ? (
-                    <>
-                      <Link
-                        href="/dashboard"
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary px-5 py-3 text-center text-base font-medium text-primary transition-all duration-300 hover:bg-primary/10"
-                      >
-                        <User size={18} />
-                        Cuenta
-                      </Link>
-                      <Link
-                        href="/dashboard/clientes"
-                        onClick={() => setIsMobileMenuOpen(false)}
-                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-primary px-5 py-3 text-center text-base font-medium text-primary transition-all duration-300 hover:bg-primary/10"
-                      >
-                        <Users size={18} />
-                        Clientes
-                      </Link>
-                      <button
-                        onClick={() => {
-                          setIsMobileMenuOpen(false)
-                          handleLogout()
-                        }}
-                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-5 py-3 text-center text-base font-medium text-red-600 transition-all duration-300 hover:bg-red-500/20"
-                      >
-                        <LogOut size={18} />
-                        Cerrar Sesión
-                      </button>
-                    </>
-                  ) : isLoggedIn ? (
+                  {!showClientButtons && (isLoggedIn ? (
                     <Link
                       href="/page_clientes"
                       onClick={() => setIsMobileMenuOpen(false)}
@@ -353,7 +338,7 @@ export function Navbar({
                         Iniciar Sesión
                       </Link>
                     </>
-                  )}
+                  ))}
                 </div>
             </div>
           </motion.div>

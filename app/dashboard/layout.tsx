@@ -81,7 +81,7 @@ export default function DashboardLayout({
           </button>
           <span className="ml-4 font-semibold text-foreground">Admin Panel</span>
         </div>
-                <main className="flex-1 p-4 lg:p-6 lg:max-w-7xl lg:mx-auto pt-24">{children}</main>
+                <main className="flex-1 w-full p-2 lg:px-0 lg:pb-4 pt-32">{children}</main>
        </div>
     </div>
   )

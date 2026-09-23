@@ -6,9 +6,11 @@ import { motion } from "framer-motion"
 import Image from "next/image"
 import {
   Users,
+  User,
   Package,
   CheckCircle,
   Clock,
+  Calendar,
   FileText,
   Database,
   Search,
@@ -24,14 +26,34 @@ interface SidebarProps {
 
 const menuItems = [
   {
-    label: "Dashboard",
+    label: "Inicio",
     href: "/dashboard",
     icon: LayoutDashboard,
+  },
+  {
+    label: "Trabajos",
+    href: "/dashboard/trabajos",
+    icon: Package,
+  },
+  {
+    label: "Calendario",
+    href: "/dashboard/calendario",
+    icon: Calendar,
+  },
+  {
+    label: "Fases",
+    href: "/dashboard/fases",
+    icon: CheckCircle,
   },
   {
     label: "Clientes",
     href: "/dashboard/clientes",
     icon: Users,
+  },
+  {
+    label: "Cuenta",
+    href: "/dashboard/cuenta",
+    icon: User,
   },
   {
     label: "Productos",
@@ -86,12 +108,12 @@ export function Sidebar({ isOpen, onClose }: SidebarProps) {
         initial={false}
         animate={{ x: isOpen ? 0 : "-100%" }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
-        className={`fixed inset-y-0 left-0 z-50 w-64 bg-card shadow-xl lg:relative lg:translate-x-0 lg:shadow-none`}
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-card shadow-xl lg:hidden`}
       >
         <div className="flex h-full flex-col">
            {/* Header */}
            <div className="flex h-16 items-center justify-between border-b border-border px-4">
-             <Link href="/dashboard" className="flex items-center gap-2">
+              <Link href="/" className="flex items-center gap-2">
                <div className="relative h-10 w-auto">
                  <Image
                    src="/Arte_Ceramico_Logo.svg"

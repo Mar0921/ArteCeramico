@@ -809,7 +809,7 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from("solicitudes")
-      .select("id, servicio, estado, created_at, cliente_id, dientes_trabajados, odontologo, cc_odontologo, paciente, cc_paciente, odontologo_registro_medico, fecha_elaboracion, fecha_entrega, odontologo_firma, color, guia, tipos_trabajo, materiales, urls_documentos, dibujo_odontologo, codigo_trazabilidad, fase, orden_fabricacion_url, orden_materiales, orden_fases, terminos_garantia, fichas_tecnicas, historia_clinica_paciente")
+      .select("id, servicio, estado, created_at, cliente_id, dientes_trabajados, odontologo, cc_odontologo, paciente, cc_paciente, odontologo_registro_medico, fecha_elaboracion, fecha_entrega, odontologo_firma, color, guia, tipos_trabajo, materiales, urls_documentos, dibujo_odontologo, codigo_trazabilidad, caja, fase, orden_fabricacion_url, orden_materiales, orden_fases, terminos_garantia, fichas_tecnicas, historia_clinica_paciente")
       .order("created_at", { ascending: false })
       .limit(limit)
 
@@ -1008,6 +1008,8 @@ export async function GET(request: Request) {
         urls_documentos: item.urls_documentos || [],
         dibujo_odontologo: item.dibujo_odontologo || null,
         codigo_trazabilidad: item.codigo_trazabilidad || null,
+        caja: item.caja || null,
+        fase: item.fase || null,
         orden_fabricacion_url: item.orden_fabricacion_url || null,
         orden_materiales: item.orden_materiales || null,
         orden_fases: item.orden_fases || null,
