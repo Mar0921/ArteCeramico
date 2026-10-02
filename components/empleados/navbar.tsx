@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Menu, X, Bell, User, LogOut, LayoutDashboard, Package, Calendar, CheckCircle, Users, FileText, Plus } from "lucide-react"
+import { Menu, X, Bell, User, LogOut, LayoutDashboard, Package, Calendar, CheckCircle, Users, FileText } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -71,14 +71,6 @@ export function EmpleadoNavbar({
             </Link>
 
             <div className="hidden items-center gap-2 lg:flex">
-              <Link
-                href="/empleados/dashboard/solicitudes/nueva"
-                className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white transition-all duration-300 hover:bg-blue-700"
-              >
-                <Plus size={16} />
-                Nueva solicitud
-              </Link>
-
               {empleadoNavItems.map((item) => {
                 const Icon = item.icon
                 return (
@@ -134,15 +126,6 @@ export function EmpleadoNavbar({
             className="fixed inset-x-0 top-16 z-40 bg-card/95 backdrop-blur-md shadow-lg lg:hidden"
           >
             <div className="flex flex-col px-4 py-6">
-              <Link
-                href="/empleados/dashboard/solicitudes/nueva"
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="mb-3 inline-flex items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-3 text-center text-base font-semibold text-white transition-all duration-300 hover:bg-blue-700"
-              >
-                <Plus size={18} />
-                Nueva solicitud
-              </Link>
-
               {empleadoNavItems.map((item) => {
                 const Icon = item.icon
                 return (

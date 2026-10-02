@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
+import { ordenarTrabajos, trabajosVisibles } from "@/lib/trabajos"
 import {
   AlertCircle,
   ArrowUpRight,
@@ -113,9 +114,12 @@ export default function EmpleadosTrabajosPage() {
     loadTrabajos()
   }, [])
 
+  const visibles = useMemo(() => trabajosVisibles(trabajos), [trabajos])
+
   const filteredTrabajos = useMemo(() => {
     const term = searchTerm.trim().toLowerCase()
-    let result = trabajos
+    // Las canceladas quedan fuera de la tabla.
+    let result = visibles
     if (term) {
       result = result.filter((trabajo) =>
         [
@@ -139,17 +143,14 @@ export default function EmpleadosTrabajosPage() {
         (trabajo.paciente || "").toLowerCase().includes(pacienteFilter.toLowerCase())
       )
     }
-    return result.sort((a, b) => {
-      if (a.estado === "completado" && b.estado !== "completado") return 1
-      if (a.estado !== "completado" && b.estado === "completado") return -1
-      return 0
-    })
-  }, [searchTerm, trabajos, estadoFilter, pacienteFilter])
+    // La entrega más próxima queda arriba; los finalizados se van al final.
+    return ordenarTrabajos(result)
+  }, [searchTerm, visibles, estadoFilter, pacienteFilter])
 
-  const totalTrabajos = trabajos.length
-  const trabajosCompletados = trabajos.filter((t) => t.estado === "completado").length
-  const trabajosEnProceso = trabajos.filter((t) => t.estado === "en_proceso").length
-  const totalPendientes = trabajos.filter((t) => t.estado === "pendiente").length
+  const totalTrabajos = visibles.length
+  const trabajosCompletados = visibles.filter((t) => t.estado === "completado").length
+  const trabajosEnProceso = visibles.filter((t) => t.estado === "en_proceso").length
+  const totalPendientes = visibles.filter((t) => t.estado === "pendiente").length
 
   return (
     <div className="space-y-6 mt-8">

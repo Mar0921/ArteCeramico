@@ -8,7 +8,6 @@ import { FileDown, Send, Trash2 } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import jsPDF from "jspdf"
 import html2canvas from "html2canvas"
-import { Navbar } from "@/components/navbar"
 import {
   SolicitudEntry,
   createDefaultSolicitud,
@@ -473,7 +472,9 @@ export function PrescriptionForm({
 
   return (
     <div ref={formRef} className="max-w-3xl mx-auto bg-white shadow-lg overflow-hidden border border-gray-300">
-      <Navbar />
+      {/* El encabezado lo aporta la página que hospeda el formulario: aquí no se
+          dibuja para no duplicarlo ni superponerse con el del panel de admin o
+          empleados. */}
 
       {/* Header de la Prescripción */}
       <div className="border-b border-gray-300 bg-gray-50 px-4 py-3">

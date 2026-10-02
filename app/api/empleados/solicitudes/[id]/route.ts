@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { construirDetalleDientes } from "@/lib/dientes"
+import { autenticarInterno } from "@/lib/autorizacion"
+import {
+  faseEnCurso,
+  parseFases,
+  pierdeFasesTerminadas,
+  preservarFasesTerminadas,
+} from "@/lib/fases"
 
 export const runtime = "nodejs"
 
@@ -29,23 +36,75 @@ export async function PATCH(
       )
     }
 
+    const interno = await autenticarInterno(request)
+    if (!interno.ok) {
+      return NextResponse.json(
+        { message: interno.message },
+        { status: interno.status }
+      )
+    }
+
     const body = await request.json()
-    const { orden_fases, fase } = body
+    const { orden_fases } = body
 
-    const updates: Record<string, unknown> = {}
-    if (orden_fases !== undefined) updates.orden_fases = orden_fases
-    if (fase !== undefined) updates.fase = fase
-
-    if (Object.keys(updates).length === 0) {
+    if (orden_fases === undefined) {
       return NextResponse.json(
         { message: "No hay campos para actualizar." },
         { status: 400 }
       )
     }
 
+    const entrantes = parseFases(orden_fases)
+    if (entrantes.length === 0) {
+      return NextResponse.json(
+        { message: "La guía de fabricación no puede quedar vacía." },
+        { status: 400 }
+      )
+    }
+
+    const { data: actual, error: lecturaError } = await supabaseAdmin
+      .from("solicitudes")
+      .select("orden_fases")
+      .eq("id", solicitudId)
+      .maybeSingle()
+
+    if (lecturaError) {
+      return NextResponse.json(
+        { message: "Error al leer la solicitud.", details: lecturaError.message },
+        { status: 500 }
+      )
+    }
+
+    if (!actual) {
+      return NextResponse.json(
+        { message: "La solicitud no existe." },
+        { status: 404 }
+      )
+    }
+
+    const actuales = parseFases(actual.orden_fases)
+    const fases = preservarFasesTerminadas(actuales, entrantes)
+
+    // El empleado agrega y edita fases, pero no puede borrar las que ya
+    // quedaron terminadas: son el registro de un trabajo hecho.
+    const perdidas = pierdeFasesTerminadas(actuales, fases)
+    if (perdidas.length > 0) {
+      return NextResponse.json(
+        {
+          message: `No se pueden eliminar las fases ya completadas: ${perdidas
+            .map((f) => f.tipo)
+            .join(", ")}.`,
+        },
+        { status: 400 }
+      )
+    }
+
     const { data, error } = await supabaseAdmin
       .from("solicitudes")
-      .update(updates)
+      .update({
+        orden_fases: JSON.stringify(fases),
+        fase: faseEnCurso(fases),
+      })
       .eq("id", solicitudId)
       .select("id")
       .single()

@@ -16,6 +16,7 @@ import {
   Stethoscope,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { esCancelada } from "@/lib/trabajos"
 
 interface Solicitud {
   id: number
@@ -64,7 +65,6 @@ const estadoOptions = [
   { value: "en_proceso", label: "En proceso" },
   { value: "aprobado", label: "Aprobado" },
   { value: "completado", label: "Completado" },
-  { value: "cancelado", label: "Cancelado" },
 ]
 
 export default function EmpleadosSolicitudesPage() {
@@ -104,7 +104,9 @@ export default function EmpleadosSolicitudesPage() {
   const filtered = useMemo(() => {
     const term = searchTerm.trim().toLowerCase()
     const clienteId = clienteIdParam ? Number(clienteIdParam) : null
+    // Las canceladas no se muestran al empleado en ningún filtro.
     return solicitudes.filter((s) => {
+      if (esCancelada(s.estado)) return false
       const matchesEstado = estadoFilter ? s.estado === estadoFilter : true
       const matchesCliente = clienteId ? s.cliente_id === clienteId : true
       const matchesTerm = term
@@ -131,7 +133,7 @@ export default function EmpleadosSolicitudesPage() {
     en_proceso: 2,
     aprobado: 3,
     completado: 4,
-    cancelado: 5,
+    finalizado: 4,
     sin_estado: 6,
   }
 

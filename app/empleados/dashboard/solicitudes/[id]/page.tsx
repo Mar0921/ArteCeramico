@@ -11,10 +11,13 @@ import {
   Mail,
   Package,
   Phone,
+  Plus,
   Stethoscope,
   User,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { FASES_PROCESO, hoyISO, parseFases, type FaseProceso } from "@/lib/fases"
+import { supabase } from "@/lib/supabase"
 
 interface Cliente {
   id: number
@@ -43,12 +46,6 @@ interface DienteDetalle {
   estado: string
   tipoTrabajo: string
   material: string
-}
-
-interface FaseProceso {
-  tipo?: string
-  estado?: string
-  descripcion?: string
 }
 
 interface Solicitud {
@@ -140,16 +137,6 @@ function formatDateTime(value: string | null) {
   }).format(date)
 }
 
-function parseFases(value: string | null): FaseProceso[] {
-  if (!value) return []
-  try {
-    const parsed: unknown = JSON.parse(value)
-    return Array.isArray(parsed) ? (parsed as FaseProceso[]) : []
-  } catch {
-    return []
-  }
-}
-
 function getFaseActual(solicitud: Solicitud) {
   if (solicitud.fase) return solicitud.fase
   const fases = parseFases(solicitud.orden_fases)
@@ -186,6 +173,60 @@ export default function EmpleadoSolicitudDetallePage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [empleadoNombre, setEmpleadoNombre] = useState("")
+  const [mostrandoFormFase, setMostrandoFormFase] = useState(false)
+  const [nuevaFase, setNuevaFase] = useState({
+    tipo: "",
+    estado: "pendiente",
+    realizada_por: "",
+    fecha_finalizacion: "",
+  })
+
+  /** Envía el arreglo completo de fases: el endpoint reemplaza `orden_fases`. */
+  const guardarFases = async (fases: FaseProceso[]) => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+
+    if (!session?.access_token) {
+      setError("Tu sesión expiró. Vuelve a iniciar sesión.")
+      return false
+    }
+
+    const res = await fetch(`/api/empleados/solicitudes/${solicitudId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ orden_fases: JSON.stringify(fases) }),
+    })
+
+    if (!res.ok) {
+      const cuerpo = await res.json().catch(() => ({}))
+      throw new Error(cuerpo.message || "No se pudo guardar la fase.")
+    }
+
+    await loadSolicitud()
+    return true
+  }
+
+  // El nombre del empleado se sella como responsable de la fase que cierre.
+  useEffect(() => {
+    const cargarEmpleado = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+      if (!user) return
+      const { data } = await supabase
+        .from("empleados")
+        .select("nombre")
+        .eq("user_id", user.id)
+        .maybeSingle()
+      if (data?.nombre) setEmpleadoNombre(data.nombre)
+    }
+    cargarEmpleado()
+  }, [])
 
   const loadSolicitud = async () => {
     setLoading(true)
@@ -222,28 +263,89 @@ export default function EmpleadoSolicitudDetallePage() {
     if (!data) return
     const s = data.solicitud
     const fases = parseFases(s.orden_fases)
-    if (!fases[idx]) return
-    const estadoActual = fases[idx].estado || "pendiente"
-    const siguiente = fasesProgreso[(fasesProgreso.indexOf(estadoActual) + 1) % fasesProgreso.length]
-    const updated = fases.map((fase, i) =>
-      i === idx ? { ...fase, estado: siguiente } : fase
-    )
-    const nuevaFase = updated.find((fase) => fase.estado === "en_proceso")?.tipo || null
+    const actual = fases[idx]
+    if (!actual) return
+
+    // Una fase completada no retrocede: es el registro de un trabajo ya hecho.
+    if (actual.estado === "completado") {
+      setError("Esa fase ya está completada y no se puede devolver a pendiente.")
+      return
+    }
+
+    const siguiente =
+      actual.estado === "en_proceso" ? "completado" : "en_proceso"
+
+    const updated = fases.map((fase, i) => {
+      if (i !== idx) return fase
+      return {
+        ...fase,
+        estado: siguiente,
+        // Al cerrar la fase se sella la fecha y el responsable; si el
+        // administrador ya los había puesto, se respetan.
+        fecha_finalizacion:
+          siguiente === "completado" ? fase.fecha_finalizacion || hoyISO() : fase.fecha_finalizacion,
+        realizada_por:
+          siguiente === "completado" ? fase.realizada_por || empleadoNombre : fase.realizada_por,
+      }
+    })
 
     setSaving(true)
     try {
-      const res = await fetch(`/api/empleados/solicitudes/${solicitudId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          orden_fases: JSON.stringify(updated),
-          fase: nuevaFase,
-        }),
-      })
-      if (!res.ok) throw new Error("No se pudo actualizar la fase.")
-      await loadSolicitud()
+      await guardarFases(updated)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al actualizar la fase.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleFechaTerminacion = async (idx: number, fecha: string) => {
+    if (!data) return
+    const fases = parseFases(data.solicitud.orden_fases)
+    if (!fases[idx]) return
+
+    const updated = fases.map((fase, i) =>
+      i === idx ? { ...fase, fecha_finalizacion: fecha } : fase
+    )
+
+    setSaving(true)
+    try {
+      await guardarFases(updated)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al guardar la fecha.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleAgregarFase = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!data) return
+
+    const fases = parseFases(data.solicitud.orden_fases)
+    const completada = nuevaFase.estado === "completado"
+
+    const fase: FaseProceso = {
+      tipo: nuevaFase.tipo,
+      estado: nuevaFase.estado,
+      // Si la fase nace terminada, se sellan fecha y responsable para que no
+      // quede un registro de trabajo sin quién lo hizo.
+      fecha_finalizacion: completada
+        ? nuevaFase.fecha_finalizacion || hoyISO()
+        : "",
+      realizada_por: completada
+        ? nuevaFase.realizada_por || empleadoNombre
+        : nuevaFase.realizada_por,
+      fecha_prueba: "",
+    }
+
+    setSaving(true)
+    try {
+      await guardarFases([...fases, fase])
+      setNuevaFase({ tipo: "", estado: "pendiente", realizada_por: "", fecha_finalizacion: "" })
+      setMostrandoFormFase(false)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al agregar la fase.")
     } finally {
       setSaving(false)
     }
@@ -493,13 +595,129 @@ export default function EmpleadoSolicitudDetallePage() {
                 <Clock className="size-4 text-primary" />
                 <h2 className="font-semibold text-foreground">Guía de fabricación</h2>
               </div>
-              {saving && (
-                <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
-                  <Loader2 className="size-3 animate-spin" />
-                  Guardando...
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {saving && (
+                  <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <Loader2 className="size-3 animate-spin" />
+                    Guardando...
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setMostrandoFormFase((v) => !v)}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                >
+                  <Plus className="size-3.5" />
+                  Agregar fase
+                </button>
+              </div>
             </div>
+
+            {mostrandoFormFase && (
+              <form
+                onSubmit={handleAgregarFase}
+                className="mb-4 rounded-xl border border-border bg-muted/30 p-4"
+              >
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="lg:col-span-2">
+                    <label
+                      htmlFor="fase-tipo"
+                      className="mb-1 block text-xs font-medium text-foreground"
+                    >
+                      Tipo
+                    </label>
+                    <select
+                      id="fase-tipo"
+                      required
+                      value={nuevaFase.tipo}
+                      onChange={(e) => setNuevaFase({ ...nuevaFase, tipo: e.target.value })}
+                      className="w-full rounded-lg border border-border bg-background px-2.5 py-2 text-xs text-foreground outline-none focus:border-primary"
+                    >
+                      <option value="">Selecciona la fase...</option>
+                      {FASES_PROCESO.map((f) => (
+                        <option key={f} value={f}>
+                          {f}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="fase-estado"
+                      className="mb-1 block text-xs font-medium text-foreground"
+                    >
+                      Estado
+                    </label>
+                    <select
+                      id="fase-estado"
+                      value={nuevaFase.estado}
+                      onChange={(e) => setNuevaFase({ ...nuevaFase, estado: e.target.value })}
+                      className="w-full rounded-lg border border-border bg-background px-2.5 py-2 text-xs text-foreground outline-none focus:border-primary"
+                    >
+                      <option value="pendiente">Pendiente</option>
+                      <option value="en_proceso">En proceso</option>
+                      <option value="completado">Completado</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="fase-realizada"
+                      className="mb-1 block text-xs font-medium text-foreground"
+                    >
+                      Realizada por
+                    </label>
+                    <input
+                      id="fase-realizada"
+                      type="text"
+                      value={nuevaFase.realizada_por}
+                      onChange={(e) =>
+                        setNuevaFase({ ...nuevaFase, realizada_por: e.target.value })
+                      }
+                      placeholder={empleadoNombre || "Nombre"}
+                      className="w-full rounded-lg border border-border bg-background px-2.5 py-2 text-xs text-foreground outline-none focus:border-primary"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="fase-fecha"
+                      className="mb-1 block text-xs font-medium text-foreground"
+                    >
+                      Fecha finalización
+                    </label>
+                    <input
+                      id="fase-fecha"
+                      type="date"
+                      value={nuevaFase.fecha_finalizacion}
+                      onChange={(e) =>
+                        setNuevaFase({ ...nuevaFase, fecha_finalizacion: e.target.value })
+                      }
+                      className="w-full rounded-lg border border-border bg-background px-2.5 py-2 text-xs text-foreground outline-none focus:border-primary"
+                    />
+                  </div>
+                </div>
+
+                <div className="mt-3 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setMostrandoFormFase(false)}
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={saving || !nuevaFase.tipo}
+                    className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary-dark disabled:opacity-50"
+                  >
+                    Guardar fase
+                  </button>
+                </div>
+              </form>
+            )}
+
             {parseFases(s.orden_fases).length === 0 ? (
               <p className="text-sm text-muted-foreground">Sin guía de fabricación registrada.</p>
             ) : (
@@ -507,12 +725,15 @@ export default function EmpleadoSolicitudDetallePage() {
                 {parseFases(s.orden_fases).map((fase, idx) => {
                   const estado = fase.estado || "pendiente"
                   const isActual = estado === "en_proceso"
-                  const siguiente =
-                    fasesProgreso[(fasesProgreso.indexOf(estado) + 1) % fasesProgreso.length]
+                  const completada = estado === "completado"
+                  const siguiente = estado === "en_proceso" ? "completado" : "en_proceso"
                   return (
                     <li
                       key={idx}
-                      className="flex items-center justify-between gap-3 rounded-lg border border-border p-3"
+                      className={cn(
+                        "flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border p-3",
+                        completada && "border-green-200 bg-green-50/40"
+                      )}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <span
@@ -520,14 +741,12 @@ export default function EmpleadoSolicitudDetallePage() {
                             "flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold",
                             isActual
                               ? "bg-primary/10 text-primary"
-                              : estado === "completado"
+                              : completada
                                 ? "bg-green-500/10 text-green-600"
-                                : estado === "en_proceso"
-                                  ? "bg-blue-500/10 text-blue-600"
-                                  : "bg-muted text-muted-foreground"
+                                : "bg-muted text-muted-foreground"
                           )}
                         >
-                          {idx + 1}
+                          {completada ? <CheckCircle className="size-3.5" /> : idx + 1}
                         </span>
                         <span className="truncate font-medium text-foreground">
                           {fase.tipo || fase.descripcion || `Fase ${idx + 1}`}
@@ -538,29 +757,54 @@ export default function EmpleadoSolicitudDetallePage() {
                           </span>
                         )}
                       </div>
-                      <button
-                        type="button"
-                        disabled={saving}
-                        onClick={() => handleAdvanceFase(idx)}
-                        title={`Avanzar a ${statusLabels[siguiente] || siguiente}`}
-                        className={cn(
-                          "shrink-0 rounded-full px-3 py-1.5 text-[11px] font-medium capitalize transition-colors",
-                          estado === "completado"
-                            ? "border border-green-200 bg-green-50 text-green-700 hover:bg-green-100"
-                            : estado === "en_proceso"
+
+                      {completada ? (
+                        <div className="flex shrink-0 flex-wrap items-center gap-2">
+                          <span className="inline-flex items-center gap-1 rounded-full border border-green-200 bg-green-50 px-3 py-1.5 text-[11px] font-medium text-green-700">
+                            <CheckCircle className="size-3" />
+                            Completado
+                          </span>
+                          <label className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                            Terminada
+                            <input
+                              type="date"
+                              value={fase.fecha_finalizacion || ""}
+                              disabled={saving}
+                              onChange={(e) => handleFechaTerminacion(idx, e.target.value)}
+                              className="rounded-lg border border-border bg-background px-2 py-1 text-[11px] text-foreground outline-none focus:border-primary"
+                            />
+                          </label>
+                          {fase.realizada_por && (
+                            <span className="text-[11px] text-muted-foreground">
+                              por {fase.realizada_por}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled={saving}
+                          onClick={() => handleAdvanceFase(idx)}
+                          title={`Avanzar a ${statusLabels[siguiente] || siguiente}`}
+                          className={cn(
+                            "shrink-0 rounded-full px-3 py-1.5 text-[11px] font-medium capitalize transition-colors",
+                            estado === "en_proceso"
                               ? "border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100"
                               : "border border-border bg-background text-muted-foreground hover:bg-muted"
-                        )}
-                      >
-                        {statusLabels[estado] || estado}
-                      </button>
+                          )}
+                        >
+                          {statusLabels[estado] || estado}
+                        </button>
+                      )}
                     </li>
                   )
                 })}
               </ul>
             )}
             <p className="mt-3 text-[11px] text-muted-foreground">
-              Avanza el progreso de cada fase (Pendiente → En proceso → Completado).
+              Avanza el progreso de cada fase (Pendiente → En proceso → Completado). Al completarla
+              se registra la fecha de terminación y tu nombre; las fases ya terminadas se conservan y
+              solo puedes corregir su fecha.
             </p>
           </div>
 

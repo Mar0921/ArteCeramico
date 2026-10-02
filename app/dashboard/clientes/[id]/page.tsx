@@ -36,6 +36,7 @@ import {
  } from "lucide-react"
 import { DentalChart as DentalChartForm } from "@/app/formulario/components/dental-chart"
 import { supabase } from "@/lib/supabase"
+import { FASES_PROCESO } from "@/lib/fases"
 import { useToast } from "@/hooks/use-toast"
 
 interface Cliente {
@@ -170,32 +171,6 @@ export default function ClientePerfilPage() {
   const [selectedSolicitud, setSelectedSolicitud] = useState<Solicitud | null>(null)
    const [vistaSolicitudes, setVistaSolicitudes] = useState<"activas" | "finalizadas" | "canceladas">("activas")
 
-  const FASES_PROCESO = [
-    "LIMPIEZA Y DESINFECCION DE ENTRADA",
-    "VACEADO Y PREPARACION MODELOS",
-    "PLATO BASE Y RODETE",
-    "ESCANEO Y DISEÑO",
-    "DISEÑO DE MODELO 3D",
-    "LIBERADO Y PULIDO DE META externalizadoL",
-    "CONTROL DE CALIDAD DE PROCESO 1",
-    "IMPRESION RESINA",
-    "FRESADO ZR-DSL-PMMA",
-    "FRESADO CERA",
-    "ENCERADO MANUAL",
-    "SINTERIZADO",
-    "IMPRESION 3D",
-    "DISEÑO DE BARRA",
-    "ENFILADO",
-    "CONTROL CALIDAD DE PROCESO 2",
-    "PULIDO DE METAL Y RESINAS",
-    "MICROFRESADO",
-    "FRESADO MONTURA",
-    "REVESTIR + DESENCERAR + INYECTAR",
-    "LIBERADO Y PULIDO LIBRE DE METAL",
-    "MAQUILLAJE Y CERAMICA",
-    "CONTROL DE CALIDAD LIBERACION",
-    "LIMPIEZA Y DESINFECCION DE DISPOSITIVO TERMINADO",
-  ]
   const [serviciosDetalle, setServiciosDetalle] = useState<Servicio[]>([])
   const [loadingDetalle, setLoadingDetalle] = useState(false)
   const [servicioDocs, setServicioDocs] = useState<Record<number, { declaracion_conformidad: File | null; manual_uso: File | null }>>({})
@@ -738,6 +713,42 @@ export default function ClientePerfilPage() {
     }
 
     loadAdmin()
+  }, [])
+
+  // El empleado también registra fases, así que el orden de fabricación se
+  // actualiza solo cuando alguien lo toca, sin esperar a recargar.
+  useEffect(() => {
+    const channel = supabase
+      .channel("orden-fases-solicitudes")
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "solicitudes" },
+        (payload) => {
+          const nueva = payload.new as { id?: number; orden_fases?: string | null }
+          const solicitudId = nueva?.id
+          if (!solicitudId) return
+
+          let fases: any[] = []
+          try {
+            fases = nueva.orden_fases ? JSON.parse(nueva.orden_fases) : []
+          } catch {
+            fases = []
+          }
+          setFasesOrden((prev) => ({ ...prev, [solicitudId]: fases }))
+          setSolicitudes((prev) =>
+            prev.map((s) =>
+              s.id === solicitudId
+                ? ({ ...s, orden_fases: nueva.orden_fases ?? null } as Solicitud)
+                : s
+            )
+          )
+        }
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [])
 
   const handleVerSolicitud = async (solicitud: Solicitud) => {
