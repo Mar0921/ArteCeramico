@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js"
 import jsPDF from "jspdf"
 import { SERVICE_PRICES, parsePrice } from "@/lib/service-prices"
 import { generateCodigoTrazabilidad } from "@/lib/trazabilidad"
+import { autenticarInterno } from "@/lib/autorizacion"
 
 export const runtime = "nodejs"
 
@@ -474,17 +475,52 @@ export async function POST(request: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    const { data: cliente, error: clienteError } = await supabase
-      .from("clientes")
-      .select("id, nombre, tipo, documento, correo, telefono, clinica")
-      .eq("user_id", userId)
-      .single()
+    const clienteIdSolicitado = String(formData.get("clienteId") || "").trim()
 
-    if (clienteError || !cliente) {
-      return NextResponse.json(
-        { message: "Cliente no encontrado." },
-        { status: 404 }
-      )
+    // El personal interno (admins y empleados) crea solicitudes para un cliente
+    // elegido, por lo que no existe una fila en `clientes` asociada a su
+    // user_id. El cliente final sigue resolviendose por su propia cuenta.
+    let cliente: any = null
+
+    if (clienteIdSolicitado) {
+      const interno = await autenticarInterno(request)
+
+      if (!interno.ok) {
+        return NextResponse.json(
+          { message: interno.message },
+          { status: interno.status }
+        )
+      }
+
+      const { data, error } = await supabase
+        .from("clientes")
+        .select("id, nombre, tipo, documento, correo, telefono, clinica")
+        .eq("id", Number(clienteIdSolicitado))
+        .maybeSingle()
+
+      if (error || !data) {
+        return NextResponse.json(
+          { message: "El cliente seleccionado no existe." },
+          { status: 404 }
+        )
+      }
+
+      cliente = data
+    } else {
+      const { data, error: clienteError } = await supabase
+        .from("clientes")
+        .select("id, nombre, tipo, documento, correo, telefono, clinica")
+        .eq("user_id", userId)
+        .single()
+
+      if (clienteError || !data) {
+        return NextResponse.json(
+          { message: "Cliente no encontrado." },
+          { status: 404 }
+        )
+      }
+
+      cliente = data
     }
 
     if (urlsDocumentos.length === 0 && archivos.length > 0) {

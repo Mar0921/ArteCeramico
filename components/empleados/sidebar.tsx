@@ -1,7 +1,7 @@
 "use client"
 
 import { motion, AnimatePresence } from "framer-motion"
-import { X, LayoutDashboard, Package, Calendar, CheckCircle, ChevronRight, User, FileText, Users } from "lucide-react"
+import { X, LayoutDashboard, Package, Calendar, CheckCircle, ChevronRight, User, FileText, Users, Plus } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 
@@ -68,6 +68,15 @@ export function EmpleadoSidebar({ isOpen, onClose, empleado }: EmpleadoSidebarPr
                     </Link>
                   )
                 })}
+
+                <Link
+                  href="/empleados/dashboard/solicitudes/nueva"
+                  onClick={onClose}
+                  className="mt-2 flex items-center gap-3 rounded-lg bg-blue-600 px-3 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
+                >
+                  <Plus size={18} className="shrink-0" />
+                  Nueva solicitud
+                </Link>
 
                 <div className="mt-6 pt-4 border-t border-border">
                   <div className="flex items-center gap-3 px-3 py-2">

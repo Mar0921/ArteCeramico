@@ -11,6 +11,7 @@ import {
   Filter,
   Loader2,
   Package,
+  Plus,
   Search,
   Stethoscope,
 } from "lucide-react"
@@ -148,6 +149,13 @@ export default function EmpleadosSolicitudesPage() {
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2 w-full sm:max-w-sm">
+          <Link
+            href="/empleados/dashboard/solicitudes/nueva"
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-blue-700"
+          >
+            <Plus size={16} />
+            Nueva solicitud
+          </Link>
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <input

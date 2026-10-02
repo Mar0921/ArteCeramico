@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef, useCallback, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { SolicitudSection } from "./solicitud-section"
 import { DrawableToothRef } from "./drawable-tooth"
@@ -16,6 +16,13 @@ import {
   formatFecha,
 } from "./solicitud-types"
 
+interface ClienteFormulario {
+  id: number
+  nombre?: string | null
+  correo?: string | null
+  telefono?: string | null
+}
+
 interface PrescriptionFormProps {
   initialData?: {
     odontologo?: string
@@ -24,13 +31,23 @@ interface PrescriptionFormProps {
   tipoServicio?: string
   tipoTrabajo?: string[]
   material?: string[]
+  /**
+   * Cuando se informa, la solicitud se crea para este cliente en lugar de para
+   * el usuario autenticado. Solo lo usa el personal interno, y la API valida
+   * que quien llama sea admin o empleado antes de respetarlo.
+   */
+  cliente?: ClienteFormulario | null
+  /** Cambia el destino tras enviar y aísla los borradores en localStorage. */
+  modo?: "cliente" | "empleado"
+  redireccionExitosa?: string
 }
 
 function buildFormDataPayload(
   solicitud: SolicitudEntry,
   email: string,
   userId: string,
-  drawingDataUrl: string | null
+  drawingDataUrl: string | null,
+  clienteId?: number | null
 ): FormData {
   const { formData, servicioTipo, selectedTeeth, toothStatuses, uploadedFiles } = solicitud
   const payload = new FormData()
@@ -43,6 +60,12 @@ function buildFormDataPayload(
   payload.append("userId", userId)
   payload.append("correoOdontologo", email)
   payload.append("servicio", servicioTipo)
+
+  // El personal interno indica el cliente destinatario; sin este dato la API
+  // resuelve el cliente a partir del user_id del remitente.
+  if (clienteId) {
+    payload.append("clienteId", String(clienteId))
+  }
 
   payload.append("indicaciones", formData.indicaciones || "")
   payload.append("odontologo", formData.odontologo || "")
@@ -104,15 +127,26 @@ export function PrescriptionForm({
   tipoServicio = "",
   tipoTrabajo = [],
   material = [],
+  cliente = null,
+  modo = "cliente",
+  redireccionExitosa = "/page_clientes",
 }: PrescriptionFormProps) {
   const formRef = useRef<HTMLDivElement>(null)
   const toothDrawRefs = useRef<Map<string, DrawableToothRef | null>>(new Map())
   const initializedRef = useRef(false)
 
+  // Los borradores se aíslan por modo y por cliente: si compartieran clave, el
+  // borrador de una solicitud de empleado aparecería al odontólogo en su propio
+  // formulario (y viceversa) en el mismo navegador.
+  const storageKey = useMemo(
+    () => `arteCeramico_solicitudes_${modo}${cliente ? `_${cliente.id}` : ""}`,
+    [modo, cliente?.id]
+  )
+
     const [solicitudes, setSolicitudes] = useState<SolicitudEntry[]>(() => {
       if (typeof window !== "undefined") {
         try {
-          const stored = localStorage.getItem("arteCeramico_solicitudes")
+          const stored = localStorage.getItem(storageKey)
           if (stored) {
             const parsed = JSON.parse(stored)
             if (Array.isArray(parsed) && parsed.length > 0) {
@@ -135,7 +169,7 @@ export function PrescriptionForm({
       }
 
       return [createDefaultSolicitud({
-        odontologo: initialData?.odontologo,
+        odontologo: initialData?.odontologo ?? cliente?.nombre ?? undefined,
       })]
     })
   const [activeIndex, setActiveIndex] = useState(0)
@@ -163,40 +197,54 @@ export function PrescriptionForm({
   useEffect(() => {
     if (typeof window !== "undefined") {
       try {
-        localStorage.setItem("arteCeramico_solicitudes", JSON.stringify(solicitudes))
+        localStorage.setItem(storageKey, JSON.stringify(solicitudes))
       } catch {
         // ignore storage errors
       }
     }
-  }, [solicitudes])
+  }, [solicitudes, storageKey])
 
   useEffect(() => {
     const fetchClientData = async () => {
       try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser()
+        let datos: { nombre?: string | null; correo?: string | null; telefono?: string | null } | null = null
 
-        if (!user) return
+        if (cliente) {
+          // El personal interno ya eligió el cliente: se usan sus datos tal
+          // cual vienen del selector, sin consultar por user_id.
+          datos = {
+            nombre: cliente.nombre,
+            correo: cliente.correo,
+            telefono: cliente.telefono,
+          }
+        } else {
+          const {
+            data: { user },
+          } = await supabase.auth.getUser()
 
-        const { data, error } = await supabase
-          .from("clientes")
-          .select("nombre, documento, correo, telefono")
-          .eq("user_id", user.id)
-          .single()
+          if (!user) return
 
-        if (error || !data) {
-          return
+          const { data, error } = await supabase
+            .from("clientes")
+            .select("nombre, documento, correo, telefono")
+            .eq("user_id", user.id)
+            .single()
+
+          if (error || !data) return
+
+          datos = data
         }
+
+        if (!datos) return
 
         setSolicitudes((prev) =>
           prev.map((s) => ({
             ...s,
             formData: {
               ...s.formData,
-              odontologo: data.nombre ?? s.formData.odontologo,
-              correo: data.correo ?? s.formData.correo,
-              telefono: data.telefono ?? s.formData.telefono,
+              odontologo: datos!.nombre ?? s.formData.odontologo,
+              correo: datos!.correo ?? s.formData.correo,
+              telefono: datos!.telefono ?? s.formData.telefono,
             },
           }))
         )
@@ -206,7 +254,7 @@ export function PrescriptionForm({
     }
 
     fetchClientData()
-  }, [])
+  }, [cliente?.id])
 
 
   useEffect(() => {
@@ -263,13 +311,14 @@ export function PrescriptionForm({
 
     try {
       const {
-        data: { user },
-      } = await supabase.auth.getUser()
+        data: { session },
+      } = await supabase.auth.getSession()
 
-      const email = user?.email
-      const userId = user?.id
+      const email = session?.user?.email
+      const userId = session?.user?.id
+      const accessToken = session?.access_token
 
-      if (!email || !userId) {
+      if (!email || !userId || !accessToken) {
         alert("No se encontró la sesión del usuario")
         return
       }
@@ -287,11 +336,20 @@ export function PrescriptionForm({
         const solicitud = solicitudes[i]
         const drawRef = toothDrawRefs.current.get(solicitud.id)
         const drawingDataUrl = drawRef?.getDrawingDataUrl() ?? null
-        const payload = buildFormDataPayload(solicitud, email, userId, drawingDataUrl)
+        const payload = buildFormDataPayload(
+          solicitud,
+          email,
+          userId,
+          drawingDataUrl,
+          cliente?.id ?? null
+        )
 
         try {
           const response = await fetch("/api/solicitudes", {
             method: "POST",
+            // La API exige el token para validar el rol cuando la solicitud
+            // se crea en nombre de otro cliente.
+            headers: { Authorization: `Bearer ${accessToken}` },
             body: payload,
           })
           const result = await response.json()
@@ -331,7 +389,7 @@ export function PrescriptionForm({
       setSolicitudEnviada(true)
 
       if (failed.length === 0) {
-        localStorage.removeItem("arteCeramico_solicitudes")
+        localStorage.removeItem(storageKey)
       }
     } catch (error: unknown) {
       console.error("Error en handleSubmit:", error)
@@ -543,7 +601,7 @@ export function PrescriptionForm({
             <button
               onClick={() => {
                 setSolicitudEnviada(false)
-                window.location.href = "/page_clientes"
+                window.location.href = redireccionExitosa
               }}
               className="w-full rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all hover:bg-primary-dark"
             >

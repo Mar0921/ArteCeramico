@@ -41,6 +41,8 @@ interface DienteDetalle {
   numero: number
   servicio: string
   estado: string
+  tipoTrabajo: string
+  material: string
 }
 
 interface FaseProceso {
@@ -190,7 +192,14 @@ export default function EmpleadoSolicitudDetallePage() {
     setError(null)
     try {
       const res = await fetch(`/api/empleados/solicitudes/${solicitudId}`)
-      if (!res.ok) throw new Error("No se pudo cargar la solicitud.")
+      if (!res.ok) {
+        // Se propaga el mensaje del servidor: un texto genérico ocultaba
+        // errores de esquema (p. ej. tablas sin migrar) difíciles de detectar.
+        const body = await res.json().catch(() => null)
+        throw new Error(
+          body?.details || body?.message || "No se pudo cargar la solicitud."
+        )
+      }
       const result = await res.json()
       setData(result.data)
     } catch (err) {
@@ -468,8 +477,10 @@ export default function EmpleadoSolicitudDetallePage() {
             </div>
             <InfoRow label="Piezas enviadas">{joinList(s.piezas_enviadas)}</InfoRow>
             <InfoRow label="Dientes asociados">
-              {s.dientes_detallados && s.dientes_detallados.length > 0
-                ? s.dientes_detallados.map((d) => d.numero).join(", ")
+              {s.dientes_detallados.length > 0
+                ? s.dientes_detallados
+                    .map((d) => `#${d.numero}${d.tipoTrabajo ? ` (${d.tipoTrabajo})` : ""}`)
+                    .join(", ")
                 : s.dientes_trabajados && s.dientes_trabajados.length > 0
                   ? s.dientes_trabajados.join(", ")
                   : "-"}
@@ -604,11 +615,13 @@ export default function EmpleadoSolicitudDetallePage() {
               <p className="text-sm text-muted-foreground">Sin dientes registrados.</p>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[400px] border-collapse text-sm">
+                <table className="w-full min-w-[560px] border-collapse text-sm">
                   <thead>
                     <tr className="border-b border-border text-left text-[11px] uppercase tracking-wider text-muted-foreground">
-                      <th className="px-3 py-2 font-medium">#</th>
+                      <th className="px-3 py-2 font-medium">Diente</th>
+                      <th className="px-3 py-2 font-medium">Tipo de trabajo</th>
                       <th className="px-3 py-2 font-medium">Servicio</th>
+                      <th className="px-3 py-2 font-medium">Material</th>
                       <th className="px-3 py-2 font-medium">Estado</th>
                     </tr>
                   </thead>
@@ -618,8 +631,12 @@ export default function EmpleadoSolicitudDetallePage() {
                         key={`${d.numero}-${idx}`}
                         className="border-b border-border last:border-0"
                       >
-                        <td className="px-3 py-2">{d.numero}</td>
+                        <td className="px-3 py-2 font-semibold text-foreground">
+                          {d.numero}
+                        </td>
+                        <td className="px-3 py-2 break-words">{d.tipoTrabajo || "-"}</td>
                         <td className="px-3 py-2 break-words">{d.servicio || "-"}</td>
+                        <td className="px-3 py-2 break-words">{d.material || "-"}</td>
                         <td className="px-3 py-2 capitalize">{d.estado || "normal"}</td>
                       </tr>
                     ))}

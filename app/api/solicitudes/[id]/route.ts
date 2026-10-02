@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { construirDetalleDientes } from "@/lib/dientes"
 
 export const runtime = "nodejs"
 
@@ -117,7 +118,7 @@ export async function GET(
 
 const { data: solicitud, error: solicitudError } = await supabase
         .from("solicitudes")
-        .select("id, servicio, observaciones, estado, created_at, updated_at, cliente_id, urls_documentos, fecha_elaboracion, fecha_entrega, historia_clinica, historia_clinica_paciente, odontologo, cc_odontologo, odontologo_direccion, odontologo_firma, paciente, cc_paciente, color, guia, prueba, terminado, chimenea, caja, codigo_trazabilidad, dientes_trabajados, piezas_enviadas, fase, orden_fabricacion_url, orden_materiales, orden_fases, terminos_garantia, fichas_tecnicas")
+        .select("*")
       .eq("id", solicitudId)
       .single()
 
@@ -128,16 +129,19 @@ const { data: solicitud, error: solicitudError } = await supabase
       )
     }
 
-    const { data: cliente, error: clienteError } = await supabase
+    const { data: cliente } = await supabase
       .from("clientes")
       .select("id, nombre, tipo, documento, correo, telefono, clinica")
       .eq("id", solicitud.cliente_id)
-      .single()
+      .maybeSingle()
 
     const { data: servicios, error: serviciosError } = await supabase
       .from("servicios")
-      .select("id, nombre, descripcion, precio, cantidad, created_at, tipo_trabajo, material, dientes, piezas_enviadas, declaracion_conformidad, guia_fabricacion, manual_uso")
+      .select("*")
       .eq("solicitud_id", solicitudId)
+      .order("id", { ascending: true })
+
+    if (serviciosError) throw serviciosError
 
     const { data: dientesData, error: dientesError } = await supabase
       .from("dientes")
@@ -145,11 +149,16 @@ const { data: solicitud, error: solicitudError } = await supabase
       .eq("solicitud_id", solicitudId)
       .order("numero", { ascending: true })
 
-    const dientesDetallados = (dientesData || []).map((d: any) => ({
-      numero: Number(d.numero),
-      servicio: String(d.servicio || ""),
-      estado: String(d.estado || "normal"),
-    }))
+    // Tabla opcional: si la migración 20250715_dientes.sql no está aplicada, el
+    // detalle se reconstruye desde dientes_trabajados y los servicios.
+    const dientesNoDisponible = dientesError?.code === "PGRST205"
+    if (dientesError && !dientesNoDisponible) throw dientesError
+
+    const dientesDetallados = construirDetalleDientes({
+      tokens: solicitud.dientes_trabajados,
+      filasDientes: dientesData || null,
+      servicios: servicios || null,
+    })
 
     const serviciosDetalle = (servicios || []).map((serv: any) => ({
       id: serv.id,

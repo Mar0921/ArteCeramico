@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
+import { construirDetalleDientes } from "@/lib/dientes"
 
 export const runtime = "nodejs"
 
@@ -82,7 +83,7 @@ export async function GET(
 
     const { data: solicitud, error: solicitudError } = await supabaseAdmin
       .from("solicitudes")
-      .select(`id, servicio, observaciones, estado, created_at, updated_at, cliente_id, urls_documentos, fecha_elaboracion, fecha_entrega, historia_clinica, historia_clinica_paciente, odontologo, cc_odontologo, odontologo_tarjeta_profesional, odontologo_registro_medico, odontologo_correo, odontologo_telefono, odontologo_direccion, paciente, cc_paciente, color, guia, prueba, terminado, chimenea, caja, codigo_trazabilidad, dientes_trabajados, piezas_enviadas, tipos_trabajo, materiales, fase, orden_fabricacion_url, orden_materiales, orden_fases, dibujo_odontologo`)
+      .select("*")
       .eq("id", solicitudId)
       .single()
 
@@ -93,18 +94,19 @@ export async function GET(
       )
     }
 
-    const { data: cliente, error: clienteError } = await supabaseAdmin
+    const { data: cliente } = await supabaseAdmin
       .from("clientes")
       .select("id, nombre, tipo, documento, correo, telefono, clinica")
       .eq("id", solicitud.cliente_id)
-      .single()
+      .maybeSingle()
 
     const { data: servicios, error: serviciosError } = await supabaseAdmin
       .from("servicios")
-      .select(
-        "id, nombre, descripcion, cantidad, tipo_trabajo, material, dientes, piezas_enviadas, created_at"
-      )
+      .select("*")
       .eq("solicitud_id", solicitudId)
+      .order("id", { ascending: true })
+
+    if (serviciosError) throw serviciosError
 
     const { data: dientesData, error: dientesError } = await supabaseAdmin
       .from("dientes")
@@ -112,14 +114,22 @@ export async function GET(
       .eq("solicitud_id", solicitudId)
       .order("numero", { ascending: true })
 
-    if (serviciosError) throw serviciosError
-    if (dientesError) throw dientesError
+    // `dientes` es una tabla opcional: si la migración 20250715_dientes.sql no
+    // está aplicada, el detalle se reconstruye igual desde
+    // `dientes_trabajados` y los servicios. Cualquier otro error sí se propaga.
+    const dientesNoDisponible = dientesError?.code === "PGRST205"
+    if (dientesError && !dientesNoDisponible) throw dientesError
+    if (dientesNoDisponible) {
+      console.warn(
+        "Tabla `dientes` no disponible. Aplique supabase/migrations/20250715_dientes.sql"
+      )
+    }
 
-    const dientesDetallados = (dientesData || []).map((d: any) => ({
-      numero: Number(d.numero),
-      servicio: String(d.servicio || ""),
-      estado: String(d.estado || "normal"),
-    }))
+    const dientesDetallados = construirDetalleDientes({
+      tokens: solicitud.dientes_trabajados,
+      filasDientes: dientesData || null,
+      servicios: servicios || null,
+    })
 
     return NextResponse.json({
       data: {
@@ -130,8 +140,12 @@ export async function GET(
     })
   } catch (error) {
     console.error("Error inesperado en /api/empleados/solicitudes/[id]:", error)
+    const detalle =
+      error && typeof (error as any).message === "string"
+        ? (error as any).message
+        : undefined
     return NextResponse.json(
-      { message: "Error interno del servidor." },
+      { message: "Error interno del servidor.", details: detalle },
       { status: 500 }
     )
   }
