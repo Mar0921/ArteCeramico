@@ -172,8 +172,19 @@ async function buildPdfBuffer(data: {
 
   doc.setFontSize(12)
   doc.setFont("helvetica", "bold")
-  doc.text("SOLICITUD DE SERVICIO", pageWidth / 2, y, { align: "center" })
-  y += 8
+  doc.text("PRESCRIPCIÓN", pageWidth / 2, y, { align: "center" })
+  y += 6
+
+  // Cabecera de la prescripción, en la misma distribución que el formulario:
+  // fecha de elaboración a la izquierda, código al centro y versión a la derecha.
+  doc.setFontSize(8)
+  doc.setFont("helvetica", "normal")
+  doc.text("Fecha de elaboración: 01-02-2026", margin, y)
+  doc.text("CÓDIGO: SIG-GF-FOR-002", pageWidth / 2, y, { align: "center" })
+  doc.text("VERSIÓN: 001", pageWidth - margin, y, { align: "right" })
+  y += 6
+
+  addLine()
 
   addSectionTitle("DATOS DEL CLIENTE")
   addFieldsGrid([

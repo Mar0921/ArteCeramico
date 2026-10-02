@@ -37,6 +37,7 @@ import {
   Shield,
   Download,
   Printer,
+  Plus,
 } from "lucide-react"
 
 import { Navbar } from "@/components/navbar"
@@ -2309,11 +2310,19 @@ export default function ClientesPage() {
                   Solicitudes de Servicio
                 </h2>
 
-                <p className="text-sm text-muted-foreground">
+<p className="text-sm text-muted-foreground">
                   Gestiona tus pedidos y adjunta documentos
                 </p>
               </div>
-          </div>
+            </div>
+
+            <Link
+              href="/formulario"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-all hover:bg-primary-dark"
+            >
+              <Plus size={16} />
+              Nueva solicitud
+            </Link>
           </div>
 
           <div className="mb-4">
@@ -2579,6 +2588,12 @@ export default function ClientesPage() {
                               <span className="text-gray-500">Registro Médico:</span>{" "}
                               <span className="text-gray-800">{(solicitud as any).odontologo_registro_medico || "-"}</span>
                             </div>
+                            {(solicitud as any).direccion && (
+                              <div>
+                                <span className="text-gray-500">Dirección:</span>{" "}
+                                <span className="text-gray-800">{(solicitud as any).direccion}</span>
+                              </div>
+                            )}
                              <div>
                                <span className="text-gray-500">Paciente:</span>{" "}
                                <span className="text-gray-800">{(solicitud as any).paciente || "-"}</span>
@@ -2623,12 +2638,6 @@ export default function ClientesPage() {
                                <span className="text-gray-500">Guía:</span>{" "}
                                <span className="text-gray-800">{(solicitud as any).guia || "-"}</span>
                              </div>
-                             {(solicitud as any).direccion && (
-                               <div>
-                                 <span className="text-gray-500">Dirección:</span>{" "}
-                                 <span className="text-gray-800">{(solicitud as any).direccion}</span>
-                               </div>
-                             )}
                            </div>
 
                            {/* Opciones adicionales */}
@@ -3146,6 +3155,12 @@ export default function ClientesPage() {
                     <p className="text-sm text-foreground">{(selectedSolicitud as any).odontologo_registro_medico}</p>
                   </div>
                 )}
+                {(selectedSolicitud as any).direccion && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Dirección</p>
+                    <p className="text-sm text-foreground">{(selectedSolicitud as any).direccion}</p>
+                  </div>
+                )}
                 {(selectedSolicitud as any).paciente && (
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">Paciente</p>
@@ -3156,12 +3171,6 @@ export default function ClientesPage() {
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">CC. Paciente</p>
                     <p className="text-sm text-foreground">{(selectedSolicitud as any).cc_paciente}</p>
-                  </div>
-                )}
-                {(selectedSolicitud as any).direccion && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Dirección</p>
-                    <p className="text-sm text-foreground">{(selectedSolicitud as any).direccion}</p>
                   </div>
                 )}
                 {(selectedSolicitud as any).odontologo_firma && (

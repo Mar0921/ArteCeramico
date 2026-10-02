@@ -4,7 +4,7 @@ import { Suspense } from "react"
 import { Loader2 } from "lucide-react"
 import { NuevaSolicitudDesdeCliente } from "@/components/nueva-solicitud/nueva-solicitud-cliente"
 
-export default function NuevaSolicitudEmpleadoPage() {
+export default function NuevaSolicitudAdminPage() {
   return (
     <Suspense
       fallback={
@@ -14,9 +14,9 @@ export default function NuevaSolicitudEmpleadoPage() {
       }
     >
       <NuevaSolicitudDesdeCliente
-        modo="empleado"
-        volverA="/empleados/dashboard/solicitudes"
-        redireccionExitosa="/empleados/dashboard/solicitudes"
+        modo="admin"
+        volverA="/dashboard/clientes"
+        redireccionExitosa="/dashboard/clientes"
       />
     </Suspense>
   )

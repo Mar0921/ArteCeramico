@@ -38,7 +38,7 @@ interface PrescriptionFormProps {
    */
   cliente?: ClienteFormulario | null
   /** Cambia el destino tras enviar y aísla los borradores en localStorage. */
-  modo?: "cliente" | "empleado"
+  modo?: "cliente" | "empleado" | "admin"
   redireccionExitosa?: string
 }
 
@@ -481,7 +481,7 @@ export function PrescriptionForm({
           <h1 className="text-lg font-bold text-gray-800">Prescripción</h1>
           <div className="flex items-center gap-4 text-xs text-gray-600">
             <span><span className="font-semibold">Fecha de elaboración:</span> 01-02-2026</span>
-            <span><span className="font-semibold">CODIGO:</span> GF-FO-001</span>
+            <span><span className="font-semibold">CÓDIGO:</span> SIG-GF-FOR-002</span>
             <span><span className="font-semibold">VERSION:</span> 001</span>
           </div>
         </div>

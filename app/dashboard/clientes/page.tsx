@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
@@ -198,6 +198,84 @@ export default function ClientesPage() {
   const [fichasTecnicasPorSolicitud, setFichasTecnicasPorSolicitud] = useState<Record<number, any[]>>({})
   const [loadingFichasTecnicas, setLoadingFichasTecnicas] = useState<Record<number, boolean>>({})
 
+  const TIPOS_DOCUMENTO = [
+    { value: "cc", label: "Cédula de Ciudadanía" },
+    { value: "ce", label: "Cédula de Extranjería" },
+    { value: "nit", label: "NIT" },
+    { value: "pasaporte", label: "Pasaporte" },
+  ]
+
+  const [modalNuevoCliente, setModalNuevoCliente] = useState(false)
+  const [creandoCliente, setCreandoCliente] = useState(false)
+  const [errorNuevoCliente, setErrorNuevoCliente] = useState<string | null>(null)
+  const [nuevoCliente, setNuevoCliente] = useState({
+    nombre: "",
+    tipodoc: "cc",
+    documento: "",
+    correo: "",
+    telefono: "",
+    clinica: "",
+  })
+
+  const abrirModalNuevoCliente = () => {
+    setNuevoCliente({
+      nombre: "",
+      tipodoc: "cc",
+      documento: "",
+      correo: "",
+      telefono: "",
+      clinica: "",
+    })
+    setErrorNuevoCliente(null)
+    setModalNuevoCliente(true)
+  }
+
+  const handleCrearCliente = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setCreandoCliente(true)
+    setErrorNuevoCliente(null)
+
+    try {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession()
+
+      if (!session?.access_token) {
+        setErrorNuevoCliente("Tu sesión expiró. Vuelve a iniciar sesión.")
+        return
+      }
+
+      const response = await fetch("/api/clientes", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify(nuevoCliente),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        setErrorNuevoCliente(result.error || "No fue posible crear el cliente.")
+        return
+      }
+
+      await loadClients()
+      setModalNuevoCliente(false)
+      toast({
+        title: "Cliente creado",
+        description: `${result.data.nombre} quedó registrado correctamente.`,
+      })
+    } catch (err) {
+      setErrorNuevoCliente(
+        err instanceof Error ? err.message : "Error al crear el cliente."
+      )
+    } finally {
+      setCreandoCliente(false)
+    }
+  }
+
   useEffect(() => {
     const getAdmin = async () => {
       const { data: { user } } = await supabase.auth.getUser()
@@ -327,25 +405,25 @@ const canvas = await html2canvas(elemento, {
      setSolicitudModalId(null)
    }
 
-   useEffect(() => {
-     const loadClients = async () => {
-      const { data, error } = await supabase
-        .from("clientes")
-        .select("*")
-        .order("created_at", { ascending: false })
+   const loadClients = useCallback(async () => {
+    const { data, error } = await supabase
+      .from("clientes")
+      .select("*")
+      .order("created_at", { ascending: false })
 
-      if (!error && data) {
-        const clientesConSolicitudes = (data as Cliente[]).map((cliente) => ({
-          ...cliente,
-          solicitudes: [],
-        }))
-        setClientes(clientesConSolicitudes as ClienteConSolicitudes[])
-      }
-      setLoading(false)
+    if (!error && data) {
+      const clientesConSolicitudes = (data as Cliente[]).map((cliente) => ({
+        ...cliente,
+        solicitudes: [],
+      }))
+      setClientes(clientesConSolicitudes as ClienteConSolicitudes[])
     }
-
-    loadClients()
+    setLoading(false)
   }, [])
+
+  useEffect(() => {
+    loadClients()
+  }, [loadClients])
 
   useEffect(() => {
     const channel = supabase
@@ -1235,7 +1313,17 @@ const canvas = await html2canvas(elemento, {
             </svg>
             Volver al Dashboard
           </Link>
-          <button className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary-dark">
+          <Link
+            href="/dashboard/solicitudes/nueva"
+            className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+          >
+            <FileText size={18} />
+            Nueva Solicitud
+          </Link>
+          <button
+            onClick={abrirModalNuevoCliente}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-all hover:bg-primary-dark"
+          >
             <Plus size={18} />
             Nuevo Cliente
           </button>
@@ -2146,6 +2234,167 @@ const canvas = await html2canvas(elemento, {
           </div>
         </div>
       )}
+
+      {/* Modal Nuevo Cliente */}
+      <AnimatePresence>
+        {modalNuevoCliente && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            onClick={() => !creandoCliente && setModalNuevoCliente(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-lg rounded-2xl border border-border bg-card shadow-2xl"
+            >
+              <div className="flex items-center justify-between border-b border-border p-5">
+                <div>
+                  <h2 className="text-lg font-bold text-foreground">Nuevo Cliente</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Registra un cliente para poder crearle solicitudes
+                  </p>
+                </div>
+                <button
+                  onClick={() => setModalNuevoCliente(false)}
+                  disabled={creandoCliente}
+                  className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+                  aria-label="Cerrar"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleCrearCliente} className="space-y-4 p-5">
+                <div>
+                  <label htmlFor="nuevo-nombre" className="mb-1.5 block text-sm font-medium text-foreground">
+                    Nombre completo <span className="text-destructive">*</span>
+                  </label>
+                  <input
+                    id="nuevo-nombre"
+                    required
+                    value={nuevoCliente.nombre}
+                    onChange={(e) => setNuevoCliente({ ...nuevoCliente, nombre: e.target.value })}
+                    placeholder="Ej: Ana Martínez"
+                    className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary"
+                  />
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="nuevo-tipodoc" className="mb-1.5 block text-sm font-medium text-foreground">
+                      Tipo de documento
+                    </label>
+                    <div className="relative">
+                      <select
+                        id="nuevo-tipodoc"
+                        value={nuevoCliente.tipodoc}
+                        onChange={(e) => setNuevoCliente({ ...nuevoCliente, tipodoc: e.target.value })}
+                        className="w-full appearance-none rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary"
+                      >
+                        {TIPOS_DOCUMENTO.map((t) => (
+                          <option key={t.value} value={t.value}>
+                            {t.label}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown
+                        size={16}
+                        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label htmlFor="nuevo-documento" className="mb-1.5 block text-sm font-medium text-foreground">
+                      Documento <span className="text-destructive">*</span>
+                    </label>
+                    <input
+                      id="nuevo-documento"
+                      required
+                      value={nuevoCliente.documento}
+                      onChange={(e) => setNuevoCliente({ ...nuevoCliente, documento: e.target.value })}
+                      placeholder="Ej: 1234567890"
+                      className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label htmlFor="nuevo-correo" className="mb-1.5 block text-sm font-medium text-foreground">
+                    Correo electrónico <span className="text-destructive">*</span>
+                  </label>
+                  <input
+                    id="nuevo-correo"
+                    type="email"
+                    required
+                    value={nuevoCliente.correo}
+                    onChange={(e) => setNuevoCliente({ ...nuevoCliente, correo: e.target.value })}
+                    placeholder="cliente@correo.com"
+                    className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary"
+                  />
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="nuevo-telefono" className="mb-1.5 block text-sm font-medium text-foreground">
+                      Teléfono
+                    </label>
+                    <input
+                      id="nuevo-telefono"
+                      value={nuevoCliente.telefono}
+                      onChange={(e) => setNuevoCliente({ ...nuevoCliente, telefono: e.target.value })}
+                      placeholder="Ej: 3001234567"
+                      className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary"
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="nuevo-clinica" className="mb-1.5 block text-sm font-medium text-foreground">
+                      Clínica
+                    </label>
+                    <input
+                      id="nuevo-clinica"
+                      value={nuevoCliente.clinica}
+                      onChange={(e) => setNuevoCliente({ ...nuevoCliente, clinica: e.target.value })}
+                      placeholder="Ej: Clínica Dental Elite"
+                      className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary"
+                    />
+                  </div>
+                </div>
+
+                {errorNuevoCliente && (
+                  <div className="flex items-start gap-2 rounded-xl border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+                    <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                    <span>{errorNuevoCliente}</span>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-end gap-3 border-t border-border pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setModalNuevoCliente(false)}
+                    disabled={creandoCliente}
+                    className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creandoCliente}
+                    className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-dark disabled:opacity-50"
+                  >
+                    {creandoCliente && <Loader2 size={16} className="animate-spin" />}
+                    Crear Cliente
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }

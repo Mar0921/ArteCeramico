@@ -2095,6 +2095,12 @@ if (!conv) return
                                      </div>
                                    </div>
                                  )}
+                                 {solicitud.direccion && (
+                                   <div className="flex items-center gap-1">
+                                     <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">DIRECCIÓN:</span>
+                                     <span className="text-sm text-gray-800">{solicitud.direccion || "-"}</span>
+                                   </div>
+                                 )}
                                  {solicitud.paciente && (
                                    <div className="flex items-center gap-4">
                                      <div className="flex items-center gap-1 flex-1">
@@ -2105,12 +2111,6 @@ if (!conv) return
                                        <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">CC.:</span>
                                        <span className="text-sm text-gray-800">{solicitud.cc_paciente || "-"}</span>
                                      </div>
-                                   </div>
-                                 )}
-                                 {solicitud.direccion && (
-                                   <div className="flex items-center gap-1">
-                                     <span className="text-[10px] font-semibold text-gray-600 whitespace-nowrap">DIRECCIÓN:</span>
-                                     <span className="text-sm text-gray-800">{solicitud.direccion || "-"}</span>
                                    </div>
                                  )}
                                   {client?.correo && (

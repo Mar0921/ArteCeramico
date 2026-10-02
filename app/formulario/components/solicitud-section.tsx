@@ -13,8 +13,25 @@ import { Calendar as CalendarIcon, Upload, File, X, DollarSign } from "lucide-re
 import { Calendar } from "@/components/ui/calendar"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import { SolicitudEntry, SolicitudFormData, ToothStatus, UploadedFile } from "./solicitud-types"
+import { SolicitudEntry, SolicitudFormData, ToothStatus, UploadedFile, ProductoLine } from "./solicitud-types"
 import { supabase } from "@/lib/supabase"
+
+/**
+ * Dientes declarados en una línea de producto.
+ *
+ * El campo `dientes` es texto libre ("11,12,21"), así que se separan sus
+ * tokens para poder contarlos y mantener las unidades al día.
+ */
+const listarDientes = (texto?: string): string[] => {
+  const vistos = new Set<string>()
+  String(texto || "")
+    .split(/[\s,\-]+/)
+    .forEach((token) => {
+      const n = parseInt(token, 10)
+      if (!isNaN(n) && n >= 1 && n <= 48) vistos.add(String(n))
+    })
+  return Array.from(vistos).sort((a, b) => Number(a) - Number(b))
+}
 
 const TIPOS_TRABAJO_PRINCIPAL = [
   "LIBRE DE METAL",
@@ -91,12 +108,56 @@ export function SolicitudSection({
   const [showCalendarEntrega, setShowCalendarEntrega] = useState(false)
   const [productoPendiente, setProductoPendiente] = useState("")
 
+  /**
+   * Al marcar un diente en el odontograma se anota en la línea de producto que
+   * lo tenga, o en la única línea existente si todavía no aparece en ninguna
+   * (al agregar varios productos no hay forma de saber a cuál pertenece).
+   */
+  const asignarDienteAProducto = (
+    toothNumber: number,
+    lineas: ProductoLine[]
+  ): ProductoLine[] => {
+    if (lineas.length === 0) return lineas
+
+    const yaListado = lineas.findIndex((l) =>
+      listarDientes(l.dientes).includes(String(toothNumber))
+    )
+    const indice = yaListado >= 0 ? yaListado : lineas.length === 1 ? 0 : -1
+    if (indice < 0) return lineas
+
+    const copia = [...lineas]
+    const dientes = Array.from(
+      new Set([...listarDientes(copia[indice].dientes), String(toothNumber)])
+    ).sort((a, b) => Number(a) - Number(b))
+
+    copia[indice] = unidadesSegunDientes({
+      ...copia[indice],
+      dientes: dientes.join(","),
+    })
+    return copia
+  }
+
+  /** Quitar un diente del odontograma lo descuenta de la línea que lo tenía. */
+  const quitarDienteDeProductos = (
+    toothNumber: number,
+    lineas: ProductoLine[]
+  ): ProductoLine[] =>
+    lineas.map((linea) => {
+      const dientes = listarDientes(linea.dientes).filter(
+        (d) => d !== String(toothNumber)
+      )
+      if (dientes.length === listarDientes(linea.dientes).length) return linea
+      return { ...linea, dientes: dientes.join(","), unidades: dientes.length }
+    })
+
   const handleToothSelect = (toothNumber: number) => {
+    const productos = asignarDienteAProducto(toothNumber, formData.productos)
     onUpdate({
       selectedTeeth: selectedTeeth.includes(toothNumber)
         ? selectedTeeth
         : [...selectedTeeth, toothNumber],
     })
+    onFormDataChange({ productos })
   }
 
   const handleToothStatusChange = (toothNumber: number, status: ToothStatus) => {
@@ -111,6 +172,9 @@ export function SolicitudSection({
     onUpdate({
       toothStatuses: next,
       selectedTeeth: selectedTeeth.filter((t) => t !== toothNumber),
+    })
+    onFormDataChange({
+      productos: quitarDienteDeProductos(toothNumber, formData.productos),
     })
   }
 
@@ -158,6 +222,17 @@ export function SolicitudSection({
     onUpdate({ selectedTeeth: merged, toothStatuses: nextStatuses })
   }
 
+  /**
+   * Las unidades siguen a los dientes: al escribir "11,12,21" la línea queda en
+   * 3 unidades. Solo suben, nunca bajan por debajo de lo que el usuario haya
+   *Digitado a mano; quitar un diente del odontograma sí las recalcula.
+   */
+  const unidadesSegunDientes = (linea: ProductoLine): ProductoLine => {
+    const cantidad = listarDientes(linea.dientes).length
+    if (cantidad === 0) return linea
+    return { ...linea, unidades: Math.max(linea.unidades || 0, cantidad) }
+  }
+
   const agregarProducto = () => {
     if (!productoPendiente) return
     const p = CATALOGO_PRODUCTOS[servicioTipo]?.find((x) => x.nombre === productoPendiente)
@@ -194,9 +269,12 @@ export function SolicitudSection({
   ) => {
     const actual = [...formData.productos]
     actual[index] = { ...actual[index], [campo]: valor }
-    onFormDataChange({ productos: actual })
+    // Editar los dientes es lo que dispara el recounted de unidades; los demás
+    // campos (precio, unidades manuales) dejan las unidades como estén.
+    const productos = campo === "dientes" ? actual.map(unidadesSegunDientes) : actual
+    onFormDataChange({ productos })
     if (campo === "dientes") {
-      marcarDientesDesdeProductos(actual)
+      marcarDientesDesdeProductos(productos)
     }
   }
 
@@ -432,6 +510,16 @@ export function SolicitudSection({
           </div>
         </div>
 
+        {/* La dirección es del odontólogo, así que va antes del bloque de paciente. */}
+        <div className="flex items-center gap-1">
+          <Label className="text-xs whitespace-nowrap">DIRECCIÓN:</Label>
+          <Input
+            className="flex-1 h-6 border-b border-gray-400 rounded-none border-t-0 border-l-0 border-r-0 text-xs"
+            value={formData.direccion}
+            onChange={(e) => onFormDataChange({ direccion: e.target.value })}
+          />
+        </div>
+
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-1 flex-1">
             <Label className="text-xs whitespace-nowrap">PACIENTE:</Label>
@@ -450,15 +538,6 @@ export function SolicitudSection({
             />
           </div>
         </div>
-
-         <div className="flex items-center gap-1">
-           <Label className="text-xs whitespace-nowrap">DIRECCIÓN:</Label>
-           <Input
-             className="flex-1 h-6 border-b border-gray-400 rounded-none border-t-0 border-l-0 border-r-0 text-xs"
-             value={formData.direccion}
-             onChange={(e) => onFormDataChange({ direccion: e.target.value })}
-           />
-         </div>
 
          <div className="flex flex-col gap-1">
            <Label className="text-xs whitespace-nowrap">HISTORIA CLÍNICA DEL PACIENTE:</Label>

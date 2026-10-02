@@ -87,10 +87,54 @@ export const DrawableTooth = forwardRef<DrawableToothRef, DrawableToothProps>(
       ctx.textBaseline = "middle"
       const offsetX = toothWidth / 4
       const offsetY = toothHeight / 4
-      ctx.fillText("1", centerX + offsetX, centerY - offsetY)
-      ctx.fillText("2", centerX - offsetX, centerY - offsetY)
-      ctx.fillText("3", centerX - offsetX, centerY + offsetY)
-      ctx.fillText("4", centerX + offsetX, centerY + offsetY)
+      // Cuadrantes en sentido horario: 1 arriba-izquierda (mesial), 2
+      // arriba-derecha (distal), 3 abajo-derecha, 4 abajo-izquierda.
+      ctx.fillText("1", centerX - offsetX, centerY - offsetY)
+      ctx.fillText("2", centerX + offsetX, centerY - offsetY)
+      ctx.fillText("3", centerX + offsetX, centerY + offsetY)
+      ctx.fillText("4", centerX - offsetX, centerY + offsetY)
+
+      // Orientación anatómica del diente: gingival arriba, incisal abajo,
+      // mesial/distal en las esquinas proximales y medio en el costado.
+      const halfWidth = toothWidth / 2
+      const halfHeight = toothHeight / 2
+      const bordeSuperior = centerY - halfHeight
+      const bordeInferior = centerY + halfHeight
+      const bordeIzquierdo = centerX - halfWidth
+      const bordeDerecho = centerX + halfWidth
+
+      // Las líneas de referencia atraviesan varias de estas etiquetas (la
+      // vertical cruza gingival e incisal, la horizontal cruza medio), así que
+      // cada rótulo lleva un fondo blanco que las tape.
+      const rotular = (
+        texto: string,
+        x: number,
+        y: number,
+        alineacion: CanvasTextAlign,
+        altoCaja: number
+      ) => {
+        ctx.textAlign = alineacion
+        const ancho = ctx.measureText(texto).width
+        const izquierda =
+          alineacion === "center"
+            ? x - ancho / 2
+            : alineacion === "right"
+              ? x - ancho
+              : x
+        ctx.fillStyle = "#ffffff"
+        ctx.fillRect(izquierda - 4, y - altoCaja / 2, ancho + 8, altoCaja)
+        ctx.fillStyle = "#4b5563"
+        ctx.fillText(texto, x, y)
+      }
+
+      ctx.font = "20px sans-serif"
+      rotular("gingival", centerX, bordeSuperior / 2, "center", 24)
+      rotular("incisal", centerX, (bordeInferior + h) / 2, "center", 24)
+      rotular("medio", bordeDerecho + 6, centerY, "left", 24)
+
+      ctx.font = "18px sans-serif"
+      rotular("distal", bordeDerecho - 8, bordeSuperior + 14, "center", 22)
+      rotular("mesial", bordeIzquierdo + 8, bordeSuperior + 14, "center", 22)
 
     }, [])
 
