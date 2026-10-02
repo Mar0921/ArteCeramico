@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import jsPDF from "jspdf"
 import { SERVICE_PRICES, parsePrice } from "@/lib/service-prices"
+import { generateCodigoTrazabilidad } from "@/lib/trazabilidad"
 
 export const runtime = "nodejs"
 
@@ -328,7 +329,7 @@ export async function POST(request: Request) {
 
     const fechaElaboracion = String(formData.get("fechaElaboracion") || "").trim()
     const fechaEntrega = String(formData.get("fechaEntrega") || "").trim()
-    const historiaClinica = String(formData.get("historiaClinica") || "").trim()
+    const historiaClinicaEnviada = String(formData.get("historiaClinica") || "").trim()
     const historiaClinicaPaciente = String(formData.get("historiaClinicaPaciente") || "").trim()
 
     const convertirFecha = (fechaStr: string): string | null => {
@@ -357,7 +358,11 @@ export async function POST(request: Request) {
     const guia = String(formData.get("guia_color") || "").trim()
     const piezasEnviadasJson = String(formData.get("piezasEnviadas") || "[]").trim()
     const caja = String(formData.get("caja") || "").trim()
-    const codigoTrazabilidad = String(formData.get("codigoTrazabilidad") || "").trim()
+    const codigoTrazabilidad = String(formData.get("codigoTrazabilidad") || "").trim() || generateCodigoTrazabilidad()
+    // El Nº de prescripción es el código de trazabilidad. Si el cliente no lo
+    // envía (formularios simplificados), se reutiliza el generado para que la
+    // base de datos nunca quede sin número de trazabilidad.
+    const historiaClinica = historiaClinicaEnviada || codigoTrazabilidad
     const dientesTrabajadosJson = String(formData.get("dientesTrabajados") || "[]").trim()
     const dibujoOdontologo = String(formData.get("dibujoOdontologo") || "").trim()
     const productosJson = String(formData.get("productos") || "[]").trim()

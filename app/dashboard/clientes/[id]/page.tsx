@@ -22,17 +22,18 @@ import {
   X,
   Wallet,
   CreditCard,
-  MessageCircle,
-  Calendar,
-  Shield,
-  User,
-  Search,
-  Plus,
-  Filter,
+   MessageCircle,
+   Calendar,
+   Shield,
+   User,
+   Search,
+   Plus,
+   Filter,
+   AlertCircle,
    Paperclip,
    Send,
    Download,
-} from "lucide-react"
+ } from "lucide-react"
 import { DentalChart as DentalChartForm } from "@/app/formulario/components/dental-chart"
 import { supabase } from "@/lib/supabase"
 import { useToast } from "@/hooks/use-toast"
@@ -167,7 +168,7 @@ export default function ClientePerfilPage() {
   const [loadingSolicitudes, setLoadingSolicitudes] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedSolicitud, setSelectedSolicitud] = useState<Solicitud | null>(null)
-  const [vistaSolicitudes, setVistaSolicitudes] = useState<"activas" | "finalizadas">("activas")
+   const [vistaSolicitudes, setVistaSolicitudes] = useState<"activas" | "finalizadas" | "canceladas">("activas")
 
   const FASES_PROCESO = [
     "LIMPIEZA Y DESINFECCION DE ENTRADA",
@@ -234,7 +235,12 @@ export default function ClientePerfilPage() {
   const [encuestasPostAdaptacion, setEncuestasPostAdaptacion] = useState<Record<number, EncuestaPostAdaptacion[]>>({})
   const [buzonQuejas, setBuzonQuejas] = useState<Record<number, BuzonQueja[]>>({})
   const [fichasTecnicasPorSolicitud, setFichasTecnicasPorSolicitud] = useState<Record<number, any[]>>({})
-  const [loadingFichasTecnicas, setLoadingFichasTecnicas] = useState<Record<number, boolean>>({})
+   const [loadingFichasTecnicas, setLoadingFichasTecnicas] = useState<Record<number, boolean>>({})
+   const [aceptandoSolicitud, setAceptandoSolicitud] = useState<{ [key: number]: boolean }>({})
+   const [rechazandoSolicitud, setRechazandoSolicitud] = useState<{ [key: number]: boolean }>({})
+   const [modalRechazarVisible, setModalRechazarVisible] = useState(false)
+   const [solicitudARechazar, setSolicitudARechazar] = useState<Solicitud | null>(null)
+   const [mensajeRechazo, setMensajeRechazo] = useState("")
 
   const [solicitudDocs, setSolicitudDocs] = useState<{ terminos_garantia: File | null }>({
     terminos_garantia: null,
@@ -317,21 +323,29 @@ export default function ClientePerfilPage() {
         .update(payload)
         .eq("id", selectedSolicitud.id)
 
-      if (error) throw error
+       if (error) throw error
 
-      const { data: refreshed } = await supabase
-        .from("solicitudes")
-        .select("*")
-        .eq("id", selectedSolicitud.id)
-        .single()
+       const estadoAnterior = selectedSolicitud.estado
 
-      if (refreshed) {
-        setSolicitudes((prev) =>
-          prev.map((s) => (s.id === selectedSolicitud.id ? refreshed : s))
-        )
-      }
+       const { data: refreshed } = await supabase
+         .from("solicitudes")
+         .select("*")
+         .eq("id", selectedSolicitud.id)
+         .single()
 
-      toast({ title: "Solicitud actualizada", description: "Los cambios se guardaron correctamente." })
+       if (refreshed) {
+         setSolicitudes((prev) =>
+           prev.map((s: Solicitud) => (s.id === selectedSolicitud.id ? refreshed : s))
+         )
+       }
+
+        if (refreshed?.estado === "cancelado" && estadoAnterior !== "cancelado") {
+          await enviarMensajeCancelacion(refreshed)
+        }
+
+        await despacharCorreosPendientes()
+
+        toast({ title: "Solicitud actualizada", description: "Los cambios se guardaron correctamente." })
       setEditandoSolicitudId(null)
     } catch (err: any) {
       toast({ title: "Error", description: err.message || "No se pudo actualizar.", variant: "destructive" })
@@ -340,15 +354,226 @@ export default function ClientePerfilPage() {
     }
   }
 
-  const guardarMaterialesOrden = async (solicitudId: number, materiales: any[]) => {
-    const { error } = await supabase
-      .from("solicitudes")
-      .update({ orden_materiales: JSON.stringify(materiales) })
-      .eq("id", solicitudId)
-    if (error) console.error("Error guardando materiales orden:", error)
-  }
+   const guardarMaterialesOrden = async (solicitudId: number, materiales: any[]) => {
+     const { error } = await supabase
+       .from("solicitudes")
+       .update({ orden_materiales: JSON.stringify(materiales) })
+       .eq("id", solicitudId)
+     if (error) console.error("Error guardando materiales orden:", error)
+   }
 
-  const guardarFasesOrden = async (solicitudId: number, fases: any[]) => {
+   const enviarMensajeCancelacion = async (solicitud: Solicitud) => {
+     try {
+       let { data: conversacion, error: convError } = await supabase
+         .from("conversaciones")
+         .select("id")
+         .eq("solicitud_id", solicitud.id)
+         .maybeSingle()
+
+       if (convError) throw convError
+
+       if (!conversacion) {
+         const { data: nueva, error: createError } = await supabase
+           .from("conversaciones")
+           .insert({
+             solicitud_id: solicitud.id,
+             cliente_id: solicitud.cliente_id,
+             admin_id: adminId,
+             estado: "activa",
+           })
+           .select()
+           .single()
+
+         if (createError) throw createError
+         conversacion = nueva
+       }
+
+       const { error: msgError } = await supabase
+         .from("mensajes")
+         .insert({
+            conversacion_id: conversacion!.id,
+           contenido: "Su solicitud ha sido cancelada. Si necesita más información, comuníquese con nosotros.",
+           remitente: "admin",
+           leido: false,
+         })
+         .select()
+
+       if (msgError) throw msgError
+
+       setMensajesPorSolicitud((prev) => ({
+         ...prev,
+         [solicitud.id]: [
+           ...(prev[solicitud.id] || []),
+           {
+             id: Date.now(),
+             conversacion_id: conversacion!.id,
+             contenido: "Su solicitud ha sido cancelada. Si necesita más información, comuníquese con nosotros.",
+             remitente: "admin",
+             leido: false,
+             created_at: new Date().toISOString(),
+           },
+         ],
+       }))
+      } catch (err) {
+        console.error("Error enviando mensaje de cancelación:", err)
+      }
+    }
+
+    /**
+     * Pide al servidor materializar por correo los avisos "Listo para envío".
+     * La notificación del portal la crea el trigger de la base de datos al
+     * marcar Terminado; aquí solo se envía el correo y la ruta es idempotente,
+     * por lo que un fallo puntual no interrumpe el guardado de la solicitud.
+     */
+    const despacharCorreosPendientes = async () => {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession()
+        const token = sessionData.session?.access_token
+
+        if (!token) return
+
+        await fetch("/api/notificaciones/enviar-pendientes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        })
+      } catch (err) {
+        console.error("Error despachando correos de notificaciones:", err)
+      }
+    }
+
+   const handleAceptarSolicitud = async (solicitud: Solicitud) => {
+     setAceptandoSolicitud((prev) => ({ ...prev, [solicitud.id]: true }))
+     try {
+       const { error } = await supabase
+         .from("solicitudes")
+         .update({ estado: "en_proceso", fase: FASES_PROCESO[0] })
+         .eq("id", solicitud.id)
+
+        if (error) throw error
+
+        const primeraFase = {
+          tipo: FASES_PROCESO[0],
+          estado: "pendiente",
+          realizada_por: "",
+          fecha_finalizacion: "",
+          fecha_prueba: "",
+        }
+
+         setFasesOrden((prev) => ({
+          ...prev,
+          [solicitud.id]: [primeraFase],
+        }))
+        try { await guardarFasesOrden(solicitud.id, [primeraFase]) } catch (e) { console.error("guardarFasesOrden failed:", e) }
+
+        setSolicitudes((prev) =>
+         prev.map((s: Solicitud) =>
+           s.id === solicitud.id
+             ? { ...s, estado: "en_proceso", fase: FASES_PROCESO[0] }
+             : s
+         )
+       )
+
+        toast({ title: "Solicitud aceptada", description: "La solicitud pasó a en proceso." })
+     } catch (err: any) {
+       toast({ title: "Error", description: err.message || "No se pudo aceptar la solicitud.", variant: "destructive" })
+     } finally {
+       setAceptandoSolicitud((prev) => ({ ...prev, [solicitud.id]: false }))
+     }
+   }
+
+   const abrirRechazarSolicitud = (solicitud: Solicitud) => {
+     setSolicitudARechazar(solicitud)
+     setMensajeRechazo("")
+     setModalRechazarVisible(true)
+   }
+
+   const handleRechazarSolicitud = async () => {
+     if (!solicitudARechazar) return
+     const solicitudId = solicitudARechazar.id
+
+     if (!mensajeRechazo.trim()) {
+       toast({ title: "Error", description: "Debes escribir un motivo para rechazar.", variant: "destructive" })
+       return
+     }
+
+     setRechazandoSolicitud((prev) => ({ ...prev, [solicitudId]: true }))
+     try {
+       const { error: updateError } = await supabase
+         .from("solicitudes")
+         .update({ estado: "cancelado" })
+         .eq("id", solicitudId)
+
+       if (updateError) throw updateError
+
+       let { data: conversacion, error: convError } = await supabase
+         .from("conversaciones")
+         .select("id")
+         .eq("solicitud_id", solicitudId)
+         .maybeSingle()
+
+       if (convError) throw convError
+
+       if (!conversacion) {
+         const { data: nueva, error: createError } = await supabase
+           .from("conversaciones")
+           .insert({
+             solicitud_id: solicitudId,
+             cliente_id: solicitudARechazar.cliente_id,
+             admin_id: adminId,
+             estado: "activa",
+           })
+           .select()
+           .single()
+
+         if (createError) throw createError
+         conversacion = nueva
+       }
+
+       const { error: msgError } = await supabase
+         .from("mensajes")
+         .insert({
+           conversacion_id: conversacion!.id,
+           contenido: mensajeRechazo,
+           remitente: "admin",
+           leido: false,
+         })
+         .select()
+
+       if (msgError) throw msgError
+
+       setSolicitudes((prev) =>
+         prev.map((s: Solicitud) =>
+           s.id === solicitudId ? { ...s, estado: "cancelado" } : s
+         )
+       )
+
+       setMensajesPorSolicitud((prev) => ({
+         ...prev,
+         [solicitudId]: [
+           ...(prev[solicitudId] || []),
+           {
+             id: Date.now(),
+             conversacion_id: conversacion!.id,
+             contenido: mensajeRechazo,
+             remitente: "admin",
+             leido: false,
+             created_at: new Date().toISOString(),
+           },
+         ],
+       }))
+
+       toast({ title: "Solicitud rechazada", description: "Se envió el mensaje de rechazo al cliente." })
+     } catch (err: any) {
+       toast({ title: "Error", description: err.message || "No se pudo rechazar la solicitud.", variant: "destructive" })
+     } finally {
+       setRechazandoSolicitud((prev) => ({ ...prev, [solicitudId]: false }))
+       setModalRechazarVisible(false)
+       setSolicitudARechazar(null)
+       setMensajeRechazo("")
+     }
+   }
+
+   const guardarFasesOrden = async (solicitudId: number, fases: any[]) => {
     const { error } = await supabase
       .from("solicitudes")
       .update({ orden_fases: JSON.stringify(fases) })
@@ -398,7 +623,7 @@ export default function ClientePerfilPage() {
 
       if (refreshed) {
         setSolicitudes((prev) =>
-          prev.map((s) => (s.id === solicitudId ? refreshed : s))
+          prev.map((s: Solicitud) => (s.id === solicitudId ? refreshed : s))
         )
         setSelectedSolicitud(refreshed)
       }
@@ -525,7 +750,7 @@ export default function ClientePerfilPage() {
       if (result.data?.solicitud) {
         const refreshed = result.data.solicitud as Solicitud
         setSelectedSolicitud(refreshed)
-        setSolicitudes((prev) => prev.map((s) => (s.id === refreshed.id ? refreshed : s)))
+        setSolicitudes((prev) => prev.map((s: Solicitud) => (s.id === refreshed.id ? refreshed : s)))
       }
     } catch (err) {
       console.error("Error cargando detalle de solicitud:", err)
@@ -700,23 +925,64 @@ export default function ClientePerfilPage() {
     }
   }
 
-  const handleGuardarOrden = async (solicitudId: number) => {
-     const ordenDiv = ordenRef.current
-     if (!ordenDiv) return
+   const ordenCanvasToPdf = async (canvas: HTMLCanvasElement): Promise<Blob> => {
+      const { default: jsPDF } = await import("jspdf")
+      const pdf = new jsPDF({ unit: "pt", format: "a4" })
+      const pageWidth = pdf.internal.pageSize.getWidth()
+      const pageHeight = pdf.internal.pageSize.getHeight()
+      const marginLeft = 40
+      const marginTop = 28
+      const marginBottom = 28
+      const contentWidth = pageWidth - marginLeft * 2
+      const contentTop = marginTop
+      const availableHeight = pageHeight - marginTop - marginBottom
 
-    setGuardandoOrden(true)
-    try {
-      const canvas = await renderOrdenCanvas(ordenDiv)
-      const dataUrl = canvas.toDataURL("image/png")
+      const pxPerPt = canvas.width / contentWidth
+      const canvasHpt = (canvas.height * contentWidth) / canvas.width
+      const totalPages = Math.max(1, Math.ceil(canvasHpt / availableHeight))
 
-       const response = await fetch(dataUrl)
-       const blob = await response.blob()
-       const fileName = `ordenes/${solicitudId}/${Date.now()}.png`
+      for (let i = 0; i < totalPages; i++) {
+        if (i > 0) pdf.addPage()
+        const startY = i * availableHeight
+        const sliceH = Math.min(availableHeight, canvasHpt - startY)
+        const tmp = document.createElement("canvas")
+        tmp.width = canvas.width
+        tmp.height = Math.max(1, Math.round(sliceH * pxPerPt))
+        const ctx = tmp.getContext("2d")
+        if (!ctx) continue
+        ctx.fillStyle = "#ffffff"
+        ctx.fillRect(0, 0, tmp.width, tmp.height)
+        ctx.drawImage(
+          canvas,
+          0,
+          Math.round(startY * pxPerPt),
+          canvas.width,
+          tmp.height,
+          0,
+          0,
+          canvas.width,
+          tmp.height
+        )
+        pdf.addImage(tmp.toDataURL("image/png"), "PNG", marginLeft, contentTop, contentWidth, sliceH)
+      }
+
+      return pdf.output("blob")
+   }
+
+   const handleGuardarOrden = async (solicitudId: number) => {
+      const ordenDiv = ordenRef.current
+      if (!ordenDiv) return
+
+     setGuardandoOrden(true)
+     try {
+       const canvas = await renderOrdenCanvas(ordenDiv)
+       const blob = await ordenCanvasToPdf(canvas)
+       const fileName = `ordenes/${solicitudId}/${Date.now()}.pdf`
        const { error: uploadError } = await supabase.storage
          .from("documentos")
          .upload(fileName, blob, {
            upsert: true,
-           contentType: "image/png",
+           contentType: "application/pdf",
          })
 
        if (uploadError) throw new Error(`Error al subir: ${uploadError.message}`)
@@ -731,7 +997,7 @@ export default function ClientePerfilPage() {
        if (updateError) throw updateError
 
        setSolicitudes((prev) =>
-         prev.map((s) => (s.id === solicitudId ? { ...s, orden_fabricacion_url: publicData.publicUrl } : s))
+          prev.map((s: Solicitud) => (s.id === solicitudId ? { ...s, orden_fabricacion_url: publicData.publicUrl } : s))
        )
 
        toast({ title: "Orden guardada", description: "La orden de fabricación se ha guardado correctamente." })
@@ -744,45 +1010,40 @@ export default function ClientePerfilPage() {
    }
 
    const handleDescargarOrden = async (solicitudId: number) => {
-     const solicitud = solicitudes.find((s) => s.id === solicitudId)
-     if (solicitud?.orden_fabricacion_url) {
-       setDescargandoOrden(true)
-       try {
-         const response = await fetch(solicitud.orden_fabricacion_url)
-         const blob = await response.blob()
-         const url = URL.createObjectURL(blob)
-         const link = document.createElement("a")
-         link.href = url
-         link.download = `orden-fabricacion-${solicitudId}.png`
-         document.body.appendChild(link)
-         link.click()
-         document.body.removeChild(link)
-         URL.revokeObjectURL(url)
-       } catch (err: any) {
-         console.error("Error descargando orden:", err?.message || err)
-       } finally {
-         setDescargandoOrden(false)
-       }
-       return
-     }
-
+      const solicitud = solicitudes.find((s: Solicitud) => s.id === solicitudId)
       const ordenDiv = ordenRef.current
-      if (!ordenDiv) return
-
       setDescargandoOrden(true)
       try {
-        const canvas = await renderOrdenCanvas(ordenDiv)
-        canvas.toBlob((blob) => {
-          if (!blob) return
-          const url = URL.createObjectURL(blob)
-          const link = document.createElement("a")
-          link.href = url
-          link.download = `orden-fabricacion-${solicitudId}.png`
-          document.body.appendChild(link)
-          link.click()
-          document.body.removeChild(link)
-          URL.revokeObjectURL(url)
-        })
+        let blob: Blob | null = null
+
+        if (solicitud?.orden_fabricacion_url) {
+          const response = await fetch(solicitud.orden_fabricacion_url)
+          const fetchedBlob = await response.blob()
+          if (fetchedBlob.type.startsWith("image/")) {
+            if (ordenDiv) {
+              const canvas = await renderOrdenCanvas(ordenDiv)
+              blob = await ordenCanvasToPdf(canvas)
+            }
+          } else {
+            blob = fetchedBlob
+          }
+        }
+
+        if (!blob && ordenDiv) {
+          const canvas = await renderOrdenCanvas(ordenDiv)
+          blob = await ordenCanvasToPdf(canvas)
+        }
+
+        if (!blob) return
+
+        const url = URL.createObjectURL(blob)
+        const link = document.createElement("a")
+        link.href = url
+        link.download = `orden-fabricacion-${solicitudId}.pdf`
+        document.body.appendChild(link)
+        link.click()
+        document.body.removeChild(link)
+        URL.revokeObjectURL(url)
       } catch (err: any) {
         console.error("Error descargando orden:", err?.message || err)
       } finally {
@@ -802,7 +1063,7 @@ export default function ClientePerfilPage() {
       if (error) throw error
 
       setSolicitudes((prev) =>
-        prev.map((s) => (s.id === selectedSolicitud.id ? { ...s, estado: nuevoEstado } : s))
+         prev.map((s: Solicitud) => (s.id === selectedSolicitud.id ? { ...s, estado: nuevoEstado } : s))
       )
       setSelectedSolicitud((prev) => prev ? { ...prev, estado: nuevoEstado } : prev)
 
@@ -836,16 +1097,16 @@ export default function ClientePerfilPage() {
 
       if (error) throw error
 
-      const servicio = serviciosDetalle.find((s) => s.id === servicioId)
+      const servicio = serviciosDetalle.find((s: Servicio) => s.id === servicioId)
       const solicitudId = (servicio as any)?.solicitud_id
 
       setServiciosDetalle((prev) =>
-        prev.map((s) => (s.id === servicioId ? { ...s, nombre: editandoServicioData.nombre, precio: precioNum } : s))
+        prev.map((s: Servicio) => (s.id === servicioId ? { ...s, nombre: editandoServicioData.nombre, precio: precioNum } : s))
       )
 
       if (solicitudId && (servicio as any)?.es_principal) {
         setSolicitudes((prev) =>
-          prev.map((s) => (s.id === solicitudId ? { ...s, precio: precioNum } : s))
+          prev.map((s: Solicitud) => (s.id === solicitudId ? { ...s, precio: precioNum } : s))
         )
         setSelectedSolicitud((prev) =>
           prev && prev.id === solicitudId ? { ...prev, precio: precioNum } : prev
@@ -891,7 +1152,7 @@ export default function ClientePerfilPage() {
           prev.map((s: any) => (s.id === principal.id ? { ...s, precio: precioNum } : s))
         )
       } else if (precioNum !== null) {
-        const solicitud = solicitudes.find((s) => s.id === solicitudId)
+        const solicitud = solicitudes.find((s: Solicitud) => s.id === solicitudId)
         const nombre = (solicitud as any)?.servicio || `Solicitud #${solicitudId}`
 
         const { data, error } = await supabase
@@ -914,7 +1175,7 @@ export default function ClientePerfilPage() {
       }
 
       setSolicitudes((prev) =>
-        prev.map((s) => (s.id === solicitudId ? { ...s, precio: precioNum } : s))
+        prev.map((s: Solicitud) => (s.id === solicitudId ? { ...s, precio: precioNum } : s))
       )
 
       if (mostrarEstadoCuenta[client.id]) {
@@ -987,7 +1248,7 @@ export default function ClientePerfilPage() {
 
       if (refreshed) {
         setServiciosDetalle((prev) =>
-          prev.map((s) => (s.id === servicioId ? refreshed : s))
+          prev.map((s: Servicio) => (s.id === servicioId ? refreshed : s))
         )
       }
 
@@ -1341,7 +1602,7 @@ if (!conv) return
       if (updateError) throw updateError
 
       setSolicitudes((prev) =>
-        prev.map((s) => s.id === solicitudId ? { ...s, comprobante_pago: publicUrl, estado_pago: "pendiente_validacion" } : s)
+        prev.map((s: Solicitud) => s.id === solicitudId ? { ...s, comprobante_pago: publicUrl, estado_pago: "pendiente_validacion" } : s)
       )
 
       setItemsEstadoCuenta((prev) => ({
@@ -1375,7 +1636,7 @@ if (!conv) return
       if (error) throw error
 
       setSolicitudes((prev) =>
-        prev.map((s) => s.id === solicitudId ? { ...s, estado_pago: nuevoEstadoPago } : s)
+        prev.map((s: Solicitud) => s.id === solicitudId ? { ...s, estado_pago: nuevoEstadoPago } : s)
       )
 
       setItemsEstadoCuenta((prev) => ({
@@ -1614,12 +1875,15 @@ if (!conv) return
              </p>
            ) : (
              (() => {
-               const solicitudesActivas = solicitudes.filter(
-                 (s) => !esSolicitudFinalizada(s.estado || "")
-               )
-               const solicitudesFinalizadas = solicitudes.filter(
-                 (s) => esSolicitudFinalizada(s.estado || "")
-               )
+                  const solicitudesActivas = solicitudes.filter(
+                    (s: Solicitud) => !esSolicitudFinalizada(s.estado || "")
+                  )
+                 const solicitudesFinalizadas = solicitudes.filter(
+                   (s: Solicitud) => s.estado === "finalizado"
+                 )
+                 const solicitudesCanceladas = solicitudes.filter(
+                   (s: Solicitud) => s.estado === "cancelado"
+                 )
 
                const renderSolicitud = (solicitud: Solicitud) => {
                  const isSolicitudExpanded = expandedSolicitud === solicitud.id
@@ -1655,24 +1919,54 @@ if (!conv) return
                             </span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {noLeidos > 0 && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-600">
-                              <MessageCircle size={10} />
-                              {noLeidos} sin leer
-                            </span>
-                          )}
-                          {solicitud.precio && (
-                            <span className="text-sm font-bold text-primary">
-                              ${solicitud.precio?.toLocaleString("es-CO")}
-                            </span>
-                          )}
-                          {isSolicitudExpanded ? (
-                            <ChevronUp size={18} className="text-muted-foreground" />
-                          ) : (
-                            <ChevronDown size={18} className="text-muted-foreground" />
-                          )}
-                        </div>
+                         <div className="flex items-center gap-2">
+                           {noLeidos > 0 && (
+                             <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-medium text-red-600">
+                               <MessageCircle size={10} />
+                               {noLeidos} sin leer
+                             </span>
+                           )}
+                           {solicitud.estado === "pendiente" && (
+                             <>
+                               <button
+                                 onClick={(e) => {
+                                   e.stopPropagation()
+                                   handleAceptarSolicitud(solicitud)
+                                 }}
+                                 disabled={aceptandoSolicitud[solicitud.id]}
+                                 className="inline-flex items-center justify-center rounded-lg border border-green-200 bg-green-50 px-2 py-1 text-[10px] font-medium text-green-700 hover:bg-green-100 disabled:opacity-50"
+                                 title="Aceptar solicitud"
+                               >
+                                 {aceptandoSolicitud[solicitud.id] ? (
+                                   <Loader2 size={12} className="animate-spin" />
+                                 ) : (
+                                   <CheckCircle size={12} />
+                                 )}
+                               </button>
+                               <button
+                                 onClick={(e) => {
+                                   e.stopPropagation()
+                                   abrirRechazarSolicitud(solicitud)
+                                 }}
+                                 disabled={rechazandoSolicitud[solicitud.id]}
+                                 className="inline-flex items-center justify-center rounded-lg border border-orange-200 bg-orange-50 px-2 py-1 text-[10px] font-medium text-orange-700 hover:bg-orange-100 disabled:opacity-50"
+                                 title="Rechazar solicitud"
+                               >
+                                 <AlertCircle size={12} />
+                               </button>
+                             </>
+                           )}
+                           {solicitud.precio && (
+                             <span className="text-sm font-bold text-primary">
+                               ${solicitud.precio?.toLocaleString("es-CO")}
+                             </span>
+                           )}
+                           {isSolicitudExpanded ? (
+                             <ChevronUp size={18} className="text-muted-foreground" />
+                           ) : (
+                             <ChevronDown size={18} className="text-muted-foreground" />
+                           )}
+                         </div>
                       </div>
                     </div>
 
@@ -2672,13 +2966,20 @@ if (!conv) return
                                         {ordenPreviewExpanded ? "Ocultar" : "Ver"}
                                       </button>
                                     </div>
-                                    {ordenPreviewExpanded && (
-                                      <img
-                                        src={solicitud.orden_fabricacion_url}
-                                        alt="Orden de Fabricación"
-                                        className="max-w-full rounded-md border border-gray-300 object-contain shadow-sm"
-                                      />
-                                    )}
+                                     {ordenPreviewExpanded && solicitud.orden_fabricacion_url?.endsWith(".pdf") && (
+                                       <embed
+                                         src={solicitud.orden_fabricacion_url}
+                                         type="application/pdf"
+                                         className="w-full h-[600px] rounded-md border border-gray-300 shadow-sm"
+                                       />
+                                     )}
+                                     {ordenPreviewExpanded && !solicitud.orden_fabricacion_url?.endsWith(".pdf") && (
+                                       <img
+                                         src={solicitud.orden_fabricacion_url}
+                                         alt="Orden de Fabricación"
+                                         className="max-w-full rounded-md border border-gray-300 object-contain shadow-sm"
+                                       />
+                                     )}
                                   </div>
                                 )}
                                 <div ref={ordenRef} className="border-2 border-dashed border-gray-300 rounded-lg p-6 bg-white relative min-h-[400px]">
@@ -2941,8 +3242,8 @@ if (!conv) return
 
                                   {/* FASES DE FABRICACIÓN - Tabla rellenable */}
                                   <div className="mb-4 border-t border-gray-300 pt-3">
-                                    <p className="text-xs font-semibold text-gray-600 mb-2">FASES DE FABRICACIÓN</p>
-                                    <div className="overflow-x-auto">
+                                       <p className="text-xs font-semibold text-gray-600 mb-2">FASES DE FABRICACIÓN</p>
+                                      <div className="overflow-x-auto">
                                       <table className="w-full text-[10px] border border-gray-300">
                                         <thead className="bg-gray-200">
                                           <tr>
@@ -3103,38 +3404,49 @@ if (!conv) return
                             )}
                           </motion.div>
                        )}
-                      </AnimatePresence>
-                   </div>
-                 )
-              }
+                       </AnimatePresence>
+     </div>
+     )
+   }
 
-              return (
-                <div>
-                  <div className="flex gap-2 mb-3">
-                    <button
-                      onClick={() => setVistaSolicitudes("activas")}
-                      className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${vistaSolicitudes === "activas" ? "bg-primary text-primary-foreground" : "border border-border bg-muted/50 text-muted-foreground hover:bg-muted"}`}
-                    >
-                      <Package size={14} />
-                      Activas / En proceso ({solicitudesActivas.length})
-                    </button>
-                    <button
-                      onClick={() => setVistaSolicitudes("finalizadas")}
-                      className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${vistaSolicitudes === "finalizadas" ? "bg-primary text-primary-foreground" : "border border-border bg-muted/50 text-muted-foreground hover:bg-muted"}`}
-                    >
-                      <CheckCircle size={14} />
-                      Finalizadas ({solicitudesFinalizadas.length})
-                    </button>
-                  </div>
-                  <div className="space-y-3">
-                    {vistaSolicitudes === "activas"
-                      ? solicitudesActivas.length === 0
-                        ? <p className="text-xs text-muted-foreground text-center py-3">Sin solicitudes activas</p>
-                        : solicitudesActivas.map(renderSolicitud)
-                      : solicitudesFinalizadas.length === 0
-                        ? <p className="text-xs text-muted-foreground text-center py-3">Sin solicitudes finalizadas</p>
-                        : solicitudesFinalizadas.map(renderSolicitud)}
-                  </div>
+               return (
+                 <div>
+                    <div className="flex gap-2 mb-3">
+                     <button
+                       onClick={() => setVistaSolicitudes("activas")}
+                       className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${vistaSolicitudes === "activas" ? "bg-primary text-primary-foreground" : "border border-border bg-muted/50 text-muted-foreground hover:bg-muted"}`}
+                     >
+                       <Package size={14} />
+                       Activas / En proceso ({solicitudesActivas.length})
+                     </button>
+                     <button
+                       onClick={() => setVistaSolicitudes("finalizadas")}
+                       className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${vistaSolicitudes === "finalizadas" ? "bg-primary text-primary-foreground" : "border border-border bg-muted/50 text-muted-foreground hover:bg-muted"}`}
+                     >
+                       <CheckCircle size={14} />
+                       Finalizadas ({solicitudesFinalizadas.length})
+                     </button>
+                     <button
+                       onClick={() => setVistaSolicitudes("canceladas")}
+                       className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${vistaSolicitudes === "canceladas" ? "bg-primary text-primary-foreground" : "border border-border bg-muted/50 text-muted-foreground hover:bg-muted"}`}
+                     >
+                       <AlertCircle size={14} />
+                       Canceladas ({solicitudesCanceladas.length})
+                     </button>
+                   </div>
+                   <div className="space-y-3">
+                     {vistaSolicitudes === "activas"
+                       ? solicitudesActivas.length === 0
+                         ? <p className="text-xs text-muted-foreground text-center py-3">Sin solicitudes activas</p>
+                         : solicitudesActivas.map(renderSolicitud)
+                       : vistaSolicitudes === "finalizadas"
+                         ? solicitudesFinalizadas.length === 0
+                           ? <p className="text-xs text-muted-foreground text-center py-3">Sin solicitudes finalizadas</p>
+                           : solicitudesFinalizadas.map(renderSolicitud)
+                         : solicitudesCanceladas.length === 0
+                           ? <p className="text-xs text-muted-foreground text-center py-3">Sin solicitudes canceladas</p>
+                           : solicitudesCanceladas.map(renderSolicitud)}
+                   </div>
                 </div>
               )
             })()
@@ -3307,8 +3619,51 @@ if (!conv) return
               </div>
             )}
           </div>
-        </motion.div>
-      )}
-    </div>
-  )
+      </motion.div>
+       )}
+       
+        {modalRechazarVisible && solicitudARechazar && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="w-full max-w-md rounded-xl bg-card p-6 shadow-xl">
+              <h3 className="text-lg font-semibold text-foreground mb-4">
+                Rechazar solicitud #{solicitudARechazar.id}
+              </h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Escribe el motivo del rechazo. Este mensaje se enviará al cliente.
+              </p>
+              <textarea
+                value={mensajeRechazo}
+                onChange={(e) => setMensajeRechazo(e.target.value)}
+                placeholder="Escribe aquí el motivo del rechazo..."
+                rows={4}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+              />
+              <div className="mt-5 flex gap-3 justify-end">
+                <button
+                  onClick={() => {
+                    setModalRechazarVisible(false)
+                    setSolicitudARechazar(null)
+                    setMensajeRechazo("")
+                  }}
+                  className="rounded-xl border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleRechazarSolicitud}
+                  disabled={rechazandoSolicitud[solicitudARechazar.id] || !mensajeRechazo.trim()}
+                  className="rounded-xl bg-orange-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700 disabled:opacity-50"
+                >
+                  {rechazandoSolicitud[solicitudARechazar.id] ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    "Enviar y rechazar"
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+     </div>
+    )
 }

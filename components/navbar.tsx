@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Menu, X, Users, User, Bell, Calendar, CheckCircle, Package, LayoutDashboard } from "lucide-react"
+import { Menu, X, Users, User, Bell, Calendar, CheckCircle, Package, LayoutDashboard, UserPlus } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -22,6 +22,7 @@ const adminNavItems = [
   { label: "Calendario", href: "/dashboard/calendario", icon: Calendar },
   { label: "Fases", href: "/dashboard/fases", icon: CheckCircle },
   { label: "Clientes", href: "/dashboard/clientes", icon: Users },
+  { label: "Empleados", href: "/admin/empleados", icon: UserPlus },
   { label: "Cuenta", href: "/dashboard/cuenta", icon: User },
 ]
 

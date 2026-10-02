@@ -17,6 +17,7 @@ import {
   LayoutDashboard,
   X,
   LogOut,
+  UserPlus,
 } from "lucide-react"
 
 interface SidebarProps {
@@ -49,6 +50,11 @@ const menuItems = [
     label: "Clientes",
     href: "/dashboard/clientes",
     icon: Users,
+  },
+  {
+    label: "Empleados",
+    href: "/admin/empleados",
+    icon: UserPlus,
   },
   {
     label: "Cuenta",

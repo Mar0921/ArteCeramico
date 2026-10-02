@@ -12,6 +12,7 @@ import {
   Loader2,
   Package,
   Search,
+  Funnel,
 } from "lucide-react"
 
 interface Trabajo {
@@ -90,6 +91,8 @@ export default function TrabajosPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
+  const [estadoFilter, setEstadoFilter] = useState<string>("")
+  const [pacienteFilter, setPacienteFilter] = useState("")
 
   useEffect(() => {
     const loadTrabajos = async () => {
@@ -112,21 +115,37 @@ export default function TrabajosPage() {
 
   const filteredTrabajos = useMemo(() => {
     const term = searchTerm.trim().toLowerCase()
-    if (!term) return trabajos
-    return trabajos.filter((trabajo) =>
-      [
-        trabajo.servicio,
-        trabajo.cliente_nombre,
-        trabajo.codigo_trazabilidad,
-        ...trabajo.tiposTrabajo,
-        ...trabajo.materiales,
-      ]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(term)
-    )
-  }, [searchTerm, trabajos])
+    let result = trabajos
+    if (term) {
+      result = result.filter((trabajo) =>
+        [
+          trabajo.servicio,
+          trabajo.cliente_nombre,
+          trabajo.codigo_trazabilidad,
+          ...trabajo.tiposTrabajo,
+          ...trabajo.materiales,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase()
+          .includes(term)
+      )
+    }
+    if (estadoFilter) {
+      result = result.filter((trabajo) => trabajo.estado === estadoFilter)
+    }
+    if (pacienteFilter) {
+      result = result.filter((trabajo) =>
+        (trabajo.paciente || "").toLowerCase().includes(pacienteFilter.toLowerCase())
+      )
+    }
+    // Ordenar: completados al final
+    return result.sort((a, b) => {
+      if (a.estado === "completado" && b.estado !== "completado") return 1
+      if (a.estado !== "completado" && b.estado === "completado") return -1
+      return 0
+    })
+  }, [searchTerm, trabajos, estadoFilter, pacienteFilter])
 
   const totalTrabajos = trabajos.length
   const trabajosCompletados = trabajos.filter((trabajo) => trabajo.estado === "completado").length
@@ -134,15 +153,16 @@ export default function TrabajosPage() {
   const totalPendientes = trabajos.filter((trabajo) => trabajo.estado === "pendiente").length
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Trabajos</h1>
-          <p className="mt-1 text-muted-foreground">
-            Consulta y administra las solicitudes del laboratorio.
-          </p>
-        </div>
-        <div className="relative w-full sm:max-w-sm">
+    <div className="space-y-6 mt-8">
+      <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1">
+        <h1 className="text-2xl font-bold text-foreground">Trabajos</h1>
+        <p className="mt-1 text-muted-foreground">
+          Consulta y administra las solicitudes del laboratorio.
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="relative flex-1 min-w-[240px]">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="search"
@@ -152,7 +172,29 @@ export default function TrabajosPage() {
             className="w-full rounded-xl border border-border bg-card py-2.5 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
           />
         </div>
+        <select
+          value={estadoFilter}
+          onChange={(e) => setEstadoFilter(e.target.value)}
+          className="rounded-xl border border-border bg-card px-4 py-2.5 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+        >
+          <option value="">Todos los estados</option>
+          <option value="pendiente">Pendiente</option>
+          <option value="en_proceso">En proceso</option>
+          <option value="finalizado">Finalizado</option>
+        </select>
+        <input
+          type="text"
+          placeholder="Filtrar por paciente..."
+          value={pacienteFilter}
+          onChange={(e) => setPacienteFilter(e.target.value)}
+          className="rounded-xl border border-border bg-card px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+        />
+        <button className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted">
+          <Funnel size={18} />
+          Filtros
+        </button>
       </div>
+    </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {[

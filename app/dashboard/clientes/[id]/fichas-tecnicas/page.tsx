@@ -2560,79 +2560,113 @@ ISO 15841: alambres para uso en ortodoncia`,
     setShowFichaModal(true)
   }
 
-  const handleDescargarFichaGuardada = async (ficha: FichaTecnica) => {
-    setFichaGuardadaSeleccionada(ficha)
-    let solicitud = solicitudActual || solicitudes.find((s) => s.id === solicitudActualId) || solicitudes[0] || null
-    if (!solicitud && solicitudActualId) {
-      const res = await fetch(`/api/solicitudes/${solicitudActualId}`)
-      if (res.ok) {
-        const data = await res.json()
-        if (data?.solicitud) {
-          const dientesDisponibles = extraerDientesDisponibles(data.solicitud)
-          const nuevaSolicitud: SolicitudCompleta = {
-            id: data.solicitud.id,
-            paciente: data.solicitud.paciente || "",
-            odontologo: data.solicitud.odontologo || null,
-            codigo_trazabilidad: data.solicitud.codigo_trazabilidad || "",
-            dientes_trabajados: (data.solicitud.dientes_detallados || []).map((d: any) => String(d.numero)),
-            servicios_detalle: data.solicitud.servicios_detalle || [],
-            dientes_disponibles: dientesDisponibles,
-          }
-          setSolicitudes((prev) => {
-            if (prev.find((s) => s.id === nuevaSolicitud.id)) return prev
-            return [...prev, nuevaSolicitud]
-          })
-          solicitud = nuevaSolicitud
-          setSolicitudActual(nuevaSolicitud)
-        }
+   const handleDescargarFichaGuardada = async (ficha: FichaTecnica) => {
+     setFichaGuardadaSeleccionada(ficha)
+     let solicitud = solicitudActual || solicitudes.find((s) => s.id === solicitudActualId) || solicitudes[0] || null
+     const necesitaDientes =
+       solicitudActualId &&
+       (!solicitud || !(solicitud.dientes_disponibles && solicitud.dientes_disponibles.length > 0))
+     if (necesitaDientes) {
+       const res = await fetch(`/api/solicitudes/${solicitudActualId}`)
+       if (res.ok) {
+         const data = await res.json()
+         if (data?.solicitud) {
+           const dientesDisponibles = extraerDientesDisponibles(data.solicitud)
+           const nuevaSolicitud: SolicitudCompleta = {
+             id: data.solicitud.id,
+             paciente: data.solicitud.paciente || "",
+             odontologo: data.solicitud.odontologo || null,
+             codigo_trazabilidad: data.solicitud.codigo_trazabilidad || "",
+             dientes_trabajados: (data.solicitud.dientes_detallados || []).map((d: any) => String(d.numero)),
+             servicios_detalle: data.solicitud.servicios_detalle || [],
+             dientes_disponibles: dientesDisponibles,
+           }
+           setSolicitudes((prev) => {
+             if (prev.find((s) => s.id === nuevaSolicitud.id)) return prev
+             return [...prev, nuevaSolicitud]
+           })
+           solicitud = nuevaSolicitud
+           setSolicitudActual(nuevaSolicitud)
+         }
+       }
+     }
+     const seccionesActualizadas = inicializarNumeroSerie(ficha.secciones || [], solicitud)
+     const numeroSerieVacio = seccionesActualizadas.some((seccion) =>
+       seccion.campos.some((campo) => campo.label === "Número de Serie o identificación del dispositivo" && !campo.value)
+     )
+     setFichaActual(seccionesActualizadas)
+     setTipoFichaActual(ficha.tipo)
+     setEditingFicha(numeroSerieVacio)
+     setShowFichaModal(true)
+     await new Promise((r) => setTimeout(r, 100))
+     await handleDownloadPdf()
+     setShowFichaModal(false)
+   }
+
+   const waitForElement = (id: string, timeout = 3000) =>
+     new Promise<HTMLElement | null>((resolve, reject) => {
+       const start = Date.now()
+       const check = () => {
+         const el = document.getElementById(id)
+         if (el) return resolve(el)
+         if (Date.now() - start > timeout) return reject(new Error(`Timeout esperando #${id}`))
+         setTimeout(check, 50)
+       }
+       check()
+     })
+
+   const handleDownloadPdf = async () => {
+      setDownloadingFicha(true)
+      setEditingFicha(false)
+      let previousStyles: Array<{
+        el: HTMLElement
+        overflow: string
+        overflowY: string
+        overflowX: string
+        maxHeight: string
+        maxWidth: string
+        scrollTop: number
+      }> = []
+
+      try {
+       const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+         import("jspdf"),
+         import("html2canvas"),
+       ])
+
+        const node = await waitForElement("documento", 10000)
+       const headerEl = document.getElementById("doc-header")
+       if (!node || !headerEl) {
+         console.log("[PDF] No se encontraron los elementos del documento")
+         alert("No se encontró el documento para generar el PDF.")
+         setDownloadingFicha(false)
+         setEditingFicha(true)
+         return
+       }
+
+      const scrollableAncestors: HTMLElement[] = []
+      let walker = (node as HTMLElement).parentElement
+      while (walker && walker !== document.body) {
+        scrollableAncestors.push(walker)
+        walker = walker.parentElement
       }
-    }
-    const seccionesActualizadas = inicializarNumeroSerie(ficha.secciones || [], solicitud)
-    const numeroSerieVacio = seccionesActualizadas.some((seccion) =>
-      seccion.campos.some((campo) => campo.label === "Número de Serie o identificación del dispositivo" && !campo.value)
-    )
-    setFichaActual(seccionesActualizadas)
-    setTipoFichaActual(ficha.tipo)
-    setEditingFicha(numeroSerieVacio)
-    setShowFichaModal(true)
-    await new Promise((r) => setTimeout(r, 100))
-    await handleDownloadPdf()
-    setShowFichaModal(false)
-  }
-
-  const handleDownloadPdf = async () => {
-    setDownloadingFicha(true)
-    setEditingFicha(false)
-    await new Promise((r) => setTimeout(r, 50))
-
-    try {
-      const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
-        import("jspdf"),
-        import("html2canvas"),
-      ])
-
-      const node = document.getElementById("documento")
-      const headerEl = document.getElementById("doc-header")
-      if (!node || !headerEl) {
-        console.log("[PDF] No se encontraron los elementos del documento")
-        alert("No se encontró el documento para generar el PDF.")
-        setDownloadingFicha(false)
-        setEditingFicha(true)
-        return
-      }
-
-      const modalScroll = node.closest(".overflow-y-auto") as HTMLElement | null
-      const parent = node.parentElement
-      const previousOverflow = parent?.style.overflow || ""
-      const previousMaxHeight = parent?.style.maxHeight || ""
-
-      if (parent) {
-        parent.style.overflow = "visible"
-        parent.style.maxHeight = "none"
-      }
-      if (modalScroll) {
-        modalScroll.scrollTop = 0
-      }
+      previousStyles = scrollableAncestors.map((a) => ({
+        el: a,
+        overflow: a.style.overflow,
+        overflowY: a.style.overflowY,
+        overflowX: a.style.overflowX,
+        maxHeight: a.style.maxHeight,
+        maxWidth: a.style.maxWidth,
+        scrollTop: a.scrollTop,
+      }))
+      scrollableAncestors.forEach((a) => {
+        a.style.overflow = "visible"
+        a.style.overflowY = "visible"
+        a.style.overflowX = "visible"
+        a.style.maxHeight = "none"
+        a.style.maxWidth = "none"
+        a.scrollTop = 0
+      })
 
       const replaceLabColors = (root: HTMLElement | Element) => {
         const walk = (el: HTMLElement | Element) => {
@@ -2690,15 +2724,24 @@ ISO 15841: alambres para uso en ortodoncia`,
       const pageBottom = pageHeight - marginBottom
 
       const ptHeight = (c: HTMLCanvasElement) => (c.height * contentWidth) / c.width
-      const headerHpt = ptHeight(headerCanvasNoLogo)
+      const headerHpt = Math.max(ptHeight(headerCanvasNoLogo), 40)
       const headerData = headerCanvasNoLogo.toDataURL("image/png")
 
       const scaleX = headerRect ? contentWidth / headerRect.width : 0
       const scaleY = headerRect ? headerHpt / headerRect.height : 0
 
-      const topOfContent = () => marginTop + headerHpt + gap * 2
+      let headerBandH = headerHpt
+      if (logoRect && headerRect && logoDataUrl) {
+        const logoBottom =
+          marginTop +
+          ((logoRect.top - headerRect.top) / headerRect.height) * headerHpt +
+          14
+        headerBandH = Math.max(headerHpt, logoBottom - marginTop)
+      }
+      const headerGap = 24
+      const topOfContent = () => marginTop + headerBandH + headerGap
       const contentHeightPt = ptHeight(fullCanvas)
-      const contentTop = marginTop + headerHpt + gap * 2
+      const contentTop = marginTop + headerBandH + headerGap
       const availableContentHeight = pageHeight - marginBottom - contentTop
 
       const pxPerPt = fullCanvas.width / contentWidth
@@ -2766,23 +2809,26 @@ ISO 15841: alambres para uso en ortodoncia`,
       const message = (err as Error)?.message || String(err)
       console.log("[PDF] Error generando PDF:", message)
       alert("Error generando el PDF: " + message)
-    } finally {
-      const parent = document.getElementById("documento")?.parentElement
-      if (parent) {
-        parent.style.overflow = ""
-        parent.style.maxHeight = ""
-      }
-      const headerElFinally = document.getElementById("doc-header")
-      if (headerElFinally) {
-        headerElFinally.style.display = ""
-      }
-      const logoElFinally = document.getElementById("doc-header-logo")
-      if (logoElFinally) {
-        logoElFinally.style.display = ""
-      }
-      setDownloadingFicha(false)
-      setEditingFicha(true)
-    }
+     } finally {
+       previousStyles.forEach((s) => {
+         s.el.style.overflow = s.overflow
+         s.el.style.overflowY = s.overflowY
+         s.el.style.overflowX = s.overflowX
+         s.el.style.maxHeight = s.maxHeight
+         s.el.style.maxWidth = s.maxWidth
+         s.el.scrollTop = s.scrollTop
+       })
+       const headerElFinally = document.getElementById("doc-header")
+       if (headerElFinally) {
+         headerElFinally.style.display = ""
+       }
+       const logoElFinally = document.getElementById("doc-header-logo")
+       if (logoElFinally) {
+         logoElFinally.style.display = ""
+       }
+       setDownloadingFicha(false)
+       setEditingFicha(true)
+     }
   }
 
   const handleCampoChange = (seccionIndex: number, campoIndex: number, value: string) => {

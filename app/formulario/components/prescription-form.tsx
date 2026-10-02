@@ -35,6 +35,11 @@ function buildFormDataPayload(
   const { formData, servicioTipo, selectedTeeth, toothStatuses, uploadedFiles } = solicitud
   const payload = new FormData()
 
+  // El Nº de prescripción es el código de trazabilidad: se usa una sola fuente
+  // de verdad y se guarda en ambos campos para que la BD y las fichas técnicas
+  // muestren siempre el mismo número.
+  const codigoTrazabilidad = formData.codigoTrazabilidad?.trim() || generateCodigoTrazabilidad()
+
   payload.append("userId", userId)
   payload.append("correoOdontologo", email)
   payload.append("servicio", servicioTipo)
@@ -50,10 +55,10 @@ function buildFormDataPayload(
   payload.append("firma", formData.firma || "")
   payload.append("color", formData.color || "")
   payload.append("guia_color", formData.guia || "")
-  payload.append("codigoTrazabilidad", formData.codigoTrazabilidad || "")
+  payload.append("codigoTrazabilidad", codigoTrazabilidad)
   payload.append("fechaElaboracion", formatFecha(formData.fechaElaboracion))
   payload.append("fechaEntrega", formatFecha(formData.fechaEntrega))
-  payload.append("historiaClinica", formData.historiaClinica || "")
+  payload.append("historiaClinica", codigoTrazabilidad)
   payload.append("historiaClinicaPaciente", formData.historiaClinicaPaciente || "")
   payload.append("tiposTrabajo", JSON.stringify(formData.tiposTrabajo))
   payload.append("materiales", JSON.stringify(formData.materiales))
@@ -116,7 +121,8 @@ export function PrescriptionForm({
                 formData: {
                   ...s.formData,
                   productos: s.formData?.productos ?? [],
-                  codigoTrazabilidad: generateCodigoTrazabilidad(),
+                  codigoTrazabilidad:
+                    s.formData?.codigoTrazabilidad || generateCodigoTrazabilidad(),
                   correo: s.formData?.correo ?? "",
                   telefono: s.formData?.telefono ?? "",
                 },

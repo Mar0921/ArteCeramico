@@ -157,12 +157,12 @@ export default function AdminLoginPage() {
               </div>
 
               <div className="flex justify-end">
-                <a
-                  href="#"
+                <Link
+                  href="/recuperar-contrasena"
                   className="text-sm font-medium text-primary hover:text-primary-dark"
                 >
                   ¿Olvidaste tu contraseña?
-                </a>
+                </Link>
               </div>
 
               {error && (

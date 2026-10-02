@@ -375,10 +375,18 @@ export function SolicitudSection({
             <div className="flex items-center justify-end gap-1 mt-0.5">
               <span className="text-xs">Nº</span>
               <Input
-                className="w-16 h-6 text-center border-2 border-[#c62828] text-xs"
-                value={formData.historiaClinica}
-                onChange={(e) => onFormDataChange({ historiaClinica: e.target.value })}
+                className="w-36 h-6 text-center border-2 border-[#c62828] bg-[#c62828]/5 text-xs font-semibold tracking-wide text-[#c62828]"
+                value={formData.codigoTrazabilidad || "—"}
+                onChange={(e) =>
+                  onFormDataChange({ codigoTrazabilidad: e.target.value })
+                }
+                placeholder="Generado automáticamente"
+                aria-label="Código de trazabilidad de la prescripción"
+                title="Código de trazabilidad generado automáticamente"
               />
+            </div>
+            <div className="text-[9px] text-gray-500 mt-0.5">
+              Código de trazabilidad
             </div>
           </div>
         </div>

@@ -1,3 +1,5 @@
+import { generateCodigoTrazabilidad as generarCodigoTrazabilidad } from "@/lib/trazabilidad"
+
 export type FechaPartes = { dia: string; mes: string; anio: string }
 
 export type ToothStatus = "normal" | "ausencia" | "implante" | "pilar"
@@ -32,7 +34,6 @@ export interface SolicitudFormData {
   piezasEnviadas: string[]
   codigoTrazabilidad: string
   productos: ProductoLine[]
-  historiaClinica: string
   historiaClinicaPaciente: string
 }
 
@@ -53,14 +54,7 @@ export interface SolicitudEntry {
 }
 
 export function generateCodigoTrazabilidad(): string {
-  const now = new Date()
-  const year = now.getFullYear()
-  const month = String(now.getMonth() + 1).padStart(2, "0")
-  const day = String(now.getDate()).padStart(2, "0")
-  const hours = String(now.getHours()).padStart(2, "0")
-  const minutes = String(now.getMinutes()).padStart(2, "0")
-  const seconds = String(now.getSeconds()).padStart(2, "0")
-  return `${year}${month}${day}${hours}${minutes}${seconds}`
+  return generarCodigoTrazabilidad()
 }
 
 function getTodayStr(): FechaPartes {
@@ -107,7 +101,6 @@ export function createDefaultSolicitud(options?: {
       piezasEnviadas: [],
       codigoTrazabilidad: generateCodigoTrazabilidad(),
       productos: [],
-      historiaClinica: "",
       historiaClinicaPaciente: "",
     },
   }

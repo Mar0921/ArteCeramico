@@ -3,10 +3,12 @@
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import Image from "next/image"
-import { motion } from "framer-motion"
-import { Eye, EyeOff, ArrowLeft, Mail, Lock } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+import { Eye, EyeOff, ArrowLeft, Mail, Lock, Shield, UserCheck } from "lucide-react"
 import { supabase } from "@/lib/supabase"
 import { useRouter, useSearchParams } from "next/navigation"
+
+type Rol = "cliente" | "admin" | "empleado"
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
@@ -19,20 +21,22 @@ export default function LoginPage() {
   const [showSessionWarning, setShowSessionWarning] = useState(false)
   const [pendingEmail, setPendingEmail] = useState("")
   const [pendingPassword, setPendingPassword] = useState("")
+  const [rol, setRol] = useState<Rol>("cliente")
+  const [showRoleSelector, setShowRoleSelector] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== "undefined") {
       const params = new URLSearchParams(window.location.search)
-      const redirect = params.get('redirect')
-      if (redirect === 'formulario') {
-        setRedirectUrl('/formulario')
+      const redirect = params.get("redirect")
+      if (redirect === "formulario") {
+        setRedirectUrl("/formulario")
       }
     }
   }, [])
 
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (typeof window === "undefined") return
     const checkSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession()
@@ -45,6 +49,65 @@ export default function LoginPage() {
     }
     checkSession()
   }, [])
+
+  const handleLoginSuccess = async (authData: { user: { id: string; email?: string | null } }) => {
+    if (rol === "admin") {
+      const { data: admin, error: adminError } = await supabase
+        .from("admins")
+        .select("*")
+        .eq("user_id", authData.user.id)
+        .eq("activo", true)
+        .single()
+
+      if (adminError || !admin) {
+        await supabase.auth.signOut()
+        throw new Error("No tienes acceso de administrador")
+      }
+
+      localStorage.setItem("isLoggedIn", "true")
+      localStorage.setItem("rol", "admin")
+      router.push("/dashboard")
+      return
+    }
+
+    if (rol === "empleado") {
+      const { data: empleado, error: empleadoError } = await supabase
+        .from("empleados")
+        .select("*")
+        .eq("user_id", authData.user.id)
+        .eq("activo", true)
+        .single()
+
+      if (empleadoError || !empleado) {
+        await supabase.auth.signOut()
+        throw new Error("No tienes acceso de empleado o tu cuenta está inactiva")
+      }
+
+      localStorage.setItem("isLoggedIn", "true")
+      localStorage.setItem("rol", "empleado")
+      router.push("/empleados/dashboard")
+      return
+    }
+
+    const { data: cliente, error: clienteError } = await supabase
+      .from("clientes")
+      .select("*")
+      .eq("user_id", authData.user.id)
+      .single()
+
+    if (clienteError || !cliente) {
+      throw new Error("Cliente no encontrado")
+    }
+
+    sessionStorage.setItem("clienteId", String(cliente.id))
+    localStorage.setItem("isLoggedIn", "true")
+
+    if (redirectUrl) {
+      router.push(redirectUrl)
+    } else {
+      router.push("/page_clientes")
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -69,32 +132,11 @@ export default function LoginPage() {
           password,
         })
 
-      console.log("AUTH DATA:", authData)
-      console.log("AUTH ERROR:", authError)
-
       if (authError) {
         throw authError
       }
-      // Buscar cliente asociado
-      const { data: cliente, error: clienteError } = await supabase
-        .from("clientes")
-        .select("*")
-        .eq("user_id", authData.user.id)
-        .single()
 
-      if (clienteError || !cliente) {
-        throw new Error("Cliente no encontrado")
-      }
-
-// Guardar sesión
-      sessionStorage.setItem("clienteId", String(cliente.id))
-      localStorage.setItem("isLoggedIn", "true")
-
-      if (redirectUrl) {
-        router.push(redirectUrl)
-      } else {
-        router.push("/page_clientes")
-      }
+      await handleLoginSuccess(authData)
     } catch (err: any) {
       setError(err.message || "Error al iniciar sesión")
     } finally {
@@ -119,31 +161,50 @@ export default function LoginPage() {
         throw authError
       }
 
-      const { data: cliente, error: clienteError } = await supabase
-        .from("clientes")
-        .select("*")
-        .eq("user_id", authData.user.id)
-        .single()
-
-      if (clienteError || !cliente) {
-        throw new Error("Cliente no encontrado")
-      }
-
-      sessionStorage.setItem("clienteId", String(cliente.id))
-      localStorage.setItem("isLoggedIn", "true")
+      await handleLoginSuccess(authData)
       setExistingEmail(authData.user.email ?? null)
-
-      if (redirectUrl) {
-        router.push(redirectUrl)
-      } else {
-        router.push("/page_clientes")
-      }
     } catch (err: any) {
       setError(err.message || "Error al iniciar sesión")
     } finally {
       setLoading(false)
     }
   }
+
+  const roleConfig = {
+    cliente: {
+      title: "Iniciar Sesión",
+      description: "Accede al portal de clientes de Arte Cerámico",
+      submitBg: "bg-primary",
+      submitHover: "hover:bg-primary-dark",
+      accent: null as null,
+    },
+    admin: {
+      title: "Acceso Administrativo",
+      description: "Ingresa al panel de administración de Arte Cerámico",
+      submitBg: "bg-primary",
+      submitHover: "hover:bg-primary-dark",
+      accent: (
+        <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+          <Shield size={14} />
+          Administrador
+        </div>
+      ),
+    },
+    empleado: {
+      title: "Acceso Empleado",
+      description: "Ingresa al panel de trabajo de Arte Cerámico",
+      submitBg: "bg-blue-600",
+      submitHover: "hover:bg-blue-700",
+      accent: (
+        <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-blue-500/10 px-3 py-1 text-xs font-medium text-blue-600">
+          <UserCheck size={14} />
+          Empleado
+        </div>
+      ),
+    },
+  }
+
+  const cfg = roleConfig[rol]
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -176,11 +237,13 @@ export default function LoginPage() {
               />
             </Link>
 
+            {cfg.accent}
+
             <h1 className="mt-4 text-2xl font-bold text-foreground">
-              Iniciar Sesión
+              {cfg.title}
             </h1>
             <p className="mt-2 text-muted-foreground">
-              Accede al portal de clientes de Arte Cerámico
+              {cfg.description}
             </p>
           </div>
 
@@ -244,14 +307,71 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              <div className="flex justify-end">
-                <a
-                  href="#"
-                  className="text-sm font-medium text-primary hover:text-primary-dark"
+              <div className="flex justify-between items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  onClick={() => setShowRoleSelector((v) => !v)}
+                  className={`text-sm font-medium text-primary hover:text-primary-dark underline offset-1 decoration-primary/30`}
+                >
+                  ¿Eres parte de Arte Cerámico?
+                </button>
+
+                <Link
+                  href="/recuperar-contrasena"
+                  className="text-sm font-medium text-muted-foreground hover:text-foreground"
                 >
                   ¿Olvidaste tu contraseña?
-                </a>
+                </Link>
               </div>
+
+              <AnimatePresence initial={false}>
+                {showRoleSelector && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.25, ease: "easeOut" }}
+                    className="overflow-hidden"
+                  >
+                    <div className="grid grid-cols-2 gap-3 pt-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRol("admin")
+                          setShowRoleSelector(false)
+                        }}
+                        className={`flex items-center justify-center gap-2 rounded-xl border border-primary/30 bg-primary/10 py-2.5 text-sm font-semibold text-primary transition-all hover:bg-primary/20`}
+                      >
+                        <Shield size={16} />
+                        Administrador
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setRol("empleado")
+                          setShowRoleSelector(false)
+                        }}
+                        className={`flex items-center justify-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 py-2.5 text-sm font-semibold text-blue-600 transition-all hover:bg-blue-500/20`}
+                      >
+                        <UserCheck size={16} />
+                        Empleado
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setRol("cliente")
+                        setShowRoleSelector(false)
+                      }}
+                      className="mt-2 w-full rounded-xl border border-border bg-card/50 py-2 text-xs font-medium text-muted-foreground transition-all hover:bg-muted"
+                    >
+                      Continuar como cliente
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {error && (
                 <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700">
@@ -262,10 +382,11 @@ export default function LoginPage() {
               <button
                 type="submit"
                 disabled={loading}
-                className={`w-full rounded-xl bg-primary py-3.5 font-semibold text-primary-foreground shadow-lg transition-all duration-300 hover:scale-[1.02] hover:bg-primary-dark hover:shadow-xl ${loading ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
+                className={`w-full rounded-xl ${cfg.submitBg} py-3.5 font-semibold text-primary-foreground shadow-lg transition-all duration-300 hover:scale-[1.02] ${cfg.submitHover} hover:shadow-xl ${
+                  loading ? "opacity-50 cursor-not-allowed" : ""
+                }`}
               >
-                {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+                {loading ? "Iniciando sesión..." : cfg.title}
               </button>
             </div>
 
@@ -275,26 +396,18 @@ export default function LoginPage() {
               <div className="h-px flex-1 bg-border" />
             </div>
 
-            <p className="text-center text-sm text-muted-foreground">
-              ¿No tienes una cuenta?{" "}
-              <Link
-                href="/registro"
-                className="font-medium text-primary hover:text-primary-dark"
-              >
-                Regístrate
-              </Link>
-            </p>
+            {rol === "cliente" && (
+              <p className="text-center text-sm text-muted-foreground">
+                ¿No tienes una cuenta?{" "}
+                <Link
+                  href="/registro"
+                  className="font-medium text-primary hover:text-primary-dark"
+                >
+                  Regístrate
+                </Link>
+              </p>
+            )}
           </form>
-
-          <p className="mt-6 text-center text-xs text-muted-foreground">
-            Para acceso de administrador,{" "}
-            <Link
-              href="/dashboard"
-              className="font-medium text-primary hover:text-primary-dark"
-            >
-              ir al panel de administración
-            </Link>
-          </p>
         </motion.div>
       </div>
 
@@ -305,8 +418,10 @@ export default function LoginPage() {
               Sesión activa detectada
             </h3>
             <p className="mb-6 text-sm text-muted-foreground">
-              Tienes una sesión abierta como <span className="font-semibold text-foreground">{existingEmail}</span>.
-              ¿Deseas cerrarla y continuar con la cuenta <span className="font-semibold text-foreground">{pendingEmail}</span>?
+              Tienes una sesión abierta como{" "}
+              <span className="font-semibold text-foreground">{existingEmail}</span>.
+              ¿Deseas cerrarla y continuar con la cuenta{" "}
+              <span className="font-semibold text-foreground">{pendingEmail}</span>?
             </p>
             <div className="flex items-center justify-end gap-3">
               <button

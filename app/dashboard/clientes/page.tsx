@@ -147,7 +147,7 @@ export default function ClientesPage() {
   const [loadingSolicitudes, setLoadingSolicitudes] = useState<{ [key: number]: boolean }>({})
   const [loadingServicios, setLoadingServicios] = useState<{ [key: number]: boolean }>({})
   const [loadingEstadoCuenta, setLoadingEstadoCuenta] = useState<{ [key: number]: boolean }>({})
-  const [vistaSolicitudes, setVistaSolicitudes] = useState<"activas" | "finalizadas">("activas")
+  const [vistaSolicitudes, setVistaSolicitudes] = useState<"activas" | "finalizadas" | "canceladas">("activas")
   const [serviciosPorSolicitud, setServiciosPorSolicitud] = useState<{ [key: number]: any[] }>({})
   const [solicitudDocs, setSolicitudDocs] = useState<{
     [key: number]: {
@@ -161,9 +161,15 @@ export default function ClientesPage() {
   const [uploadSuccess, setUploadSuccess] = useState<Record<string, boolean>>({})
   const [mostrarEstadoCuenta, setMostrarEstadoCuenta] = useState<{ [key: number]: boolean }>({})
   const [itemsEstadoCuenta, setItemsEstadoCuenta] = useState<{ [key: number]: { solicitudId: number; servicio: string; precio: number | null; estado: string; fecha: string }[] }>({})
-  const [totalPagarPorCliente, setTotalPagarPorCliente] = useState<{ [key: number]: number }>({})
+   const [totalPagarPorCliente, setTotalPagarPorCliente] = useState<{ [key: number]: number }>({})
+    const [cancelandoSolicitud, setCancelandoSolicitud] = useState<{ [key: number]: boolean }>({})
+    const [aceptandoSolicitud, setAceptandoSolicitud] = useState<{ [key: number]: boolean }>({})
+    const [rechazandoSolicitud, setRechazandoSolicitud] = useState<{ [key: number]: boolean }>({})
+    const [modalRechazarVisible, setModalRechazarVisible] = useState(false)
+    const [solicitudARechazar, setSolicitudARechazar] = useState<Solicitud | null>(null)
+    const [mensajeRechazo, setMensajeRechazo] = useState("")
 
-  // --- Chat state ---
+   // --- Chat state ---
   const [activeTab, setActiveTab] = useState<{ [solicitudId: number]: "detalle" | "chat" }>({})
   const [mensajesPorSolicitud, setMensajesPorSolicitud] = useState<{ [solicitudId: number]: MensajeChat[] }>({})
   const [loadingMensajes, setLoadingMensajes] = useState<{ [solicitudId: number]: boolean }>({})
@@ -381,7 +387,7 @@ const canvas = await html2canvas(elemento, {
           setClientes((prev) =>
             prev.map((cliente) => ({
               ...cliente,
-              solicitudes: (cliente.solicitudes || []).map((s) =>
+              solicitudes: (cliente.solicitudes || []).map((s: Solicitud) =>
                 s.id === solicitudActualizada.id ? solicitudActualizada : s
               ),
             }))
@@ -401,7 +407,7 @@ const canvas = await html2canvas(elemento, {
             prev.map((cliente) => ({
               ...cliente,
               solicitudes: (cliente.solicitudes || []).filter(
-                (s) => s.id !== solicitudEliminada.id
+                (s: Solicitud) => s.id !== solicitudEliminada.id
               ),
             }))
           )
@@ -536,7 +542,7 @@ const canvas = await html2canvas(elemento, {
 
       if (solicitudesError) throw solicitudesError
 
-      const solicitudesIds = solicitudesData?.map(s => s.id) || []
+      const solicitudesIds = solicitudesData?.map((s: any) => s.id) || []
       if (solicitudesIds.length === 0) {
         setItemsEstadoCuenta((prev) => ({ ...prev, [clienteId]: [] }))
         setTotalPagarPorCliente((prev) => ({ ...prev, [clienteId]: 0 }))
@@ -678,10 +684,196 @@ const canvas = await html2canvas(elemento, {
       setEditPrecioOpen(false)
     } catch (err: any) {
       toast({ title: "Error", description: err.message || "No se pudo actualizar el precio.", variant: "destructive" })
-    } finally {
-      setGuardandoPrecio(false)
+     } finally {
+       setGuardandoPrecio(false)
+     }
+   }
+
+   const handleCancelarSolicitud = async (solicitud: Solicitud) => {
+     const confirmacion = window.confirm(
+       `¿Estás seguro de cancelar la solicitud #${solicitud.id}?\nSe enviará una notificación al cliente.`
+     )
+     if (!confirmacion) return
+
+     setCancelandoSolicitud((prev) => ({ ...prev, [solicitud.id]: true }))
+     try {
+       const { error: updateError } = await supabase
+         .from("solicitudes")
+         .update({ estado: "cancelado" })
+         .eq("id", solicitud.id)
+
+       if (updateError) throw updateError
+
+       let { data: conversacion, error: convError } = await supabase
+         .from("conversaciones")
+         .select("id")
+         .eq("solicitud_id", solicitud.id)
+         .maybeSingle()
+
+       if (convError) throw convError
+
+       if (!conversacion) {
+         const { data: nueva, error: createError } = await supabase
+           .from("conversaciones")
+           .insert({
+             solicitud_id: solicitud.id,
+             cliente_id: solicitud.cliente_id,
+             admin_id: adminId,
+             estado: "activa",
+           })
+           .select()
+           .single()
+
+         if (createError) throw createError
+         conversacion = nueva
+       }
+
+       const { error: msgError } = await supabase
+         .from("mensajes")
+         .insert({
+            conversacion_id: conversacion!.id,
+           contenido: "Su solicitud ha sido cancelada. Si necesita más información, comuníquese con nosotros.",
+           remitente: "admin",
+           leido: false,
+         })
+         .select()
+
+       if (msgError) throw msgError
+
+       setClientes((prev) =>
+         prev.map((c) => ({
+           ...c,
+           solicitudes: (c.solicitudes || []).map((s) =>
+             s.id === solicitud.id ? { ...s, estado: "cancelado" } : s
+           ),
+         }))
+       )
+
+       toast({
+         title: "Solicitud cancelada",
+         description: "La solicitud se canceló y se notificó al cliente.",
+       })
+     } catch (err: any) {
+       toast({
+         title: "Error",
+         description: err.message || "No se pudo cancelar la solicitud.",
+         variant: "destructive",
+       })
+      } finally {
+        setCancelandoSolicitud((prev) => ({ ...prev, [solicitud.id]: false }))
+      }
     }
-  }
+
+   const handleAceptarSolicitud = async (solicitud: Solicitud) => {
+     setAceptandoSolicitud((prev) => ({ ...prev, [solicitud.id]: true }))
+     try {
+       const { error } = await supabase
+         .from("solicitudes")
+         .update({ estado: "en_proceso", fase: "LIMPIEZA Y DESINFECCION DE ENTRADA" })
+         .eq("id", solicitud.id)
+
+       if (error) throw error
+
+       setClientes((prev) =>
+         prev.map((c) => ({
+           ...c,
+           solicitudes: (c.solicitudes || []).map((s) =>
+             s.id === solicitud.id
+               ? { ...s, estado: "en_proceso", fase: "LIMPIEZA Y DESINFECCION DE ENTRADA" }
+               : s
+           ),
+         }))
+       )
+
+       toast({ title: "Solicitud aceptada", description: "La solicitud pasó a en proceso." })
+     } catch (err: any) {
+       toast({ title: "Error", description: err.message || "No se pudo aceptar la solicitud.", variant: "destructive" })
+     } finally {
+       setAceptandoSolicitud((prev) => ({ ...prev, [solicitud.id]: false }))
+     }
+   }
+
+   const abrirRechazarSolicitud = (solicitud: Solicitud) => {
+     setSolicitudARechazar(solicitud)
+     setMensajeRechazo("")
+     setModalRechazarVisible(true)
+   }
+
+   const handleRechazarSolicitud = async () => {
+     if (!solicitudARechazar) return
+     const solicitudId = solicitudARechazar.id
+
+     if (!mensajeRechazo.trim()) {
+       toast({ title: "Error", description: "Debes escribir un motivo para rechazar.", variant: "destructive" })
+       return
+     }
+
+     setRechazandoSolicitud((prev) => ({ ...prev, [solicitudId]: true }))
+     try {
+       const { error: updateError } = await supabase
+         .from("solicitudes")
+         .update({ estado: "cancelado" })
+         .eq("id", solicitudId)
+
+       if (updateError) throw updateError
+
+       let { data: conversacion, error: convError } = await supabase
+         .from("conversaciones")
+         .select("id")
+         .eq("solicitud_id", solicitudId)
+         .maybeSingle()
+
+       if (convError) throw convError
+
+       if (!conversacion) {
+         const { data: nueva, error: createError } = await supabase
+           .from("conversaciones")
+           .insert({
+             solicitud_id: solicitudId,
+             cliente_id: solicitudARechazar.cliente_id,
+             admin_id: adminId,
+             estado: "activa",
+           })
+           .select()
+           .single()
+
+         if (createError) throw createError
+         conversacion = nueva
+       }
+
+       const { error: msgError } = await supabase
+         .from("mensajes")
+         .insert({
+           conversacion_id: conversacion!.id,
+           contenido: mensajeRechazo,
+           remitente: "admin",
+           leido: false,
+         })
+         .select()
+
+       if (msgError) throw msgError
+
+       setClientes((prev) =>
+         prev.map((c) => ({
+           ...c,
+           solicitudes: (c.solicitudes || []).map((s) =>
+             s.id === solicitudId ? { ...s, estado: "cancelado" } : s
+           ),
+         }))
+       )
+
+       toast({ title: "Solicitud rechazada", description: "Se envió el mensaje de rechazo al cliente." })
+     } catch (err: any) {
+       toast({ title: "Error", description: err.message || "No se pudo rechazar la solicitud.", variant: "destructive" })
+     } finally {
+       setRechazandoSolicitud((prev) => ({ ...prev, [solicitudId]: false }))
+       setModalRechazarVisible(false)
+       setSolicitudARechazar(null)
+       setMensajeRechazo("")
+     }
+   }
+
+
 
   const handleSolicitudDocChange = (
     solicitudId: number,
@@ -749,7 +941,7 @@ const canvas = await html2canvas(elemento, {
       setClientes((prev) =>
         prev.map((cliente) => ({
           ...cliente,
-          solicitudes: cliente.solicitudes.map((s) =>
+          solicitudes: cliente.solicitudes.map((s: Solicitud) =>
             s.id === solicitudId
               ? { ...s, [campo]: result.url }
               : s
@@ -1218,12 +1410,15 @@ const canvas = await html2canvas(elemento, {
                           </p>
                          ) : (
                            (() => {
-                             const solicitudesActivas = cliente.solicitudes.filter(
-                               (s) => !esSolicitudFinalizada(s.estado || "")
-                             )
-                             const solicitudesFinalizadas = cliente.solicitudes.filter(
-                               (s) => esSolicitudFinalizada(s.estado || "")
-                             )
+                               const solicitudesActivas = cliente.solicitudes.filter(
+                                 (s: Solicitud) => !esSolicitudFinalizada(s.estado || "")
+                               )
+                               const solicitudesFinalizadas = cliente.solicitudes.filter(
+                                 (s: Solicitud) => s.estado === "finalizado"
+                               )
+                               const solicitudesCanceladas = cliente.solicitudes.filter(
+                                 (s: Solicitud) => s.estado === "cancelado"
+                               )
 
                              const renderSolicitud = (solicitud: Solicitud) => {
                                const isExpanded = expandedSolicitud[solicitud.id]
@@ -1257,16 +1452,64 @@ const canvas = await html2canvas(elemento, {
                                          </span>
                                        </div>
                                      </div>
-                                     <div className="flex items-center gap-2">
-                                       <span className="text-sm font-bold text-primary">
-                                         ${precioTotal.toLocaleString("es-CO")}
-                                       </span>
-                                       {isExpanded ? (
-                                         <ChevronUp size={16} className="text-muted-foreground" />
-                                       ) : (
-                                         <ChevronDown size={16} className="text-muted-foreground" />
-                                       )}
-                                     </div>
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-sm font-bold text-primary">
+                                          ${precioTotal.toLocaleString("es-CO")}
+                                        </span>
+                                        {solicitud.estado === "pendiente" && (
+                                          <>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                handleAceptarSolicitud(solicitud)
+                                              }}
+                                              disabled={aceptandoSolicitud[solicitud.id]}
+                                              className="inline-flex items-center justify-center rounded-lg border border-green-200 bg-green-50 px-2 py-1 text-[10px] font-medium text-green-700 hover:bg-green-100 disabled:opacity-50"
+                                              title="Aceptar solicitud"
+                                            >
+                                              {aceptandoSolicitud[solicitud.id] ? (
+                                                <Loader2 size={12} className="animate-spin" />
+                                              ) : (
+                                                <CheckCircle size={12} />
+                                              )}
+                                            </button>
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                abrirRechazarSolicitud(solicitud)
+                                              }}
+                                              disabled={rechazandoSolicitud[solicitud.id]}
+                                              className="inline-flex items-center justify-center rounded-lg border border-orange-200 bg-orange-50 px-2 py-1 text-[10px] font-medium text-orange-700 hover:bg-orange-100 disabled:opacity-50"
+                                              title="Rechazar solicitud"
+                                            >
+                                              <AlertCircle size={12} />
+                                            </button>
+                                          </>
+                                        )}
+                                        {!esSolicitudFinalizada(solicitud.estado || "") &&
+                                          solicitud.estado !== "pendiente" && (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation()
+                                                handleCancelarSolicitud(solicitud)
+                                              }}
+                                              disabled={cancelandoSolicitud[solicitud.id]}
+                                              className="inline-flex items-center justify-center rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-medium text-red-700 hover:bg-red-100 disabled:opacity-50"
+                                              title="Cancelar solicitud"
+                                            >
+                                              {cancelandoSolicitud[solicitud.id] ? (
+                                                <Loader2 size={12} className="animate-spin" />
+                                              ) : (
+                                                <X size={12} />
+                                              )}
+                                            </button>
+                                          )}
+                                        {isExpanded ? (
+                                          <ChevronUp size={16} className="text-muted-foreground" />
+                                        ) : (
+                                          <ChevronDown size={16} className="text-muted-foreground" />
+                                        )}
+                                      </div>
                                    </div>
 
                                    {isExpanded && (
@@ -1468,38 +1711,92 @@ const canvas = await html2canvas(elemento, {
                                          </Link>
                                        </div>
                                      </div>
-                                   )}
-                                  </div>
-                                )
-                              }
+       )}
+
+        {modalRechazarVisible && solicitudARechazar && solicitudARechazar.id === solicitud.id && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="w-full max-w-md rounded-xl bg-card p-6 shadow-xl">
+              <h3 className="text-lg font-semibold text-foreground mb-4">
+                Rechazar solicitud #{solicitud.id}
+             </h3>
+             <p className="text-sm text-muted-foreground mb-3">
+               Escribe el motivo del rechazo. Este mensaje se enviará al cliente.
+             </p>
+             <textarea
+               value={mensajeRechazo}
+               onChange={(e) => setMensajeRechazo(e.target.value)}
+               placeholder="Escribe aquí el motivo del rechazo..."
+               rows={4}
+               className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary/20"
+             />
+             <div className="mt-5 flex gap-3 justify-end">
+               <button
+                 onClick={() => {
+                   setModalRechazarVisible(false)
+                   setSolicitudARechazar(null)
+                   setMensajeRechazo("")
+                 }}
+                 className="rounded-xl border border-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+               >
+                 Cancelar
+               </button>
+               <button
+                 onClick={handleRechazarSolicitud}
+                 disabled={rechazandoSolicitud[solicitudARechazar.id] || !mensajeRechazo.trim()}
+                 className="rounded-xl bg-orange-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-700 disabled:opacity-50"
+               >
+                 {rechazandoSolicitud[solicitudARechazar.id] ? (
+                   <Loader2 size={14} className="animate-spin" />
+                 ) : (
+                   "Enviar y rechazar"
+                 )}
+               </button>
+             </div>
+           </div>
+         </div>
+       )}
+     </div>
+   )
+ }
 
                               return (
                                 <div>
-                                  <div className="flex gap-2 mb-3">
-                                    <button
-                                      onClick={() => setVistaSolicitudes("activas")}
-                                      className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${vistaSolicitudes === "activas" ? "bg-primary text-primary-foreground" : "border border-border bg-muted/50 text-muted-foreground hover:bg-muted"}`}
-                                    >
-                                      <Package size={14} />
-                                      Activas / En proceso ({solicitudesActivas.length})
-                                    </button>
-                                    <button
-                                      onClick={() => setVistaSolicitudes("finalizadas")}
-                                      className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${vistaSolicitudes === "finalizadas" ? "bg-primary text-primary-foreground" : "border border-border bg-muted/50 text-muted-foreground hover:bg-muted"}`}
-                                    >
-                                      <CheckCircle size={14} />
-                                      Finalizadas ({solicitudesFinalizadas.length})
-                                    </button>
-                                  </div>
-                                  <div className="space-y-2">
-                                    {vistaSolicitudes === "activas"
-                                      ? solicitudesActivas.length === 0
-                                        ? <p className="text-[10px] text-muted-foreground text-center py-3">Sin solicitudes activas</p>
-                                        : solicitudesActivas.map(renderSolicitud)
-                                      : solicitudesFinalizadas.length === 0
-                                        ? <p className="text-[10px] text-muted-foreground text-center py-3">Sin solicitudes finalizadas</p>
-                                        : solicitudesFinalizadas.map(renderSolicitud)}
-                                  </div>
+                                   <div className="flex gap-2 mb-3">
+                                     <button
+                                       onClick={() => setVistaSolicitudes("activas")}
+                                       className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${vistaSolicitudes === "activas" ? "bg-primary text-primary-foreground" : "border border-border bg-muted/50 text-muted-foreground hover:bg-muted"}`}
+                                     >
+                                       <Package size={14} />
+                                       Activas / En proceso ({solicitudesActivas.length})
+                                     </button>
+                                     <button
+                                       onClick={() => setVistaSolicitudes("finalizadas")}
+                                       className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${vistaSolicitudes === "finalizadas" ? "bg-primary text-primary-foreground" : "border border-border bg-muted/50 text-muted-foreground hover:bg-muted"}`}
+                                     >
+                                       <CheckCircle size={14} />
+                                       Finalizadas ({solicitudesFinalizadas.length})
+                                     </button>
+                                     <button
+                                       onClick={() => setVistaSolicitudes("canceladas")}
+                                       className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${vistaSolicitudes === "canceladas" ? "bg-primary text-primary-foreground" : "border border-border bg-muted/50 text-muted-foreground hover:bg-muted"}`}
+                                     >
+                                       <AlertCircle size={14} />
+                                       Canceladas ({solicitudesCanceladas.length})
+                                     </button>
+                                   </div>
+                                   <div className="space-y-2">
+                                     {vistaSolicitudes === "activas"
+                                       ? solicitudesActivas.length === 0
+                                         ? <p className="text-[10px] text-muted-foreground text-center py-3">Sin solicitudes activas</p>
+                                         : solicitudesActivas.map(renderSolicitud)
+                                       : vistaSolicitudes === "finalizadas"
+                                         ? solicitudesFinalizadas.length === 0
+                                           ? <p className="text-[10px] text-muted-foreground text-center py-3">Sin solicitudes finalizadas</p>
+                                           : solicitudesFinalizadas.map(renderSolicitud)
+                                         : solicitudesCanceladas.length === 0
+                                           ? <p className="text-[10px] text-muted-foreground text-center py-3">Sin solicitudes canceladas</p>
+                                           : solicitudesCanceladas.map(renderSolicitud)}
+                                   </div>
                                 </div>
                               )
                             })()

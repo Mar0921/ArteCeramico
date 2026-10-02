@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 import { Calendar, CalendarDayButton } from "@/components/ui/calendar"
 import { cn } from "@/lib/utils"
+import ExpiracionMananaBanner, { VenceMananaItem } from "@/components/expiracion-manana-banner"
 
 interface Solicitud {
   id: number
@@ -216,15 +217,35 @@ export default function CalendarioPage() {
     ? solicitudesConEntrega.find((solicitud) => solicitud.id === solicitudId)
     : null
 
+  const venceMananaItems = useMemo<VenceMananaItem[]>(
+    () =>
+      solicitudesConEntrega
+        .filter(
+          (solicitud) =>
+            solicitud.diasRestantes === 1 &&
+            solicitud.estado !== "completado" &&
+            solicitud.estado !== "cancelado"
+        )
+        .map((solicitud) => ({
+          codigo: solicitud.codigo_trazabilidad || `Solicitud #${solicitud.id}`,
+          fechaEntrega: solicitud.fecha_entrega,
+          href: `/dashboard/clientes/${solicitud.cliente_id}?solicitud=${solicitud.id}`,
+        })),
+    [solicitudesConEntrega]
+  )
+
   const solicitudesOrdenadas = useMemo(
     () =>
       [...solicitudesConEntrega].sort((a, b) => {
-        if (a.fechaEntregaDate && b.fechaEntregaDate) {
-          return a.fechaEntregaDate.getTime() - b.fechaEntregaDate.getTime()
-        }
-        if (a.fechaEntregaDate) return -1
-        if (b.fechaEntregaDate) return 1
-        return a.id - b.id
+        const da = a.diasRestantes
+        const db = b.diasRestantes
+        if (da === null && db === null) return a.id - b.id
+        if (da === null) return 1
+        if (db === null) return -1
+        const aVencida = da < 0
+        const bVencida = db < 0
+        if (aVencida !== bVencida) return aVencida ? 1 : -1
+        return da - db
       }),
     [solicitudesConEntrega]
   )
@@ -291,6 +312,8 @@ export default function CalendarioPage() {
           </span>
         </div>
       </div>
+
+      <ExpiracionMananaBanner items={venceMananaItems} />
 
       {solicitudDestacada && (
         <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">

@@ -63,6 +63,10 @@ import { FichaTecnicaProvisionalPmmaImplante } from "@/app/dashboard/clientes/[i
 import { FichaTecnicaProvisionalPmma } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-provisional-pmma"
 import { FichaTecnicaProvisionalResinaImpresa } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-provisional-resina-impresa"
 
+// Notificaciones visibles para el cliente. "nuevo_mensaje" alimenta además el
+// contador de la conversación; los avisos de estado como "listo_envio" no.
+const TIPOS_NOTIFICACION_CLIENTE = ["nuevo_mensaje", "listo_envio"]
+
 interface CampoEditable {
   label: string
   value: string
@@ -362,9 +366,14 @@ export default function ClientesPage() {
         (payload) => {
           const nuevaNotificacion: any = payload.new
 
-          if (nuevaNotificacion.tipo !== "nuevo_mensaje") return
+          if (!TIPOS_NOTIFICACION_CLIENTE.includes(nuevaNotificacion.tipo)) return
 
           setNotificacionesLista(prev => [nuevaNotificacion, ...prev])
+
+          // "Listo para envío" incrementa solo la campanita, no el contador de
+          // mensajes del chat.
+          if (nuevaNotificacion.tipo !== "nuevo_mensaje") return
+
           setNotificacionesNoLeidas(prev => ({
             ...prev,
             [nuevaNotificacion.solicitud_id]:
@@ -634,11 +643,12 @@ export default function ClientesPage() {
           solicitud_id,
           contenido,
           titulo,
+          tipo,
           vista,
           created_at
         `)
         .eq("cliente_id", clienteId)
-        .eq("tipo", "nuevo_mensaje")
+        .in("tipo", TIPOS_NOTIFICACION_CLIENTE)
         .order("created_at", { ascending: false })
         .limit(50)
 
@@ -754,7 +764,7 @@ export default function ClientesPage() {
       if (!elemento) return
 
       const canvas = await html2canvas(elemento, {
-        background: "#ffffff",
+        backgroundColor: "#ffffff",
         logging: false,
         allowTaint: true,
         useCORS: false,
@@ -796,18 +806,6 @@ export default function ClientesPage() {
     if (!clientData?.id) return
 
     try {
-      // Verificar que la conversación pertenece al cliente
-      const { data: conversacion } = await supabase
-        .from("conversaciones")
-        .select("id, solicitud_id, cliente_id")
-        .eq("id", notificacion.conversacion_id)
-        .eq("cliente_id", clientData.id)
-        .single()
-
-      if (!conversacion) {
-        return
-      }
-
       await supabase
         .from("notificaciones")
         .update({ vista: true })
@@ -824,14 +822,38 @@ export default function ClientesPage() {
 
       setNotificacionesOpen(false)
 
-       const solicitud = solicitudes.find(s => s.id === conversacion.solicitud_id)
-       if (solicitud) {
-         setExpandedSolicitudId(solicitud.id)
-         setActiveTab(prev => ({ ...prev, [solicitud.id]: "chat" }))
-         setTimeout(() => {
-           cargarMensajes(solicitud.id)
-         }, 100)
-       }
+      const solicitudNotificada = solicitudes.find(s => s.id === notificacion.solicitud_id)
+
+      // Los avisos de estado (ej. "Listo para envío") no tienen conversación
+      // asociada: abren el detalle de la solicitud en lugar del chat.
+      if (notificacion.tipo !== "nuevo_mensaje") {
+        if (solicitudNotificada) {
+          setExpandedSolicitudId(solicitudNotificada.id)
+          setActiveTab(prev => ({ ...prev, [solicitudNotificada.id]: "detalle" }))
+        }
+        return
+      }
+
+      // Verificar que la conversación pertenece al cliente
+      const { data: conversacion } = await supabase
+        .from("conversaciones")
+        .select("id, solicitud_id, cliente_id")
+        .eq("id", notificacion.conversacion_id)
+        .eq("cliente_id", clientData.id)
+        .single()
+
+      if (!conversacion) {
+        return
+      }
+
+      const solicitud = solicitudes.find(s => s.id === conversacion.solicitud_id)
+      if (solicitud) {
+        setExpandedSolicitudId(solicitud.id)
+        setActiveTab(prev => ({ ...prev, [solicitud.id]: "chat" }))
+        setTimeout(() => {
+          cargarMensajes(solicitud.id)
+        }, 100)
+      }
     } catch (err) {
       console.error("Error abriendo notificación:", err)
     }
@@ -846,7 +868,7 @@ export default function ClientesPage() {
         .from("notificaciones")
         .update({ vista: true })
         .eq("cliente_id", clientData.id)
-        .eq("tipo", "nuevo_mensaje")
+        .in("tipo", TIPOS_NOTIFICACION_CLIENTE)
         .eq("vista", false)
 
       setNotificacionesLista(prev => prev.map(n => ({ ...n, vista: true })))
@@ -1073,7 +1095,7 @@ export default function ClientesPage() {
         if (convenioDiv) {
           try {
             const canvasFull = await html2canvas(convenioDiv, {
-              background: "#ffffff",
+              backgroundColor: "#ffffff",
               logging: false,
               allowTaint: true,
               useCORS: false,
@@ -1181,7 +1203,7 @@ export default function ClientesPage() {
       setDescargandoConvenio(true)
       try {
         const canvas = await html2canvas(convenioDiv, {
-          background: "#ffffff",
+          backgroundColor: "#ffffff",
           logging: false,
           allowTaint: true,
           useCORS: false,

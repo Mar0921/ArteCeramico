@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { motion } from "framer-motion"
 import {
   Users,
@@ -12,6 +12,8 @@ import {
   ArrowDownRight,
   LogOut,
 } from "lucide-react"
+import ExpiracionMananaBanner, { VenceMananaItem } from "@/components/expiracion-manana-banner"
+import { getDaysHastaEntrega } from "@/lib/fechas"
 
 const statusStyles: Record<string, string> = {
   pendiente: "bg-amber-100 text-amber-700",
@@ -28,6 +30,7 @@ interface RecentOrder {
   status: string
   date: string
   amount: string
+  fecha_entrega: string | null
 }
 
 interface EstadoPedido {
@@ -110,21 +113,21 @@ export default function DashboardPage() {
         if (response.ok) {
           const result = await response.json()
           const data = result.data?.recentOrders || []
-          const formatted = data.map((item: any) => ({
-            id: `SOL-${String(item.id).padStart(3, "0")}`,
-            client: item.cliente_nombre || "Sin cliente",
-            product: item.servicio || "Servicio",
-            status: item.estado
-              ? item.estado
-                  .replace(/_/g, " ")
-                  .replace(/\b\w/g, (l: string) => l.toUpperCase())
-              : "Pendiente",
-            date: new Date(item.created_at).toLocaleDateString("es-CO"),
-            amount: item.precio
-              ? `$${item.precio.toLocaleString("es-CO")}`
-              : "-",
-          }))
-          setRecentSolicitudes(formatted)
+           setRecentSolicitudes(
+            data.map((item: any) => ({
+              id: `SOL-${String(item.id).padStart(3, "0")}`,
+              client: item.cliente_nombre || "Sin cliente",
+              product: item.servicio || "Servicio",
+              status: item.estado
+                ? item.estado
+                    .replace(/_/g, " ")
+                    .replace(/\b\w/g, (l: string) => l.toUpperCase())
+                : "Pendiente",
+              date: new Date(item.created_at).toLocaleDateString("es-CO"),
+              amount: item.precio ? `$${item.precio.toLocaleString("es-CO")}` : "-",
+              fecha_entrega: item.fecha_entrega ?? null,
+            }))
+          )
         }
       } catch (err) {
         console.error("Error cargando pedidos recientes:", err)
@@ -135,6 +138,22 @@ export default function DashboardPage() {
 
     loadRecentOrders()
   }, [])
+
+  const venceMananaItems = useMemo<VenceMananaItem[]>(
+    () =>
+      recentSolicitudes
+        .filter(
+          (order) =>
+            order.status !== "Completado" &&
+            order.status !== "Cancelado" &&
+            getDaysHastaEntrega(order.fecha_entrega) === 1
+        )
+        .map((order) => ({
+          codigo: order.id,
+          fechaEntrega: order.fecha_entrega,
+        })),
+    [recentSolicitudes]
+  )
 
   const formatRevenue = (value: number): string => {
     if (value >= 1000000) {
@@ -199,7 +218,8 @@ export default function DashboardPage() {
   )
 
   return (
-    <div className="space-y-6 mt-20">
+    <div className="space-y-6 mt-32">
+      <ExpiracionMananaBanner items={venceMananaItems} />
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat, index) => (
           <motion.div

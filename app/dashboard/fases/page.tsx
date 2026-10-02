@@ -1,263 +1,162 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
-import Link from "next/link"
-import {
-  AlertCircle,
-  ArrowUpRight,
-  CalendarDays,
-  CheckCircle,
-  Clock,
-  Loader2,
-  Search,
-} from "lucide-react"
+import { useEffect, useState } from "react"
+import { Loader2 } from "lucide-react"
+import { supabase } from "@/lib/supabase"
+import { useToast } from "@/hooks/use-toast"
 
-interface Fase {
-  tipo: string
-  estado: string
-  realizada_por: string
-  fecha_finalizacion: string
-  fecha_prueba: string
-}
-
-interface Trabajo {
+interface FaseTemplate {
   id: number
-  servicio: string
-  estado: string
-  cliente_id: number
-  cliente_nombre: string
-  codigo_trazabilidad: string | null
-  orden_fases: string | null
+  nombre: string
+  descripcion: string | null
+  orden: number
+  activa: boolean
 }
 
-const statusStyles: Record<string, string> = {
-  pendiente: "bg-amber-100 text-amber-700",
-  en_proceso: "bg-blue-100 text-blue-700",
-  aprobado: "bg-green-100 text-green-700",
-  completado: "bg-primary/10 text-primary",
-  cancelado: "bg-red-100 text-red-100",
+interface Empleado {
+  id: number
+  nombre: string
+  email: string
 }
 
-const statusLabels: Record<string, string> = {
-  pendiente: "Pendiente",
-  en_proceso: "En proceso",
-  aprobado: "Aprobado",
-  completado: "Completado",
-  cancelado: "Cancelado",
-}
-
-const phaseStyles: Record<string, string> = {
-  pendiente: "bg-muted text-muted-foreground",
-  en_proceso: "bg-blue-100 text-blue-700",
-  completado: "bg-green-100 text-green-700",
-}
-
-function parseFases(value: string | null): Fase[] {
-  if (!value) return []
-  try {
-    const parsed: unknown = JSON.parse(value)
-    return Array.isArray(parsed) ? parsed.filter((fase): fase is Fase => typeof fase === "object" && fase !== null) : []
-  } catch {
-    return []
-  }
-}
-
-function getPhaseSummary(fases: Fase[]) {
-  const completadas = fases.filter((fase) => fase.estado === "completado").length
-  const enProceso = fases.find((fase) => fase.estado === "en_proceso")
-  const actual = enProceso || fases.find((fase) => fase.estado === "pendiente")
-  return {
-    total: fases.length,
-    completadas,
-    actual: actual?.tipo || (fases.length > 0 ? "Fase pendiente" : "Sin fases registradas"),
-    progress: fases.length ? Math.round((completadas / fases.length) * 100) : 0,
-  }
+interface EmpleadoFase {
+  empleado_id: number
+  fase_template_id: number
 }
 
 export default function FasesPage() {
-  const [trabajos, setTrabajos] = useState<Trabajo[]>([])
+  const { toast } = useToast()
+  const [fases, setFases] = useState<FaseTemplate[]>([])
+  const [empleados, setEmpleados] = useState<Empleado[]>([])
+  const [empleadoFases, setEmpleadoFases] = useState<EmpleadoFase[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const [searchTerm, setSearchTerm] = useState("")
+
+  const fetchData = async () => {
+    setLoading(true)
+    try {
+      const [fasesRes, empleadosRes, asignacionesRes] = await Promise.all([
+        supabase.from("fases_template").select("*").order("orden", { ascending: true }),
+        supabase.from("empleados").select("id, nombre, email").eq("activo", true).order("nombre"),
+        supabase.from("empleado_fases").select("empleado_id, fase_template_id"),
+      ])
+
+      if (fasesRes.error) throw fasesRes.error
+      if (empleadosRes.error) throw empleadosRes.error
+      if (asignacionesRes.error) throw asignacionesRes.error
+
+      setFases(fasesRes.data || [])
+      setEmpleados(empleadosRes.data || [])
+      setEmpleadoFases(asignacionesRes.data || [])
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Error al cargar datos", variant: "destructive" })
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const loadTrabajos = async () => {
-      setLoading(true)
-      setError(null)
-      try {
-        const response = await fetch("/api/solicitudes?limit=100")
-        if (!response.ok) throw new Error("No se pudieron cargar las fases.")
-        const result = await response.json()
-        setTrabajos(result.data || [])
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Error al cargar las fases.")
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadTrabajos()
+    fetchData()
   }, [])
 
-  const trabajosConFases = useMemo(
-    () =>
-      trabajos.map((trabajo) => ({
-        trabajo,
-        fases: parseFases(trabajo.orden_fases),
-      })),
-    [trabajos]
-  )
-
-  const filteredTrabajos = useMemo(() => {
-    const term = searchTerm.trim().toLowerCase()
-    if (!term) return trabajosConFases
-    return trabajosConFases.filter(({ trabajo }) =>
-      [trabajo.servicio, trabajo.cliente_nombre, trabajo.codigo_trazabilidad]
-        .filter(Boolean)
-        .join(" ")
-        .toLowerCase()
-        .includes(term)
-    )
-  }, [searchTerm, trabajosConFases])
-
-  const totalFases = trabajosConFases.reduce((total, { fases }) => total + fases.length, 0)
-  const fasesCompletadas = trabajosConFases.reduce(
-    (total, { fases }) => total + fases.filter((fase) => fase.estado === "completado").length,
-    0
-  )
-  const trabajosEnProceso = trabajosConFases.filter(({ fases }) =>
-    fases.some((fase) => fase.estado === "en_proceso")
-  ).length
-  const trabajosSinFases = trabajosConFases.filter(({ fases }) => fases.length === 0).length
+  const toggleEmpleadoFase = async (empleadoId: number, faseId: number, currentlyAssigned: boolean) => {
+    try {
+      if (currentlyAssigned) {
+        const response = await fetch("/api/admin/empleado-fases", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ empleado_id: empleadoId, fase_template_id: faseId }),
+        })
+        const result = await response.json()
+        if (!response.ok) throw new Error(result.error || "Error al desasignar")
+      } else {
+        const response = await fetch("/api/admin/empleado-fases", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ empleado_id: empleadoId, fase_template_id: faseId }),
+        })
+        const result = await response.json()
+        if (!response.ok) throw new Error(result.error || "Error al asignar")
+      }
+      fetchData()
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "Error al actualizar asignación", variant: "destructive" })
+    }
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Fases</h1>
-          <p className="mt-1 text-muted-foreground">
-            Sigue el avance de fabricación de cada solicitud.
-          </p>
-        </div>
-        <div className="relative w-full sm:max-w-sm">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            type="search"
-            value={searchTerm}
-            onChange={(event) => setSearchTerm(event.target.value)}
-            placeholder="Buscar trabajo o cliente"
-            className="w-full rounded-xl border border-border bg-card py-2.5 pl-9 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-          />
-        </div>
+    <div className="space-y-6 mt-8">
+      <div>
+        <h1 className="text-2xl font-bold text-foreground">Fases</h1>
+        <p className="mt-1 text-muted-foreground">
+          Sigue el avance de fabricación de cada solicitud.
+        </p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: "Fases registradas", value: totalFases, icon: CalendarDays, className: "bg-primary/10 text-primary" },
-          { label: "Fases completadas", value: fasesCompletadas, icon: CheckCircle, className: "bg-green-500/10 text-green-600" },
-          { label: "Trabajos en proceso", value: trabajosEnProceso, icon: Clock, className: "bg-blue-500/10 text-blue-600" },
-          { label: "Sin fases", value: trabajosSinFases, icon: AlertCircle, className: "bg-amber-500/10 text-amber-600" },
-        ].map((stat) => {
-          const Icon = stat.icon
-          return (
-            <div key={stat.label} className="rounded-xl border border-border bg-card p-5 shadow-sm">
-              <div className="flex items-center justify-between">
-                <div className={`flex size-10 items-center justify-center rounded-xl ${stat.className}`}>
-                  <Icon size={19} />
-                </div>
-                <ArrowUpRight className="size-4 text-muted-foreground" />
-              </div>
-              <p className="mt-4 text-2xl font-bold text-foreground">{stat.value}</p>
-              <p className="mt-1 text-sm text-muted-foreground">{stat.label}</p>
+      <div className="rounded-2xl border border-border bg-card overflow-hidden">
+        <div className="border-b border-border p-6">
+          <h2 className="text-lg font-semibold text-foreground">Asignación de fases</h2>
+          <p className="text-muted-foreground mt-1">Empleado asignado a cada fase del proceso</p>
+        </div>
+
+        <div className="p-6">
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
-          )
-        })}
-      </div>
+          ) : fases.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">No hay fases configuradas.</div>
+          ) : (
+            <div className="space-y-3">
+              {fases.map((fase) => {
+                const assignedEmpleadoId = empleadoFases.find((ef) => ef.fase_template_id === fase.id)?.empleado_id
+                const assignedEmpleado = assignedEmpleadoId ? empleados.find((e) => e.id === assignedEmpleadoId) : null
 
-      {error && (
-        <div className="rounded-xl border border-destructive/20 bg-destructive/5 p-4 text-sm text-destructive">
-          {error}
-        </div>
-      )}
-
-      {loading ? (
-        <div className="flex min-h-[300px] items-center justify-center rounded-xl border border-border bg-card">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
-            Cargando fases...
-          </div>
-        </div>
-      ) : filteredTrabajos.length === 0 ? (
-        <div className="flex min-h-[300px] items-center justify-center rounded-xl border border-border bg-card text-sm text-muted-foreground">
-          No se encontraron fases.
-        </div>
-      ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {filteredTrabajos.map(({ trabajo, fases }) => {
-            const summary = getPhaseSummary(fases)
-            return (
-              <div key={trabajo.id} className="rounded-xl border border-border bg-card p-5 shadow-sm">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium text-muted-foreground">
-                      {trabajo.codigo_trazabilidad || `Solicitud #${trabajo.id}`}
-                    </p>
-                    <h2 className="mt-1 truncate font-semibold text-foreground">{trabajo.servicio || "Sin servicio"}</h2>
-                    <p className="mt-1 truncate text-sm text-muted-foreground">{trabajo.cliente_nombre}</p>
-                  </div>
-                  <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${statusStyles[trabajo.estado] || "bg-muted text-muted-foreground"}`}>
-                    {statusLabels[trabajo.estado] || trabajo.estado}
-                  </span>
-                </div>
-
-                <div className="mt-5">
-                  <div className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>Avance de fabricación</span>
-                    <span className="font-medium text-foreground">{summary.progress}%</span>
-                  </div>
-                  <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-primary transition-all"
-                      style={{ width: `${summary.progress}%` }}
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-5 rounded-lg border border-border bg-background/60 p-3">
-                  <p className="text-xs font-medium text-muted-foreground">Fase actual</p>
-                  <p className="mt-1 text-sm font-medium text-foreground">{summary.actual}</p>
-                </div>
-
-                {fases.length > 0 ? (
-                  <div className="mt-4 space-y-2">
-                    {fases.slice(0, 4).map((fase, index) => (
-                      <div key={`${fase.tipo}-${index}`} className="flex items-center justify-between gap-3 text-xs">
-                        <span className="truncate text-foreground">{fase.tipo || `Fase ${index + 1}`}</span>
-                        <span className={`shrink-0 rounded-full px-2 py-1 ${phaseStyles[fase.estado] || "bg-muted text-muted-foreground"}`}>
-                          {fase.estado === "en_proceso" ? "En proceso" : fase.estado === "completado" ? "Completada" : "Pendiente"}
-                        </span>
+                return (
+                  <div key={fase.id} className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 rounded-lg border border-border bg-background/50">
+                    <div className="flex items-center gap-4 flex-1 min-w-0">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary font-medium text-sm shrink-0">
+                        {fase.orden}
                       </div>
-                    ))}
-                    {fases.length > 4 && (
-                      <p className="text-xs text-muted-foreground">+{fases.length - 4} fases adicionales</p>
-                    )}
-                  </div>
-                ) : (
-                  <p className="mt-4 text-xs text-muted-foreground">Este trabajo aún no tiene fases registradas.</p>
-                )}
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground truncate">{fase.nombre}</p>
+                        {fase.descripcion && <p className="text-xs text-muted-foreground truncate">{fase.descripcion}</p>}
+                      </div>
+                    </div>
 
-                <Link
-                  href={`/dashboard/clientes/${trabajo.cliente_id}?solicitud=${trabajo.id}`}
-                  className="mt-5 inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-xs font-medium text-foreground transition-colors hover:border-primary hover:text-primary"
-                >
-                  Ver trabajo
-                  <ArrowUpRight className="size-3.5" />
-                </Link>
-              </div>
-            )
-          })}
+                    <div className="flex items-center gap-3 sm:w-72">
+                      <label htmlFor={`empleado-fase-${fase.id}`} className="text-sm font-medium text-muted-foreground shrink-0 whitespace-nowrap">
+                        Asignar a:
+                      </label>
+                      <select
+                        id={`empleado-fase-${fase.id}`}
+                        value={assignedEmpleadoId || ""}
+                        onChange={(e) => {
+                          const empleadoId = e.target.value ? Number(e.target.value) : null
+                          if (empleadoId === assignedEmpleadoId) return
+                          if (assignedEmpleadoId) {
+                            toggleEmpleadoFase(assignedEmpleadoId, fase.id, true)
+                          }
+                          if (empleadoId) {
+                            toggleEmpleadoFase(empleadoId, fase.id, false)
+                          }
+                        }}
+                        className="w-full rounded-xl border border-border bg-background py-2.5 pl-3 pr-8 text-sm text-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 appearance-none bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2216%22%20height%3D%2216%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%22%236b7280%22%20stroke-width%3D%222%22%20stroke-linecap%3D%22round%22%20stroke-linejoin%3D%22round%22%3E%3Cpath%20d%3D%22m6%209%206%206%206-6%22%2F%3E%3C%2Fsvg%3E')] bg-[right_0.75rem_center] bg-no-repeat"
+                      >
+                        <option value="">Sin asignar</option>
+                        {empleados.map((emp) => (
+                          <option key={emp.id} value={emp.id}>
+                            {emp.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </div>
   )
 }
