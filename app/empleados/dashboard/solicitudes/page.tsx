@@ -150,10 +150,10 @@ export default function EmpleadosSolicitudesPage() {
             Solicitudes del laboratorio agrupadas por estado.
           </p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2 w-full sm:max-w-sm">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-2 w-full sm:max-w-lg">
           <Link
             href="/empleados/dashboard/solicitudes/nueva"
-            className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white transition-all hover:bg-blue-700"
+            className="inline-flex w-full flex-1 items-center justify-center gap-2 rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-semibold text-white transition-all hover:bg-blue-700 sm:min-w-[190px]"
           >
             <Plus size={16} />
             Nueva solicitud

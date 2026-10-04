@@ -154,15 +154,15 @@ export default function EmpleadosTrabajosPage() {
 
   return (
     <div className="space-y-6 mt-8">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="flex flex-col gap-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Trabajos</h1>
           <p className="mt-1 text-muted-foreground">
             Consulta y administra las solicitudes del laboratorio.
           </p>
         </div>
-        <div className="flex flex-col gap-2 sm:flex-row sm:gap-2 w-full sm:max-w-sm">
-          <div className="relative flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-[220px] flex-1 sm:max-w-xs">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <input
               type="search"
@@ -187,7 +187,7 @@ export default function EmpleadosTrabajosPage() {
             placeholder="Filtrar por paciente..."
             value={pacienteFilter}
             onChange={(e) => setPacienteFilter(e.target.value)}
-            className="rounded-xl border border-border bg-card px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+            className="min-w-[180px] flex-1 rounded-xl border border-border bg-card px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 sm:max-w-[200px]"
           />
           <button className="inline-flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted">
             <Funnel size={18} />

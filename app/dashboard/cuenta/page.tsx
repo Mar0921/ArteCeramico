@@ -82,7 +82,7 @@ export default function CuentaPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 mt-20">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Cuenta administrativa</h1>
