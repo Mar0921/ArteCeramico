@@ -1,6 +1,7 @@
 "use client"
 
 import { useRef, useState, useEffect, useCallback, useImperativeHandle, forwardRef } from "react"
+import { Combobox } from "./ui/combobox"
 
 export interface DrawableToothRef {
   getDrawingDataUrl: () => string | null
@@ -224,40 +225,39 @@ export const DrawableTooth = forwardRef<DrawableToothRef, DrawableToothProps>(
     }))
 
     const guiaKeys = Object.keys(GUIAS_Y_TONOS)
-    const coloresDisponibles = guia ? GUIAS_Y_TONOS[guia] : []
+    const coloresDisponibles = guia && GUIAS_Y_TONOS[guia] ? GUIAS_Y_TONOS[guia] : []
+    
+    const guiaOptions = guiaKeys.map((g) => ({ value: g, label: g }))
+    const colorOptions = coloresDisponibles.map((c) => ({ value: c, label: c }))
 
     return (
       <div className="flex flex-col gap-1">
         <div className="flex items-center gap-1">
           <span className="text-xs font-semibold text-gray-700 w-12">GUIA</span>
-          <select
+          <Combobox
             value={guia}
-            onChange={(e) => {
-              onGuiaChange(e.target.value)
+            onChange={(value) => {
+              onGuiaChange(value)
               onColorChange("")
             }}
-            className="flex-1 border-b border-gray-400 bg-transparent outline-none text-xs py-0.5"
-          >
-            <option value="">Selecciona...</option>
-            {guiaKeys.map((g) => (
-              <option key={g} value={g}>{g}</option>
-            ))}
-          </select>
+            options={guiaOptions}
+            placeholder="Selecciona guía..."
+            className="flex-1"
+            allowCustom={true}
+          />
         </div>
         
         <div className="flex items-center gap-1">
           <span className="text-xs font-semibold text-gray-700 w-12">COLOR</span>
-          <select
+          <Combobox
             value={color}
-            onChange={(e) => onColorChange(e.target.value)}
+            onChange={onColorChange}
+            options={colorOptions}
+            placeholder="Selecciona color..."
+            className="flex-1"
             disabled={!guia}
-            className="flex-1 border-b border-gray-400 bg-transparent outline-none text-xs py-0.5 disabled:opacity-50"
-          >
-            <option value="">Selecciona...</option>
-            {coloresDisponibles.map((c) => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
+            allowCustom={true}
+          />
         </div>
 
         <div className="flex flex-col items-center mt-2">

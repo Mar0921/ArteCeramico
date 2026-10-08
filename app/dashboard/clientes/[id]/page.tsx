@@ -39,6 +39,14 @@ import { supabase } from "@/lib/supabase"
 import { FASES_PROCESO } from "@/lib/fases"
 import { useToast } from "@/hooks/use-toast"
 
+interface Empleado {
+  id: number
+  nombre: string
+  email: string
+  rol: string
+  activo: boolean
+}
+
 interface Cliente {
   id: number
   nombre: string
@@ -237,6 +245,9 @@ export default function ClientePerfilPage() {
   const [guardandoOrden, setGuardandoOrden] = useState(false)
   const [descargandoOrden, setDescargandoOrden] = useState(false)
   const [ordenPreviewExpanded, setOrdenPreviewExpanded] = useState(true)
+
+  const [empleados, setEmpleados] = useState<Empleado[]>([])
+  const [loadingEmpleados, setLoadingEmpleados] = useState(false)
 
   useEffect(() => {
     if (editandoSolicitudId) {
@@ -638,10 +649,33 @@ export default function ClientePerfilPage() {
       setLoading(false)
     }
 
-    loadClient()
+loadClient()
   }, [id])
 
-   useEffect(() => {
+  useEffect(() => {
+    const cargarEmpleados = async () => {
+      setLoadingEmpleados(true)
+      try {
+        const { data, error } = await supabase
+          .from("empleados")
+          .select("id, nombre, email, rol, activo")
+          .eq("activo", true)
+          .order("nombre", { ascending: true })
+
+        if (!error && data) {
+          setEmpleados(data)
+        }
+      } catch (err) {
+        console.error("Error cargando empleados:", err)
+      } finally {
+        setLoadingEmpleados(false)
+      }
+    }
+
+    cargarEmpleados()
+  }, [])
+
+  useEffect(() => {
      const loadSolicitudes = async () => {
        if (!id) return
        setLoadingSolicitudes(true)
@@ -3312,24 +3346,29 @@ if (!conv) return
                                                   <option value="completado">Completado</option>
                                                 </select>
                                               </td>
-                                              <td className="border border-gray-300 px-1">
-                                                <input
-                                                  type="text"
+<td className="border border-gray-300 px-1">
+                                                <select
                                                   value={fase.realizada_por}
-                                                   onChange={(e) => {
-                                                     const newVal = e.target.value
-                                                     setFasesOrden((prev) => {
-                                                       const next = (prev[solicitud.id] || []).map((f, i) =>
-                                                         i === idx ? { ...f, realizada_por: newVal } : f
-                                                       )
-                                                       const updated = { ...prev, [solicitud.id]: next }
-                                                       guardarFasesOrden(solicitud.id, next)
-                                                       return updated
-                                                     })
-                                                   }}
+                                                  onChange={(e) => {
+                                                    const newVal = e.target.value
+                                                    setFasesOrden((prev) => {
+                                                      const next = (prev[solicitud.id] || []).map((f, i) =>
+                                                        i === idx ? { ...f, realizada_por: newVal } : f
+                                                      )
+                                                      const updated = { ...prev, [solicitud.id]: next }
+                                                      guardarFasesOrden(solicitud.id, next)
+                                                      return updated
+                                                    })
+                                                  }}
                                                   className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
-                                                  placeholder="Nombre"
-                                                />
+                                                >
+                                                  <option value="">Seleccionar empleado</option>
+                                                  {empleados.map((emp) => (
+                                                    <option key={emp.id} value={emp.nombre}>
+                                                      {emp.nombre}
+                                                    </option>
+                                                  ))}
+                                                </select>
                                               </td>
                                               <td className="border border-gray-300 px-1">
                                                 <input

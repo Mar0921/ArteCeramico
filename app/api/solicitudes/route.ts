@@ -486,12 +486,13 @@ export async function POST(request: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    const clienteIdSolicitado = String(formData.get("clienteId") || "").trim()
+const clienteIdSolicitado = String(formData.get("clienteId") || "").trim()
 
     // El personal interno (admins y empleados) crea solicitudes para un cliente
-    // elegido, por lo que no existe una fila en `clientes` asociada a su
+    // elegido, por lo que no existe una fila en `cliente` asociada a su
     // user_id. El cliente final sigue resolviendose por su propia cuenta.
     let cliente: any = null
+    let esInterno = false
 
     if (clienteIdSolicitado) {
       const interno = await autenticarInterno(request)
@@ -502,6 +503,8 @@ export async function POST(request: Request) {
           { status: interno.status }
         )
       }
+
+esInterno = true
 
       const { data, error } = await supabase
         .from("clientes")
@@ -718,7 +721,7 @@ export async function POST(request: Request) {
       servicio,
       observaciones,
       urls_documentos: todosLosDocumentos,
-      estado: "pendiente",
+      estado: esInterno ? "en_proceso" : "pendiente",
       codigo_trazabilidad: codigoTrazabilidad || null,
       ...extraFields,
       chimenea: siNo(chimenea),

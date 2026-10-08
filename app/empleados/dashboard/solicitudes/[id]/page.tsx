@@ -14,6 +14,7 @@ import {
   Plus,
   Stethoscope,
   User,
+  X,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { FASES_PROCESO, hoyISO, parseFases, type FaseProceso } from "@/lib/fases"
@@ -46,6 +47,14 @@ interface DienteDetalle {
   estado: string
   tipoTrabajo: string
   material: string
+}
+
+interface MaterialOrden {
+  material: string
+  producto: string
+  lote: string
+  fabricante: string
+  proveedor: string
 }
 
 interface Solicitud {
@@ -181,6 +190,8 @@ export default function EmpleadoSolicitudDetallePage() {
     realizada_por: "",
     fecha_finalizacion: "",
   })
+  const [materialesOrden, setMaterialesOrden] = useState<MaterialOrden[]>([])
+  const [savingMateriales, setSavingMateriales] = useState(false)
 
   /** Envía el arreglo completo de fases: el endpoint reemplaza `orden_fases`. */
   const guardarFases = async (fases: FaseProceso[]) => {
@@ -205,6 +216,35 @@ export default function EmpleadoSolicitudDetallePage() {
     if (!res.ok) {
       const cuerpo = await res.json().catch(() => ({}))
       throw new Error(cuerpo.message || "No se pudo guardar la fase.")
+    }
+
+    await loadSolicitud()
+    return true
+  }
+
+  /** Guarda los materiales en la orden de fabricación. */
+  const guardarMateriales = async (materiales: MaterialOrden[]) => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession()
+
+    if (!session?.access_token) {
+      setError("Tu sesión expiró. Vuelve a iniciar sesión.")
+      return false
+    }
+
+    const res = await fetch(`/api/empleados/solicitudes/${solicitudId}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({ orden_materiales: JSON.stringify(materiales) }),
+    })
+
+    if (!res.ok) {
+      const cuerpo = await res.json().catch(() => ({}))
+      throw new Error(cuerpo.message || "No se pudieron guardar los materiales.")
     }
 
     await loadSolicitud()
@@ -243,6 +283,17 @@ export default function EmpleadoSolicitudDetallePage() {
       }
       const result = await res.json()
       setData(result.data)
+      // Cargar materiales de la orden de fabricación
+      if (result.data?.solicitud?.orden_materiales) {
+        try {
+          const materiales = JSON.parse(result.data.solicitud.orden_materiales)
+          setMaterialesOrden(Array.isArray(materiales) ? materiales : [])
+        } catch {
+          setMaterialesOrden([])
+        }
+      } else {
+        setMaterialesOrden([])
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar la solicitud.")
     } finally {
@@ -458,28 +509,34 @@ export default function EmpleadoSolicitudDetallePage() {
               <h2 className="font-semibold text-foreground">Doctor y Paciente</h2>
             </div>
             <InfoRow label="Doctor">{s.odontologo}</InfoRow>
-            <InfoRow label="CC">{s.cc_odontologo}</InfoRow>
-            <InfoRow label="Tarjeta profesional">{s.odontologo_tarjeta_profesional}</InfoRow>
-            <InfoRow label="Registro médico">{s.odontologo_registro_medico}</InfoRow>
+            <InfoRow label="CC">
+              {s.cc_odontologo || cliente?.documento || "-"}
+            </InfoRow>
+            <InfoRow label="Tarjeta profesional">
+              {s.odontologo_tarjeta_profesional || "-"}
+            </InfoRow>
+            <InfoRow label="Registro médico">
+              {s.odontologo_registro_medico || "-"}
+            </InfoRow>
             <InfoRow label="Correo">
-              {s.odontologo_correo ? (
+              {(s.odontologo_correo || cliente?.correo) ? (
                 <a
-                  href={`mailto:${s.odontologo_correo}`}
+                  href={`mailto:${s.odontologo_correo || cliente?.correo}`}
                   className="text-primary hover:underline"
                 >
-                  {s.odontologo_correo}
+                  {s.odontologo_correo || cliente?.correo}
                 </a>
               ) : (
                 "-"
               )}
             </InfoRow>
             <InfoRow label="Teléfono">
-              {s.odontologo_telefono ? (
+              {(s.odontologo_telefono || cliente?.telefono) ? (
                 <a
-                  href={`https://wa.me/${(s.odontologo_telefono || "").replace(/\D/g, "")}`}
+                  href={`https://wa.me/${(s.odontologo_telefono || cliente?.telefono || "").replace(/\D/g, "")}`}
                   className="text-primary hover:underline"
                 >
-                  {s.odontologo_telefono}
+                  {s.odontologo_telefono || cliente?.telefono}
                 </a>
               ) : (
                 "-"
@@ -806,6 +863,165 @@ export default function EmpleadoSolicitudDetallePage() {
               se registra la fecha de terminación y tu nombre; las fases ya terminadas se conservan y
               solo puedes corregir su fecha.
             </p>
+          </div>
+
+          {/* Materiales de la Orden de Fabricación */}
+          <div className="rounded-xl border border-border bg-card p-5">
+            <div className="flex items-center justify-between border-b border-border pb-3 mb-3">
+              <div className="flex items-center gap-2">
+                <Package className="size-4 text-primary" />
+                <h2 className="font-semibold text-foreground">Materiales de la Orden de Fabricación</h2>
+              </div>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm border border-border">
+                <thead className="bg-muted">
+                  <tr className="border-b border-border text-left text-[11px] uppercase tracking-wider text-muted-foreground">
+                    <th className="px-3 py-2 font-medium">Material</th>
+                    <th className="px-3 py-2 font-medium">Producto</th>
+                    <th className="px-3 py-2 font-medium">Número de lote</th>
+                    <th className="px-3 py-2 font-medium">Fabricante</th>
+                    <th className="px-3 py-2 font-medium">Proveedor</th>
+                    <th className="px-3 py-2 font-medium text-center w-16">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {materialesOrden.length === 0 ? (
+                    <tr>
+                      <td className="px-3 py-6 text-center text-muted-foreground" colSpan={6}>
+                        Sin materiales registrados
+                      </td>
+                    </tr>
+                  ) : (
+                    materialesOrden.map((mat, idx) => (
+                      <tr key={idx} className="border-b border-border last:border-0">
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={mat.material}
+                            onChange={(e) => {
+                              const newVal = e.target.value
+                              setMaterialesOrden((prev) =>
+                                prev.map((m, i) => (i === idx ? { ...m, material: newVal } : m))
+                              )
+                            }}
+                            className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary"
+                            placeholder="Material"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={mat.producto}
+                            onChange={(e) => {
+                              const newVal = e.target.value
+                              setMaterialesOrden((prev) =>
+                                prev.map((m, i) => (i === idx ? { ...m, producto: newVal } : m))
+                              )
+                            }}
+                            className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary"
+                            placeholder="Producto"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={mat.lote}
+                            onChange={(e) => {
+                              const newVal = e.target.value
+                              setMaterialesOrden((prev) =>
+                                prev.map((m, i) => (i === idx ? { ...m, lote: newVal } : m))
+                              )
+                            }}
+                            className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary"
+                            placeholder="N° Lote"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={mat.fabricante}
+                            onChange={(e) => {
+                              const newVal = e.target.value
+                              setMaterialesOrden((prev) =>
+                                prev.map((m, i) => (i === idx ? { ...m, fabricante: newVal } : m))
+                              )
+                            }}
+                            className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary"
+                            placeholder="Fabricante"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={mat.proveedor}
+                            onChange={(e) => {
+                              const newVal = e.target.value
+                              setMaterialesOrden((prev) =>
+                                prev.map((m, i) => (i === idx ? { ...m, proveedor: newVal } : m))
+                              )
+                            }}
+                            className="w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground outline-none focus:border-primary"
+                            placeholder="Proveedor"
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <button
+                            type="button"
+                            disabled={savingMateriales}
+                            onClick={() => {
+                              setMaterialesOrden((prev) => prev.filter((_, i) => i !== idx))
+                            }}
+                            className="text-red-500 hover:text-red-700 disabled:opacity-50"
+                            title="Eliminar material"
+                          >
+                            <X size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  setMaterialesOrden((prev) => [
+                    ...prev,
+                    { material: "", producto: "", lote: "", fabricante: "", proveedor: "" },
+                  ])
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+              >
+                <Plus className="size-3.5" />
+                Agregar material
+              </button>
+            </div>
+
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                disabled={savingMateriales || materialesOrden.length === 0}
+                onClick={async () => {
+                  setSavingMateriales(true)
+                  try {
+                    await guardarMateriales(materialesOrden)
+                  } catch (err) {
+                    setError(err instanceof Error ? err.message : "Error al guardar los materiales.")
+                  } finally {
+                    setSavingMateriales(false)
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary-dark disabled:opacity-50"
+              >
+                {savingMateriales && <Loader2 className="size-3 animate-spin" />}
+                {savingMateriales ? "Guardando..." : "Guardar materiales"}
+              </button>
+            </div>
           </div>
 
           <div className="rounded-xl border border-border bg-card p-5">

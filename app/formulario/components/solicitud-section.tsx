@@ -410,7 +410,6 @@ export function SolicitudSection({
                   <button
                     type="button"
                     className={`flex items-center gap-1 rounded px-2 py-1 text-xs hover:bg-[#8bc34a] ${!formData.fechaEntrega.dia ? "bg-red-100 border border-red-400" : "bg-[#a5d6a7]"}`}
-                    disabled={!formData.fechaElaboracion.dia}
                   >
                     <CalendarIcon size={14} />
                     {formData.fechaEntrega.dia || "D"}/{formData.fechaEntrega.mes || "M"}/{formData.fechaEntrega.anio || "A"}
@@ -431,13 +430,6 @@ export function SolicitudSection({
                         })
                         setShowCalendarEntrega(false)
                       }
-                    }}
-                    disabled={(date) => {
-                      if (!formData.fechaElaboracion.dia) return true
-                      const elaboracionDate = new Date(`${formData.fechaElaboracion.anio}-${formData.fechaElaboracion.mes}-${formData.fechaElaboracion.dia}`)
-                      const minDate = new Date(elaboracionDate)
-                      minDate.setDate(minDate.getDate() + 9)
-                      return date < minDate
                     }}
                     locale={es}
                     initialFocus

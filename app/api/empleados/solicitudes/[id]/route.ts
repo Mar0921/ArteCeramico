@@ -45,66 +45,72 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { orden_fases } = body
+    const { orden_fases, orden_materiales } = body
 
-    if (orden_fases === undefined) {
+    const updates: Record<string, any> = {}
+
+    if (orden_fases !== undefined) {
+      const entrantes = parseFases(orden_fases)
+      if (entrantes.length === 0) {
+        return NextResponse.json(
+          { message: "La guía de fabricación no puede quedar vacía." },
+          { status: 400 }
+        )
+      }
+
+      const { data: actual, error: lecturaError } = await supabaseAdmin
+        .from("solicitudes")
+        .select("orden_fases")
+        .eq("id", solicitudId)
+        .maybeSingle()
+
+      if (lecturaError) {
+        return NextResponse.json(
+          { message: "Error al leer la solicitud.", details: lecturaError.message },
+          { status: 500 }
+        )
+      }
+
+      if (!actual) {
+        return NextResponse.json(
+          { message: "La solicitud no existe." },
+          { status: 404 }
+        )
+      }
+
+      const actuales = parseFases(actual.orden_fases)
+      const fases = preservarFasesTerminadas(actuales, entrantes)
+
+      const perdidas = pierdeFasesTerminadas(actuales, fases)
+      if (perdidas.length > 0) {
+        return NextResponse.json(
+          {
+            message: `No se pueden eliminar las fases ya completadas: ${perdidas
+              .map((f) => f.tipo)
+              .join(", ")}.`,
+          },
+          { status: 400 }
+        )
+      }
+
+      updates.orden_fases = JSON.stringify(fases)
+      updates.fase = faseEnCurso(fases)
+    }
+
+    if (orden_materiales !== undefined) {
+      updates.orden_materiales = typeof orden_materiales === "string" ? orden_materiales : JSON.stringify(orden_materiales)
+    }
+
+    if (Object.keys(updates).length === 0) {
       return NextResponse.json(
         { message: "No hay campos para actualizar." },
         { status: 400 }
       )
     }
 
-    const entrantes = parseFases(orden_fases)
-    if (entrantes.length === 0) {
-      return NextResponse.json(
-        { message: "La guía de fabricación no puede quedar vacía." },
-        { status: 400 }
-      )
-    }
-
-    const { data: actual, error: lecturaError } = await supabaseAdmin
-      .from("solicitudes")
-      .select("orden_fases")
-      .eq("id", solicitudId)
-      .maybeSingle()
-
-    if (lecturaError) {
-      return NextResponse.json(
-        { message: "Error al leer la solicitud.", details: lecturaError.message },
-        { status: 500 }
-      )
-    }
-
-    if (!actual) {
-      return NextResponse.json(
-        { message: "La solicitud no existe." },
-        { status: 404 }
-      )
-    }
-
-    const actuales = parseFases(actual.orden_fases)
-    const fases = preservarFasesTerminadas(actuales, entrantes)
-
-    // El empleado agrega y edita fases, pero no puede borrar las que ya
-    // quedaron terminadas: son el registro de un trabajo hecho.
-    const perdidas = pierdeFasesTerminadas(actuales, fases)
-    if (perdidas.length > 0) {
-      return NextResponse.json(
-        {
-          message: `No se pueden eliminar las fases ya completadas: ${perdidas
-            .map((f) => f.tipo)
-            .join(", ")}.`,
-        },
-        { status: 400 }
-      )
-    }
-
     const { data, error } = await supabaseAdmin
       .from("solicitudes")
-      .update({
-        orden_fases: JSON.stringify(fases),
-        fase: faseEnCurso(fases),
-      })
+      .update(updates)
       .eq("id", solicitudId)
       .select("id")
       .single()
