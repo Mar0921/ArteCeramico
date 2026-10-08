@@ -147,7 +147,7 @@ export default function ClientesPage() {
   const [loadingSolicitudes, setLoadingSolicitudes] = useState<{ [key: number]: boolean }>({})
   const [loadingServicios, setLoadingServicios] = useState<{ [key: number]: boolean }>({})
   const [loadingEstadoCuenta, setLoadingEstadoCuenta] = useState<{ [key: number]: boolean }>({})
-  const [vistaSolicitudes, setVistaSolicitudes] = useState<"activas" | "finalizadas" | "canceladas">("activas")
+  const [vistaSolicitudes, setVistaSolicitudes] = useState<"pendientes" | "finalizadas" | "canceladas">("pendientes")
   const [serviciosPorSolicitud, setServiciosPorSolicitud] = useState<{ [key: number]: any[] }>({})
   const [solicitudDocs, setSolicitudDocs] = useState<{
     [key: number]: {
@@ -1498,9 +1498,9 @@ const canvas = await html2canvas(elemento, {
                           </p>
                          ) : (
                            (() => {
-                               const solicitudesActivas = cliente.solicitudes.filter(
-                                 (s: Solicitud) => !esSolicitudFinalizada(s.estado || "")
-                               )
+                                const solicitudesPendientes = cliente.solicitudes.filter(
+                                  (s: Solicitud) => s.estado === "pendiente"
+                                )
                                const solicitudesFinalizadas = cliente.solicitudes.filter(
                                  (s: Solicitud) => s.estado === "finalizado"
                                )
@@ -1850,13 +1850,13 @@ const canvas = await html2canvas(elemento, {
                               return (
                                 <div>
                                    <div className="flex gap-2 mb-3">
-                                     <button
-                                       onClick={() => setVistaSolicitudes("activas")}
-                                       className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${vistaSolicitudes === "activas" ? "bg-primary text-primary-foreground" : "border border-border bg-muted/50 text-muted-foreground hover:bg-muted"}`}
-                                     >
-                                       <Package size={14} />
-                                       Activas / En proceso ({solicitudesActivas.length})
-                                     </button>
+                                      <button
+                                        onClick={() => setVistaSolicitudes("pendientes")}
+                                        className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${vistaSolicitudes === "pendientes" ? "bg-primary text-primary-foreground" : "border border-border bg-muted/50 text-muted-foreground hover:bg-muted"}`}
+                                      >
+                                        <Package size={14} />
+                                        Pendientes ({solicitudesPendientes.length})
+                                      </button>
                                      <button
                                        onClick={() => setVistaSolicitudes("finalizadas")}
                                        className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${vistaSolicitudes === "finalizadas" ? "bg-primary text-primary-foreground" : "border border-border bg-muted/50 text-muted-foreground hover:bg-muted"}`}
@@ -1873,10 +1873,10 @@ const canvas = await html2canvas(elemento, {
                                      </button>
                                    </div>
                                    <div className="space-y-2">
-                                     {vistaSolicitudes === "activas"
-                                       ? solicitudesActivas.length === 0
-                                         ? <p className="text-[10px] text-muted-foreground text-center py-3">Sin solicitudes activas</p>
-                                         : solicitudesActivas.map(renderSolicitud)
+                                      {vistaSolicitudes === "pendientes"
+                                        ? solicitudesPendientes.length === 0
+                                          ? <p className="text-[10px] text-muted-foreground text-center py-3">Sin solicitudes pendientes</p>
+                                          : solicitudesPendientes.map(renderSolicitud)
                                        : vistaSolicitudes === "finalizadas"
                                          ? solicitudesFinalizadas.length === 0
                                            ? <p className="text-[10px] text-muted-foreground text-center py-3">Sin solicitudes finalizadas</p>
@@ -1892,9 +1892,9 @@ const canvas = await html2canvas(elemento, {
                        </div>
                     </motion.div>
                   )}
-                </AnimatePresence>
+                 </AnimatePresence>
 
-                {mostrarEstadoCuenta[cliente.id] && (
+                 {mostrarEstadoCuenta[cliente.id] && (
                   <div className="border-t border-border bg-background/40 p-5">
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">

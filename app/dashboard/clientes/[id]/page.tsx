@@ -35,6 +35,7 @@ import {
    Download,
  } from "lucide-react"
 import { DentalChart as DentalChartForm } from "@/app/formulario/components/dental-chart"
+import { CartaConvenioContenido } from "@/components/carta-convenio"
 import { supabase } from "@/lib/supabase"
 import { FASES_PROCESO } from "@/lib/fases"
 import { useToast } from "@/hooks/use-toast"
@@ -239,6 +240,9 @@ export default function ClientePerfilPage() {
   })
   const [descargandoConvenio, setDescargandoConvenio] = useState(false)
   const [convenioExpanded, setConvenioExpanded] = useState(true)
+  const [convenioModalOpen, setConvenioModalOpen] = useState(false)
+  const [uploadingConvenio, setUploadingConvenio] = useState(false)
+  const [uploadConvenioError, setUploadConvenioError] = useState<string | null>(null)
   const [materialesOrden, setMaterialesOrden] = useState<Record<number, { material: string; producto: string; lote: string; fabricante: string; proveedor: string }[]>>({})
   const [fasesOrden, setFasesOrden] = useState<Record<number, { tipo: string; estado: string; realizada_por: string; fecha_finalizacion: string; fecha_prueba: string }[]>>({})
   const ordenRef = useRef<HTMLDivElement | null>(null)
@@ -853,6 +857,45 @@ loadClient()
       setDescargandoConvenio(false)
     }
    }
+
+  const handleUploadConvenio = async (file: File | undefined) => {
+    if (!file || !client?.id) return
+
+    setUploadingConvenio(true)
+    setUploadConvenioError(null)
+    try {
+      const extension = file.name.split(".").pop()?.toLowerCase() || "bin"
+      const fileName = `convenios/${client.id}-${Date.now()}.${extension}`
+
+      const { error: uploadError } = await supabase.storage
+        .from("documentos")
+        .upload(fileName, file, {
+          upsert: true,
+          contentType: file.type || "application/octet-stream",
+        })
+
+      if (uploadError) throw new Error(`Error al subir: ${uploadError.message}`)
+
+      const { data: publicData } = supabase.storage.from("documentos").getPublicUrl(fileName)
+      const publicUrl = publicData.publicUrl
+
+      const { error: updateError } = await supabase
+        .from("clientes")
+        .update({ convenio_documento_url: publicUrl })
+        .eq("id", client.id)
+
+      if (updateError) throw new Error(`Error al guardar: ${updateError.message}`)
+
+      setClient((prev) => (prev ? { ...prev, convenio_documento_url: publicUrl } : prev))
+      toast({ title: "Documento subido", description: "La carta convenio se ha subido correctamente." })
+    } catch (err: any) {
+      const msg = err.message || "No se pudo subir el documento."
+      setUploadConvenioError(msg)
+      toast({ title: "Error", description: msg, variant: "destructive" })
+    } finally {
+      setUploadingConvenio(false)
+    }
+  }
 
   // --- Utilidades para exportar la Orden de Fabricación a imagen ---
 
@@ -1828,74 +1871,146 @@ if (!conv) return
         </div>
       </motion.div>
 
-      {/* Carta Convenio Firmada */}
-      {client.convenio_firmado && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-          className="rounded-xl bg-card p-6 shadow-sm"
-        >
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="rounded-xl bg-primary/10 p-2">
-                <FileText className="text-primary" size={20} />
-              </div>
-              <h2 className="text-xl font-bold text-foreground">Carta Convenio Firmada</h2>
+      {/* Carta Convenio */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3, delay: 0.1 }}
+        className="rounded-xl bg-card p-6 shadow-sm"
+      >
+        <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="rounded-xl bg-primary/10 p-2">
+              <FileText className="text-primary" size={20} />
             </div>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setConvenioExpanded(!convenioExpanded)}
-                className="inline-flex items-center gap-1 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
-              >
-                {convenioExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                {convenioExpanded ? "Ocultar" : "Ver"}
-              </button>
-              {client.convenio_documento_url && (
-                <>
+            <div>
+              <h2 className="text-xl font-bold text-foreground">Carta Convenio</h2>
+              <p className="text-xs text-muted-foreground">
+                Documento de autorización y compromiso entre el odontólogo y Arte Cerámico
+              </p>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {client.convenio_firmado ? (
+              <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-xs font-medium text-green-700">
+                <CheckCircle size={14} />
+                Firmada
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+                <AlertCircle size={14} />
+                Pendiente por firmas
+              </span>
+            )}
+            <button
+              onClick={() => setConvenioExpanded(!convenioExpanded)}
+              className="inline-flex items-center gap-1 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+            >
+              {convenioExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              {convenioExpanded ? "Ocultar" : "Ver"}
+            </button>
+            {client.convenio_documento_url && (
+              <>
+                <a
+                  href={client.convenio_documento_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                >
+                  <Eye size={16} />
+                  Ver en nueva pestaña
+                </a>
+                <button
+                  onClick={handleDescargarConvenio}
+                  disabled={descargandoConvenio}
+                  className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+                >
+                  {descargandoConvenio ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Download size={16} />
+                  )}
+                  Descargar
+                </button>
+              </>
+            )}
+            {!client.convenio_documento_url && (
+              <label className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted cursor-pointer">
+                <Upload size={16} />
+                Subir documento
+                <input
+                  type="file"
+                  accept="image/*,.pdf"
+                  className="hidden"
+                  onChange={(e) => handleUploadConvenio(e.target.files?.[0])}
+                />
+              </label>
+            )}
+          </div>
+        </div>
+        {convenioExpanded && (
+          <>
+            {client.convenio_documento_url ? (
+              <div className="relative">
+                <img
+                  src={client.convenio_documento_url}
+                  alt="Documento de Carta Convenio"
+                  className="mx-auto block rounded-lg border border-gray-300 shadow-md cursor-zoom-in hover:opacity-90 transition-opacity"
+                  style={{ maxWidth: "100%", maxHeight: "70vh", width: "auto", height: "auto" }}
+                  onClick={() => setConvenioModalOpen(true)}
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                  }}
+                />
+                <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs px-2 py-1 rounded">
+                  {client.convenio_firmado ? "Versión firmada" : "Documento subido"}
+                </div>
+                <div className="hidden flex flex-col items-center justify-center p-8 text-center text-muted-foreground bg-muted/50 rounded-lg border border-gray-300">
+                  <AlertCircle className="text-red-500 mb-2" size={32} />
+                  <p className="text-sm font-medium">No se pudo cargar la imagen</p>
+                  <p className="text-xs mt-1">El documento puede no estar disponible o la URL ha expirado</p>
                   <a
                     href={client.convenio_documento_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                    className="mt-3 text-primary underline hover:text-primary/80"
                   >
-                    <Eye size={16} />
-                    Ver documento
+                    Intentar abrir en nueva pestaña
                   </a>
-                  <button
-                    onClick={handleDescargarConvenio}
-                    disabled={descargandoConvenio}
-                    className="inline-flex items-center gap-2 rounded-xl border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
-                  >
-                    {descargandoConvenio ? (
-                      <Loader2 size={16} className="animate-spin" />
-                    ) : (
-                      <Download size={16} />
-                    )}
-                    Descargar
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-          {convenioExpanded && (
-            <>
-              {client.convenio_documento_url ? (
-                <img
-                  src={client.convenio_documento_url}
-                  alt="Documento de Carta Convenio Firmada"
-                  className="max-w-full rounded-md border border-gray-300 object-contain shadow-sm"
-                />
-              ) : (
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <CheckCircle size={16} className="text-green-500" />
-                  Convenio marcado como firmado
                 </div>
-              )}
-            </>
-          )}
-        </motion.div>
-      )}
+              </div>
+            ) : client.convenio_firmado ? (
+              <div className="flex flex-col items-center gap-4 text-center py-8">
+                <CheckCircle size={32} className="text-green-500" />
+                <p className="text-sm text-muted-foreground">Convenio marcado como firmado</p>
+                <p className="text-xs text-muted-foreground">No hay documento subido aún</p>
+                <label className="inline-flex items-center gap-2 rounded-xl bg-primary px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-primary/90 cursor-pointer">
+                  <Upload size={16} />
+                  Subir documento firmado
+                  <input
+                    type="file"
+                    accept="image/*,.pdf"
+                    className="hidden"
+                    onChange={(e) => handleUploadConvenio(e.target.files?.[0])}
+                  />
+                </label>
+              </div>
+            ) : (
+              <CartaConvenioContenido clinica={client.clinica} nombre={client.nombre} />
+            )}
+          </>
+        )}
+        {uploadingConvenio && (
+          <div className="mt-4 flex items-center gap-2 text-sm text-primary">
+            <Loader2 size={16} className="animate-spin" />
+            Subiendo documento...
+          </div>
+        )}
+        {uploadConvenioError && (
+          <div className="mt-4 text-sm text-red-500">{uploadConvenioError}</div>
+        )}
+      </motion.div>
 
       {/* Solicitudes del Cliente */}
       <motion.div
@@ -3712,8 +3827,36 @@ if (!conv) return
                 </button>
               </div>
             </div>
+</div>
+        )}
+
+        {convenioModalOpen && client?.convenio_documento_url && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" onClick={() => setConvenioModalOpen(false)}>
+            <div className="relative max-w-5xl w-full max-h-[90vh] bg-white rounded-xl shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <div className="absolute top-3 right-3 z-10">
+                <button
+                  onClick={() => setConvenioModalOpen(false)}
+                  className="rounded-full bg-white/90 p-2 shadow-lg hover:bg-white transition-colors"
+                  aria-label="Cerrar"
+                >
+                  <X size={24} className="text-gray-700" />
+                </button>
+              </div>
+              <div className="p-4 overflow-auto max-h-[90vh]">
+                <img
+                  src={client.convenio_documento_url}
+                  alt="Carta Convenio Firmada - Vista ampliada"
+                  className="mx-auto block"
+                  style={{ maxWidth: "100%", maxHeight: "85vh", width: "auto", height: "auto" }}
+                />
+              </div>
+              <div className="absolute bottom-3 left-1/2 -translate-x-1/2 text-xs text-white/80 bg-black/60 px-3 py-1 rounded-full">
+                Click fuera de la imagen o la X para cerrar
+              </div>
+            </div>
           </div>
         )}
-     </div>
+
+      </div>
     )
-}
+  }

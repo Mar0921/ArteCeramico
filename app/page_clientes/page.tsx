@@ -45,6 +45,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { WhatsAppButton } from "@/components/whatsapp-button"
 import { SurveyForm } from "@/components/survey-form"
 import { ComplaintsSurvey } from "@/components/complaints-survey"
+import { CartaConvenioContenido } from "@/components/carta-convenio"
 import { FichaTecnicaDisilicato } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-disilicato"
 import { FichaTecnicaMonolitica } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-monolitica"
 import { FichaTecnicaResina } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-resina"
@@ -1092,9 +1093,12 @@ export default function ClientesPage() {
          }
        }
 
-        const convenioDiv = convenioRef.current
-        if (convenioDiv) {
-          try {
+         const convenioDiv = convenioRef.current
+         if (!convenioDiv) {
+           throw new Error("No se pudo generar el documento del convenio. Asegúrate de que la carta convenio esté visible e inténtalo de nuevo.")
+         }
+         if (convenioDiv) {
+           try {
             const canvasFull = await html2canvas(convenioDiv, {
               backgroundColor: "#ffffff",
               logging: false,
@@ -1144,7 +1148,7 @@ export default function ClientesPage() {
               .upload(fullFileName, fullBlob, { upsert: true })
 
             if (fullUploadError) {
-              console.warn("No se pudo subir el documento del convenio:", fullUploadError)
+              throw new Error("No se pudo subir el documento del convenio: " + (fullUploadError as any)?.message)
             } else {
               const { data: { publicUrl } } = supabase.storage.from("documentos").getPublicUrl(fullFileName)
               convenio_documento_url = publicUrl
@@ -1152,6 +1156,7 @@ export default function ClientesPage() {
             }
           } catch (fullErr: any) {
             console.error("Error capturando documento del convenio:", fullErr?.message || fullErr)
+            throw new Error("No se pudo generar la imagen del documento del convenio: " + (fullErr?.message || fullErr))
           }
         }
 
@@ -1963,7 +1968,7 @@ export default function ClientesPage() {
               ) : (
                 <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
                   <AlertCircle size={14} />
-                  Pendiente
+                  Pendiente por firmas
                 </span>
               )}
               <button
@@ -2003,134 +2008,45 @@ export default function ClientesPage() {
           </div>
 
           {convenioExpanded && (
-            <div className="relative mx-auto w-full max-w-4xl bg-white p-10 text-sm text-gray-800">
+            <>
               {clientData?.convenio_firmado && clientData?.convenio_documento_url ? (
                 <img
                   src={clientData.convenio_documento_url}
                   alt="Carta Convenio firmada"
-                  className="w-full h-auto rounded-lg border border-border"
+                  className="mx-auto w-full max-w-4xl h-auto rounded-lg border border-border"
                 />
               ) : (
-                <>
-                  <div className="absolute top-6 right-6 text-[10px] text-gray-500">
-                    <div>Fecha de elaboración: 01-02-2026</div>
-                    <div>CODIGO: GF-AC-001</div>
-                    <div>VERSION: 001</div>
-                  </div>
-
-                  <div className="mb-2 text-left">
-                    <span className="text-xs font-bold text-gray-900">ARTE CERÁMICO</span>
-                  </div>
-
-                  <p className="mb-2 text-center text-xs text-gray-500">
-                    Santiago de Cali, {new Date().toLocaleDateString("es-CO", { day: "2-digit", month: "long", year: "numeric" })}
-                  </p>
-
-                  <h3 className="mb-6 text-center text-2xl font-bold text-gray-900">CARTA CONVENIO</h3>
-
-                  <p className="mb-2 text-sm"><span className="font-semibold">Clínica:</span> {clientData?.clinica || "XXXXXXXXX"}</p>
-                  <p className="mb-6 text-sm"><span className="font-semibold">Doctor:</span> {clientData?.nombre || "XXXXXXXXXX"}</p>
-
-                  <div className="mb-6 space-y-3 text-justify text-xs leading-relaxed">
-                    <p>
-                      El laboratorio dental ARTE CERAMICO confirma el compromiso para la provisión en cuanto a fabricación, reparación y dispensación, de los DISPOSITIVOS MÉDICOS SOBRE MEDIDA BUCAL, cumpliendo con la resolución 214 de 2022 en la cual se establecen los requisitos sanitarios que deben cumplir los dispositivos médicos sobre medida bucal.
-                    </p>
-                    <p>
-                      Nuestro compromiso es respetar su autonomía como odontólogo, fabricando o reparando los dispositivos acordes a la prescripción por usted realizada en la evaluación previa del paciente con los datos completos.
-                    </p>
-                    <p>Dclaramos nuestro compromiso como fabricante.</p>
-
-                    <p className="font-semibold">DENTRO DEL CONVENIO EL LABORATORIO SE COMPROMETE A:</p>
-                    <ol className="list-decimal list-inside space-y-1 ml-4">
-                      <li>El laboratorio garantiza que los trabajos entregados estarán elaborados con materiales de buena calidad y conforme a las especificaciones solicitadas.</li>
-                      <li>Cumplir con Procedimientos documentados: Declaración de conformidad con su garantía si aplica, Ficha técnica de fabricación, manual de uso.</li>
-                      <li>El tiempo de entrega estará sujeto a acuerdos según la complejidad del caso.</li>
-                      <li>Nos comprometemos a respetar su autonomía y trabajar articuladamente entre técnico y odontólogo.</li>
-                      <li>Ambas partes se comprometen a mantener la confidencialidad respecto a los datos de los pacientes, precios, y cualquier información considerada confidencial.</li>
-                    </ol>
-
-                    <p className="font-semibold">COMPROMISO DEL ODONTOLOGO</p>
-                    <ol className="list-decimal list-inside space-y-1 ml-4">
-                      <li>Enviar la orden de fabricación de forma completa y clara con los datos solicitados sin enmendaduras y en letra legible en los términos establecidos en el artículo 6 de la resolución 214 de 2022.</li>
-                      <li>Estar debidamente habilitado ante la secretaría de salud en los términos establecidos en la resolución 3100 de 2019.</li>
-                      <li>Realizar el control pos-adaptación 8 días después en una cita de control al paciente y enviar copia del registro de verificación del estado del dispositivo en el control de la paciente realizada por el odontólogo.</li>
-                      <li>Informar al Laboratorio dental cualquier evento adverso serio y compartir el código del evento adverso reportado en los programas de tecno vigilancia.</li>
-                    </ol>
-                    <p>
-                      Esperamos atender y cumplir sus necesidades en cuanto a calidad, diseño y estética de los dispositivos médicos.
-                    </p>
-                  </div>
-
-                  <div className="mt-10 border-t border-gray-300 pt-6">
-                    <div className="grid grid-cols-1 gap-8 sm:grid-cols-3">
-                      <div className="flex flex-col items-center text-center">
-                        <div className="mb-2 h-24 w-full max-w-48 overflow-hidden rounded-md border border-gray-300 bg-gray-50">
-                          <img
-                            src="/firma-oscar.jpeg"
-                            alt="Firma Representante Legal"
-                            className="h-full w-full object-contain p-2"
-                          />
-                        </div>
-                        <p className="text-xs font-semibold text-gray-700 mb-1">__________________________________</p>
-                        <p className="text-xs text-gray-600">Representante legal</p>
-                      </div>
-
-                      <div className="flex flex-col items-center text-center">
-                        <div className="mb-2 h-24 w-full max-w-48 overflow-hidden rounded-md border border-gray-300 bg-gray-50">
-                          <img
-                            src="/firma-jazmin.jpeg"
-                            alt="Firma D.T."
-                            className="h-full w-full object-contain p-2"
-                          />
-                        </div>
-                        <p className="text-xs font-semibold text-gray-700 mb-1">__________________________________</p>
-                        <p className="text-xs text-gray-600">D.T. LABORATORIO DENTAL ARTE CERAMICO</p>
-                      </div>
-
-                      <div className="flex flex-col items-center text-center">
-                        <canvas
-                          ref={canvasRef}
-                          className="mb-2 h-24 w-full max-w-48 rounded-md border border-gray-300 bg-gray-50"
-                          width={384}
-                          height={96}
-                          onMouseDown={iniciarDibujo}
-                          onMouseMove={dibujar}
-                          onMouseUp={detenerDibujo}
-                          onMouseLeave={detenerDibujo}
-                          onTouchStart={iniciarDibujo}
-                          onTouchMove={dibujar}
-                          onTouchEnd={detenerDibujo}
-                        />
-                        <p className="text-xs font-semibold text-gray-700 mb-1">__________________________________</p>
-                        <p className="text-xs text-gray-600">Recibido Odontólogo o Auxiliar</p>
-                        <button
-                          onClick={limpiarFirma}
-                          type="button"
-                          className="mt-1 text-xs text-gray-400 hover:text-gray-600"
-                        >
-                          Limpiar firma
-                        </button>
-                      </div>
-                    </div>
-                    <div className="mt-4 text-center">
-                      <p className="text-xs text-gray-500">
-                        Santiago de Cali, {new Date().toLocaleDateString("es-CO", { day: "2-digit", month: "long", year: "numeric" })}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="mt-10 border-t border-gray-300 pt-4">
-                    <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 text-center text-[10px] text-gray-500">
-                      <span>Carrera 42 A # 5 C 36</span>
-                      <span>B. Tequendama</span>
-                      <span>602 6670481 - 602 4082563</span>
-                      <span>3177280804</span>
-                      <span>lab-arteceramico@hotmail.com</span>
-                    </div>
-                  </div>
-                </>
+                <CartaConvenioContenido
+                  contenidoRef={convenioRef}
+                  clinica={clientData?.clinica}
+                  nombre={clientData?.nombre}
+                  firmaOdontologo={
+                    <canvas
+                      ref={canvasRef}
+                      className="mb-2 h-24 w-full max-w-48 rounded-md border border-gray-300 bg-gray-50"
+                      width={384}
+                      height={96}
+                      onMouseDown={iniciarDibujo}
+                      onMouseMove={dibujar}
+                      onMouseUp={detenerDibujo}
+                      onMouseLeave={detenerDibujo}
+                      onTouchStart={iniciarDibujo}
+                      onTouchMove={dibujar}
+                      onTouchEnd={detenerDibujo}
+                    />
+                  }
+                  firmaOdontologoExtra={
+                    <button
+                      onClick={limpiarFirma}
+                      type="button"
+                      className="mt-1 text-xs text-gray-400 hover:text-gray-600"
+                    >
+                      Limpiar firma
+                    </button>
+                  }
+                />
               )}
-            </div>
+            </>
           )}
         </section>
 
