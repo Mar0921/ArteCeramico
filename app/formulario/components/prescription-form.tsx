@@ -89,6 +89,7 @@ function buildFormDataPayload(
   payload.append("chimenea", formData.chimenea ? "true" : "false")
   payload.append("prueba", formData.prueba ? "true" : "false")
   payload.append("terminado", formData.terminado ? "true" : "false")
+  payload.append("tipoImpresion", formData.tipoImpresion || "")
 
   payload.append(
     "dientesTrabajados",

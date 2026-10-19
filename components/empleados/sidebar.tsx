@@ -12,6 +12,7 @@ const empleadoNavItems = [
   { label: "Clientes", href: "/empleados/dashboard/clientes", icon: Users },
   { label: "Calendario", href: "/empleados/dashboard/calendario", icon: Calendar },
   { label: "Mis Fases", href: "/empleados/dashboard/fases", icon: CheckCircle },
+  { label: "Productos", href: "/empleados/dashboard/productos", icon: Package },
 ]
 
 interface EmpleadoSidebarProps {

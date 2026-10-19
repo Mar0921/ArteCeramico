@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Menu, X, Bell, User, LogOut, LayoutDashboard, Package, Calendar, CheckCircle, Users, FileText } from "lucide-react"
+import { Menu, X, Bell, User, LogOut, LayoutDashboard, Package, Calendar, Users, FileText } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -10,11 +10,10 @@ import { supabase } from "@/lib/supabase"
 
 const empleadoNavItems = [
   { label: "Inicio", href: "/empleados/dashboard", icon: LayoutDashboard },
-  { label: "Mis Trabajos", href: "/empleados/dashboard/trabajos", icon: Package },
   { label: "Solicitudes", href: "/empleados/dashboard/solicitudes", icon: FileText },
   { label: "Clientes", href: "/empleados/dashboard/clientes", icon: Users },
   { label: "Calendario", href: "/empleados/dashboard/calendario", icon: Calendar },
-  { label: "Mis Fases", href: "/empleados/dashboard/fases", icon: CheckCircle },
+  { label: "Productos", href: "/empleados/dashboard/productos", icon: Package },
 ]
 
 export function EmpleadoNavbar({

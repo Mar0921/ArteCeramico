@@ -53,6 +53,7 @@ async function buildPdfBuffer(data: {
   codigoTrazabilidad?: string
   productos?: { producto: string; unidades: number; dientes: string; precio: number; precioUnitario: number }[]
   dibujoOdontologo?: string
+  tipoImpresion?: string
 }) {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" })
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -202,6 +203,7 @@ async function buildPdfBuffer(data: {
     ["Fecha Elaboracion", data.fechaElaboracion || "N/A"],
     ["Fecha Entrega", data.fechaEntrega || "N/A"],
     ["Codigo Trazabilidad", data.codigoTrazabilidad || "N/A"],
+    ["Tipo Impresion", data.tipoImpresion === "analoga" ? "Analoga" : data.tipoImpresion === "intraoral" ? "Intraoral" : "N/A"],
   ])
 
   addField("Servicio", data.servicio)
@@ -218,7 +220,7 @@ async function buildPdfBuffer(data: {
   addSectionTitle("DATOS DEL ODONTOLOGO")
   addFieldsGrid([
      ["Nombre", data.odontologo || "N/A"],
-     ["Registro Medico", data.odontologo_registro_medico || "N/A"],
+      ["Registro Medico", data.registroMedico || "N/A"],
      ["Direccion", data.direccion || "N/A"],
   ])
 
@@ -380,6 +382,7 @@ export async function POST(request: Request) {
     const productosJson = String(formData.get("productos") || "[]").trim()
     const recomendaciones = String(formData.get("recomendaciones") || "").trim()
     const garantia = String(formData.get("garantia") || "").trim()
+    const tipoImpresion = String(formData.get("tipoImpresion") || "").trim()
 
     let tiposTrabajo: string[] = []
     let materiales: string[] = []
@@ -659,6 +662,7 @@ esInterno = true
         precioUnitario: p.precioUnitario || p.precio || 0,
       })) : undefined,
       dibujoOdontologo: dibujoOdontologo || undefined,
+      tipoImpresion: tipoImpresion || undefined,
     })
 
     const nombrePdf = `solicitud-${cliente.id}-${Date.now()}.pdf`
@@ -712,6 +716,7 @@ esInterno = true
       dibujo_odontologo: dibujoOdontologo || null,
       recomendaciones: recomendaciones || null,
       garantia: garantia || null,
+      tipo_impresion: tipoImpresion || null,
     }
 
     const siNo = (value: boolean) => (value ? "Si" : "No")
@@ -850,6 +855,8 @@ esInterno = true
   }
 }
 
+export const dynamic = "force-dynamic"
+
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const clienteId = searchParams.get("cliente_id")
@@ -864,7 +871,7 @@ export async function GET(request: Request) {
 
     let query = supabase
       .from("solicitudes")
-      .select("id, servicio, estado, created_at, cliente_id, dientes_trabajados, odontologo, cc_odontologo, paciente, cc_paciente, odontologo_registro_medico, fecha_elaboracion, fecha_entrega, odontologo_firma, color, guia, tipos_trabajo, materiales, urls_documentos, dibujo_odontologo, codigo_trazabilidad, caja, fase, orden_fabricacion_url, orden_materiales, orden_fases, terminos_garantia, fichas_tecnicas, historia_clinica_paciente")
+      .select("id, servicio, estado, created_at, cliente_id, dientes_trabajados, odontologo, cc_odontologo, paciente, cc_paciente, odontologo_registro_medico, fecha_elaboracion, fecha_entrega, odontologo_firma, color, guia, tipos_trabajo, materiales, urls_documentos, dibujo_odontologo, codigo_trazabilidad, caja, fase, orden_fabricacion_url, orden_materiales, orden_fases, terminos_garantia, fichas_tecnicas, historia_clinica, historia_clinica_paciente, tipo_impresion")
       .order("created_at", { ascending: false })
       .limit(limit)
 
@@ -1055,6 +1062,8 @@ export async function GET(request: Request) {
         fecha_elaboracion: item.fecha_elaboracion || null,
         fecha_entrega: item.fecha_entrega || null,
         odontologo: item.odontologo || null,
+        cc_odontologo: item.cc_odontologo || null,
+        odontologo_registro_medico: item.odontologo_registro_medico || null,
         paciente: item.paciente || null,
         cc_paciente: item.cc_paciente || null,
         odontologo_firma: item.odontologo_firma || null,
@@ -1068,6 +1077,11 @@ export async function GET(request: Request) {
         orden_fabricacion_url: item.orden_fabricacion_url || null,
         orden_materiales: item.orden_materiales || null,
         orden_fases: item.orden_fases || null,
+        terminos_garantia: item.terminos_garantia || null,
+        fichas_tecnicas: item.fichas_tecnicas || null,
+        historia_clinica: item.historia_clinica || null,
+        historia_clinica_paciente: item.historia_clinica_paciente || null,
+        tipo_impresion: item.tipo_impresion || null,
       }
     })
 

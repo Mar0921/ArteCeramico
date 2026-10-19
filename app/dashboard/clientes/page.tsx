@@ -147,7 +147,7 @@ export default function ClientesPage() {
   const [loadingSolicitudes, setLoadingSolicitudes] = useState<{ [key: number]: boolean }>({})
   const [loadingServicios, setLoadingServicios] = useState<{ [key: number]: boolean }>({})
   const [loadingEstadoCuenta, setLoadingEstadoCuenta] = useState<{ [key: number]: boolean }>({})
-  const [vistaSolicitudes, setVistaSolicitudes] = useState<"pendientes" | "finalizadas" | "canceladas">("pendientes")
+  const [vistaSolicitudes, setVistaSolicitudes] = useState<"pendientes" | "en_proceso" | "finalizadas" | "canceladas">("pendientes")
   const [serviciosPorSolicitud, setServiciosPorSolicitud] = useState<{ [key: number]: any[] }>({})
   const [solicitudDocs, setSolicitudDocs] = useState<{
     [key: number]: {
@@ -1501,7 +1501,10 @@ const canvas = await html2canvas(elemento, {
                                 const solicitudesPendientes = cliente.solicitudes.filter(
                                   (s: Solicitud) => s.estado === "pendiente"
                                 )
-                               const solicitudesFinalizadas = cliente.solicitudes.filter(
+                                const solicitudesEnProceso = cliente.solicitudes.filter(
+                                  (s: Solicitud) => s.estado !== "pendiente" && !esSolicitudFinalizada(s.estado || "")
+                                )
+                                const solicitudesFinalizadas = cliente.solicitudes.filter(
                                  (s: Solicitud) => s.estado === "finalizado"
                                )
                                const solicitudesCanceladas = cliente.solicitudes.filter(
@@ -1857,8 +1860,15 @@ const canvas = await html2canvas(elemento, {
                                         <Package size={14} />
                                         Pendientes ({solicitudesPendientes.length})
                                       </button>
-                                     <button
-                                       onClick={() => setVistaSolicitudes("finalizadas")}
+                                      <button
+                                        onClick={() => setVistaSolicitudes("en_proceso")}
+                                        className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${vistaSolicitudes === "en_proceso" ? "bg-primary text-primary-foreground" : "border border-border bg-muted/50 text-muted-foreground hover:bg-muted"}`}
+                                      >
+                                        <Loader2 size={14} />
+                                        En proceso ({solicitudesEnProceso.length})
+                                      </button>
+                                      <button
+                                        onClick={() => setVistaSolicitudes("finalizadas")}
                                        className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${vistaSolicitudes === "finalizadas" ? "bg-primary text-primary-foreground" : "border border-border bg-muted/50 text-muted-foreground hover:bg-muted"}`}
                                      >
                                        <CheckCircle size={14} />
@@ -1877,13 +1887,17 @@ const canvas = await html2canvas(elemento, {
                                         ? solicitudesPendientes.length === 0
                                           ? <p className="text-[10px] text-muted-foreground text-center py-3">Sin solicitudes pendientes</p>
                                           : solicitudesPendientes.map(renderSolicitud)
-                                       : vistaSolicitudes === "finalizadas"
-                                         ? solicitudesFinalizadas.length === 0
-                                           ? <p className="text-[10px] text-muted-foreground text-center py-3">Sin solicitudes finalizadas</p>
-                                           : solicitudesFinalizadas.map(renderSolicitud)
-                                         : solicitudesCanceladas.length === 0
-                                           ? <p className="text-[10px] text-muted-foreground text-center py-3">Sin solicitudes canceladas</p>
-                                           : solicitudesCanceladas.map(renderSolicitud)}
+                                        : vistaSolicitudes === "en_proceso"
+                                          ? solicitudesEnProceso.length === 0
+                                            ? <p className="text-[10px] text-muted-foreground text-center py-3">Sin solicitudes en proceso</p>
+                                            : solicitudesEnProceso.map(renderSolicitud)
+                                            : vistaSolicitudes === "finalizadas"
+                                              ? solicitudesFinalizadas.length === 0
+                                                ? <p className="text-[10px] text-muted-foreground text-center py-3">Sin solicitudes finalizadas</p>
+                                                : solicitudesFinalizadas.map(renderSolicitud)
+                                                : solicitudesCanceladas.length === 0
+                                                  ? <p className="text-[10px] text-muted-foreground text-center py-3">Sin solicitudes canceladas</p>
+                                                  : solicitudesCanceladas.map(renderSolicitud)}
                                    </div>
                                 </div>
                               )

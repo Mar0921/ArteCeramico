@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { motion } from "framer-motion"
+import Link from "next/link"
 import {
   Package,
   CheckCircle,
@@ -167,10 +168,49 @@ export default function EmpleadoDashboardPage() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.4, delay: 0.4 }}
+        className="grid gap-4 sm:grid-cols-2"
+      >
+        <Link
+          href="/empleados/dashboard/trabajos"
+          className="flex items-center justify-between rounded-xl bg-card p-6 shadow-sm transition-colors hover:bg-muted/50"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600">
+              <Package size={20} />
+            </div>
+            <div>
+              <p className="text-lg font-semibold text-foreground">Mis Trabajos</p>
+              <p className="text-sm text-muted-foreground">Ver y gestionar tus trabajos asignados</p>
+            </div>
+          </div>
+        </Link>
+        <Link
+          href="/empleados/dashboard/fases"
+          className="flex items-center justify-between rounded-xl bg-card p-6 shadow-sm transition-colors hover:bg-muted/50"
+        >
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-green-500/10 text-green-600">
+              <CheckCircle size={20} />
+            </div>
+            <div>
+              <p className="text-lg font-semibold text-foreground">Mis Fases</p>
+              <p className="text-sm text-muted-foreground">Avanzar el estado de las fases de fabricación</p>
+            </div>
+          </div>
+        </Link>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, delay: 0.5 }}
         className="rounded-xl bg-card shadow-sm"
       >
         <div className="border-b border-border p-6">
           <h2 className="text-lg font-semibold text-foreground">Mis Trabajos Recientes</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Solo se muestran los trabajos en los que has puesto fases
+          </p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -192,34 +232,36 @@ export default function EmpleadoDashboardPage() {
                     Cargando trabajos...
                   </td>
                 </tr>
-              ) : trabajos.length === 0 ? (
+              ) : trabajos.filter((t) => t.fase).length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-6 py-12 text-center text-sm text-muted-foreground">
-                    No tienes trabajos asignados
+                    No tienes trabajos con fases asignadas
                   </td>
                 </tr>
               ) : (
-                trabajos.map((trabajo) => (
-                  <tr key={trabajo.id} className="border-b border-border last:border-0 hover:bg-muted/50">
-                    <td className="px-6 py-4 text-sm font-medium text-foreground">
-                      {trabajo.codigo_trazabilidad || `#${trabajo.id}`}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-muted-foreground">{trabajo.servicio}</td>
-                    <td className="px-6 py-4 text-sm text-muted-foreground">{trabajo.cliente_nombre}</td>
-                    <td className="px-6 py-4 text-sm text-muted-foreground">{trabajo.paciente || "-"}</td>
-                    <td className="px-6 py-4">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
-                          statusStyles[trabajo.estado] || "bg-gray-100 text-gray-700"
-                        }`}
-                      >
-                        {statusLabels[trabajo.estado] || trabajo.estado}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-foreground">{trabajo.fase || "Sin fase"}</td>
-                    <td className="px-6 py-4 text-sm text-muted-foreground">{formatDate(trabajo.fecha_entrega)}</td>
-                  </tr>
-                ))
+                trabajos
+                  .filter((t) => t.fase)
+                  .map((trabajo) => (
+                    <tr key={trabajo.id} className="border-b border-border last:border-0 hover:bg-muted/50">
+                      <td className="px-6 py-4 text-sm font-medium text-foreground">
+                        {trabajo.codigo_trazabilidad || `#${trabajo.id}`}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-muted-foreground">{trabajo.servicio}</td>
+                      <td className="px-6 py-4 text-sm text-muted-foreground">{trabajo.cliente_nombre}</td>
+                      <td className="px-6 py-4 text-sm text-muted-foreground">{trabajo.paciente || "-"}</td>
+                      <td className="px-6 py-4">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                            statusStyles[trabajo.estado] || "bg-gray-100 text-gray-700"
+                          }`}
+                        >
+                          {statusLabels[trabajo.estado] || trabajo.estado}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-foreground">{trabajo.fase || "Sin fase"}</td>
+                      <td className="px-6 py-4 text-sm text-muted-foreground">{formatDate(trabajo.fecha_entrega)}</td>
+                    </tr>
+                  ))
               )}
             </tbody>
           </table>

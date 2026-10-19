@@ -40,6 +40,14 @@ import { supabase } from "@/lib/supabase"
 import { FASES_PROCESO } from "@/lib/fases"
 import { useToast } from "@/hooks/use-toast"
 
+function mostrarTipoImpresion(valor: string | null | undefined): string {
+  const normalizado = String(valor || "").trim().toLowerCase()
+  if (normalizado === "analoga") return "Analógica"
+  if (normalizado === "intraoral") return "Intraoral"
+  if (String(valor || "").trim()) return String(valor).trim()
+  return "-"
+}
+
 interface Empleado {
   id: number
   nombre: string
@@ -107,6 +115,7 @@ interface Solicitud {
   }[]
   dibujo_odontologo: string | null
   terminos_garantia: string | null
+  tipo_impresion: string | null
   comprobante_pago: string | null
   estado_pago: string | null
   fase: string | null
@@ -857,6 +866,27 @@ loadClient()
       setDescargandoConvenio(false)
     }
    }
+
+  const handleDescargarTerminosGarantia = async (solicitud: Solicitud) => {
+    if (!solicitud.terminos_garantia) return
+
+    try {
+      const response = await fetch(solicitud.terminos_garantia)
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      const extension = solicitud.terminos_garantia.split("?")[0].split(".").pop() || "pdf"
+      link.href = url
+      link.download = `terminos-garantia-solicitud-${solicitud.id}.${extension}`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (err: any) {
+      console.error("Error descargando términos de garantía:", err?.message || err)
+      toast({ title: "Error", description: "No se pudo descargar los términos de garantía.", variant: "destructive" })
+    }
+  }
 
   const handleUploadConvenio = async (file: File | undefined) => {
     if (!file || !client?.id) return
@@ -2230,14 +2260,20 @@ if (!conv) return
                                      {solicitud.fecha_elaboracion || "-"}
                                    </span>
                                  </div>
-                                 <div className="flex items-center gap-1">
-                                   <Calendar size={12} className="text-gray-400" />
-                                   <span className="text-gray-500">Entrega:</span>
-                                   <span className="font-medium text-gray-800">
-                                     {solicitud.fecha_entrega || "-"}
-                                   </span>
-                                 </div>
-                               </div>
+                                  <div className="flex items-center gap-1">
+                                    <Calendar size={12} className="text-gray-400" />
+                                    <span className="text-gray-500">Entrega:</span>
+                                    <span className="font-medium text-gray-800">
+                                      {solicitud.fecha_entrega || "-"}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <span className="text-gray-500">Tipo de impresión:</span>
+                                    <span className="font-medium text-gray-800">
+                                      {mostrarTipoImpresion(solicitud.tipo_impresion)}
+                                    </span>
+                                  </div>
+                                </div>
 
                               {/* Datos Odontólogo y Paciente */}
                               <div className="space-y-2 text-xs mb-4">
@@ -2935,15 +2971,24 @@ if (!conv) return
                          {uploadingSolicitudDoc.terminos_garantia ? "Subiendo..." : "Subir"}
                        </span>
                      </label>
-                     {solicitud.terminos_garantia && (
-                       <button
-                         onClick={() => handleUploadDocSolicitud(solicitud.id, "terminos_garantia")}
-                         disabled={uploadingSolicitudDoc.terminos_garantia}
-                         className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted disabled:opacity-50"
-                       >
-                         Actualizar
-                       </button>
-                     )}
+                      {solicitud.terminos_garantia && (
+                        <>
+                          <button
+                            onClick={() => handleUploadDocSolicitud(solicitud.id, "terminos_garantia")}
+                            disabled={uploadingSolicitudDoc.terminos_garantia}
+                            className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted disabled:opacity-50"
+                          >
+                            Actualizar
+                          </button>
+                          <button
+                            onClick={() => handleDescargarTerminosGarantia(solicitud)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted"
+                          >
+                            <Download size={12} />
+                            Descargar
+                          </button>
+                        </>
+                      )}
                    </div>
                  </div>
 

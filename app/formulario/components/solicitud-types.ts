@@ -35,6 +35,7 @@ export interface SolicitudFormData {
   codigoTrazabilidad: string
   productos: ProductoLine[]
   historiaClinicaPaciente: string
+  tipoImpresion: string
 }
 
 export interface UploadedFile {
@@ -102,6 +103,7 @@ export function createDefaultSolicitud(options?: {
       codigoTrazabilidad: generateCodigoTrazabilidad(),
       productos: [],
       historiaClinicaPaciente: "",
+      tipoImpresion: "",
     },
   }
 }

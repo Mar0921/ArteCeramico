@@ -20,6 +20,14 @@ import { cn } from "@/lib/utils"
 import { FASES_PROCESO, hoyISO, parseFases, type FaseProceso } from "@/lib/fases"
 import { supabase } from "@/lib/supabase"
 
+function mostrarTipoImpresion(valor: string | null | undefined): string {
+  const normalizado = String(valor || "").trim().toLowerCase()
+  if (normalizado === "analoga") return "Analógica"
+  if (normalizado === "intraoral") return "Intraoral"
+  if (String(valor || "").trim()) return String(valor).trim()
+  return "-"
+}
+
 interface Cliente {
   id: number
   nombre: string
@@ -95,6 +103,7 @@ interface Solicitud {
   orden_materiales: string | null
   orden_fases: string | null
   dibujo_odontologo: string | null
+  tipo_impresion: string | null
   dientes_detallados: DienteDetalle[]
 }
 
@@ -547,6 +556,9 @@ export default function EmpleadoSolicitudDetallePage() {
             <InfoRow label="CC Paciente">{s.cc_paciente}</InfoRow>
             <InfoRow label="Historia clínica">{s.historia_clinica}</InfoRow>
             <InfoRow label="Historia clínica paciente">{s.historia_clinica_paciente}</InfoRow>
+            <InfoRow label="Tipo de impresión">
+              {mostrarTipoImpresion(s.tipo_impresion)}
+            </InfoRow>
           </div>
 
           <div className="rounded-xl border border-border bg-card p-5">

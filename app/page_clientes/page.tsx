@@ -1268,6 +1268,7 @@ export default function ClientesPage() {
     const servicio = String(formData.get("servicio") ?? "").trim()
     const observaciones = String(formData.get("observaciones") ?? "").trim()
     const historiaClinica = String(formData.get("historiaClinica") ?? "").trim()
+    const tipoImpresion = String(formData.get("tipoImpresion") ?? "").trim()
 
     if (!servicio) {
       setSolicitudMensaje("Debes indicar el servicio o tipo de trabajo.")
@@ -1278,11 +1279,12 @@ export default function ClientesPage() {
     setSolicitudMensaje(null)
 
     try {
-      const payload = new FormData()
-      payload.append("servicio", servicio)
-      payload.append("observaciones", observaciones)
-      payload.append("historiaClinica", historiaClinica)
-      payload.append("clienteId", String(clientData.id))
+        const payload = new FormData()
+        payload.append("servicio", servicio)
+        payload.append("observaciones", observaciones)
+        payload.append("historiaClinica", historiaClinica)
+        payload.append("tipoImpresion", tipoImpresion)
+        payload.append("clienteId", String(clientData.id))
 
       archivosSeleccionados.forEach((archivo) => {
         payload.append("archivos", archivo, archivo.name)
@@ -2308,6 +2310,21 @@ export default function ClientesPage() {
                 </div>
               </div>
 
+              <div>
+                <label htmlFor="tipoImpresion" className="mb-2 block text-sm font-medium text-foreground">
+                  Tipo de impresión
+                </label>
+                <select
+                  id="tipoImpresion"
+                  name="tipoImpresion"
+                  className="w-full rounded-xl border border-border bg-background/60 px-4 py-3 text-sm text-foreground outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
+                >
+                  <option value="">Selecciona el tipo de impresión...</option>
+                  <option value="analoga">Analógica</option>
+                  <option value="intraoral">Intraoral</option>
+                </select>
+              </div>
+
               {archivosSeleccionados.length > 0 && (
                 <div className="space-y-2 rounded-xl border border-border/60 bg-background/50 p-4">
                   <p className="text-xs font-medium text-muted-foreground">
@@ -2550,11 +2567,21 @@ export default function ClientesPage() {
                               <span className="text-gray-500">Trazabilidad:</span>{" "}
                               <span className="text-gray-800">#{(solicitud as any).codigo_trazabilidad || "-"}</span>
                             </div>
-                             <div>
-                               <span className="text-gray-500">Guía:</span>{" "}
-                               <span className="text-gray-800">{(solicitud as any).guia || "-"}</span>
-                             </div>
-                           </div>
+                              <div>
+                                <span className="text-gray-500">Guía:</span>{" "}
+                                <span className="text-gray-800">{(solicitud as any).guia || "-"}</span>
+                              </div>
+                              <div>
+                                <span className="text-gray-500">Tipo de impresión:</span>{" "}
+                                <span className="text-gray-800">
+                                  {String((solicitud as any).tipo_impresion || "").trim().toLowerCase() === "analoga"
+                                    ? "Analógica"
+                                    : String((solicitud as any).tipo_impresion || "").trim().toLowerCase() === "intraoral"
+                                      ? "Intraoral"
+                                      : String((solicitud as any).tipo_impresion || "").trim() || "-"}
+                                </span>
+                              </div>
+                            </div>
 
                            {/* Opciones adicionales */}
                            {(solicitud as any).chimenea === "Si" || (solicitud as any).prueba === "Si" || (solicitud as any).terminado === "Si" || (solicitud as any).color ? (

@@ -541,16 +541,45 @@ export function SolicitudSection({
            />
          </div>
 
-         <div className="flex flex-col gap-1">
-           <Label className="text-xs whitespace-nowrap">FIRMA DE ODONTÓLOGO (A):</Label>
-           <SignaturePad
-             value={formData.firma}
-             onChange={(dataUrl) => onFormDataChange({ firma: dataUrl })}
-           />
-         </div>
+          <div className="flex flex-col gap-1">
+            <Label className="text-xs whitespace-nowrap">FIRMA DE ODONTÓLOGO (A):</Label>
+            <SignaturePad
+              value={formData.firma}
+              onChange={(dataUrl) => onFormDataChange({ firma: dataUrl })}
+            />
+          </div>
+       </div>
+
+      {/* Tipo de impresión */}
+      <div className="p-3 border-b space-y-2 text-xs">
+        <Label className="text-xs font-semibold text-gray-700">TIPO DE IMPRESIÓN</Label>
+        <div className="flex flex-wrap gap-4">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name={`${idPrefix}-tipoImpresion`}
+              value="analoga"
+              checked={formData.tipoImpresion === "analoga"}
+              onChange={() => onFormDataChange({ tipoImpresion: "analoga" })}
+              className="h-3.5 w-3.5 accent-[#7cb342]"
+            />
+            <span>Analógica</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name={`${idPrefix}-tipoImpresion`}
+              value="intraoral"
+              checked={formData.tipoImpresion === "intraoral"}
+              onChange={() => onFormDataChange({ tipoImpresion: "intraoral" })}
+              className="h-3.5 w-3.5 accent-[#7cb342]"
+            />
+            <span>Intraoral</span>
+          </label>
+        </div>
       </div>
 
-      {/* Tipo de trabajo principal */}
+       {/* Tipo de trabajo principal */}
       <div className="p-3 border-b space-y-2 text-xs">
         <Label className="text-xs font-semibold text-gray-700">AGREGAR PRODUCTO *</Label>
         <select
