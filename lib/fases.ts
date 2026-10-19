@@ -18,6 +18,8 @@ export interface FaseProceso {
   realizada_por: string
   fecha_finalizacion: string
   fecha_prueba: string
+  /** Productos del catálogo a los que pertenece la fase (agrupación por producto). */
+  producto?: string
   /** Campos que envía el formulario del cliente y el admin no usa aquí. */
   descripcion?: string
 }
@@ -68,6 +70,7 @@ export function normalizarFase(fase: Partial<FaseProceso> | null | undefined): F
     realizada_por: String(fase?.realizada_por || ""),
     fecha_finalizacion: String(fase?.fecha_finalizacion || ""),
     fecha_prueba: String(fase?.fecha_prueba || ""),
+    ...(fase?.producto ? { producto: String(fase.producto) } : {}),
     ...(fase?.descripcion ? { descripcion: String(fase.descripcion) } : {}),
   }
 }

@@ -721,6 +721,53 @@ esInterno = true
 
     const siNo = (value: boolean) => (value ? "Si" : "No")
 
+    let ordenFases: { tipo: string; estado: string; realizada_por: string; fecha_finalizacion: string; fecha_prueba: string; producto: string }[] = []
+    const normalizarNombre = (valor: unknown) =>
+      String(valor || "")
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/[^a-z0-9]+/g, " ")
+        .trim()
+    try {
+      const { data: catalogo, error: catalogoError } = await supabase
+        .from("ProductosLab")
+        .select("nombre, fases_fabricacion")
+      if (catalogoError) throw catalogoError
+      const catalogoNormalizado = (catalogo || []).map((p: any) => {
+        let fases: string[] = []
+        try {
+          const valor = p.fases_fabricacion
+          const parsed = typeof valor === "string" ? JSON.parse(valor) : valor
+          if (Array.isArray(parsed)) fases = parsed.map(String).map((f) => f.trim()).filter(Boolean)
+        } catch { fases = [] }
+        const nombre = String(p.nombre || "").trim()
+        return { nombre, clave: normalizarNombre(nombre), base: normalizarNombre(nombre).replace(/\s+(int|anlg)$/, ""), fases }
+      })
+      const tipo = String(tipoImpresion || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      const sufijo = /analog/.test(tipo) ? "ANLG" : /intra/.test(tipo) ? "INT" : ""
+      for (const producto of productos as any[]) {
+        const nombre = String(producto.producto || producto.nombre || "").trim()
+        if (!nombre) continue
+        const clave = normalizarNombre(nombre)
+        const claveConSufijo = normalizarNombre(sufijo ? `${nombre} ${sufijo}` : nombre)
+        const base = clave.replace(/\s+(int|anlg)$/, "")
+        const coincidencias = [
+          catalogoNormalizado.find((p) => p.clave === clave),
+          catalogoNormalizado.find((p) => p.clave === claveConSufijo),
+          catalogoNormalizado.find((p) => p.base === base),
+        ]
+        const encontrado = coincidencias.find((p) => p && p.fases.length > 0)
+        if (!encontrado) { console.warn(`No se encontraron fases para el producto: ${nombre}`); continue }
+        for (const fase of encontrado.fases) {
+          ordenFases.push({ tipo: fase, estado: "pendiente", realizada_por: "", fecha_finalizacion: "", fecha_prueba: "", producto: nombre })
+        }
+      }
+    } catch (e) {
+      console.error("Error armando orden_fases:", e)
+      ordenFases = []
+    }
+
     const insertData: Record<string, unknown> = {
       cliente_id: cliente.id,
       servicio,
@@ -732,6 +779,7 @@ esInterno = true
       chimenea: siNo(chimenea),
       prueba: siNo(prueba),
       terminado: siNo(terminado),
+      orden_fases: ordenFases.length > 0 ? ordenFases : null,
     }
 
     const { data: inserted, error: firstError } = await supabase

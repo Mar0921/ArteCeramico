@@ -52,16 +52,70 @@ export async function PATCH(
        "guia_fabricacion",
        "manual_uso",
        "fase",
-        "orden_fabricacion_url",
-        "orden_materiales",
-        "orden_fases",
-        "historia_clinica_paciente",
-      ]
+      "orden_fabricacion_url",
+         "orden_materiales",
+         "orden_fases",
+         "historia_clinica_paciente",
+         "tipo_impresion",
+       ]
 
     const updates: Record<string, unknown> = {}
     for (const field of allowedFields) {
       if (field in body) {
         updates[field] = body[field]
+      }
+    }
+
+    // Si se define tipo_impresion, (re)genera orden_fases a partir de los
+    // servicios/productos de la solicitud para que solo salgan las fases
+    // relacionadas.
+    if ("tipo_impresion" in body) {
+      try {
+        const { data: servs } = await supabase
+          .from("servicios")
+          .select("nombre")
+          .eq("solicitud_id", solicitudId)
+        const tipo = String(body.tipo_impresion || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        const sufijo = /analog/.test(tipo) ? "ANLG" : /intra/.test(tipo) ? "INT" : ""
+        const { data: prods } = await supabase
+          .from("ProductosLab")
+          .select("nombre, fases_fabricacion")
+        const norm = (x: string) => x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim()
+        const byName = new Map<string, string[]>()
+        for (const row of prods || []) {
+          let fases: string[] = []
+          try {
+            const parsed = typeof row.fases_fabricacion === "string" ? JSON.parse(row.fases_fabricacion) : row.fases_fabricacion
+            if (Array.isArray(parsed)) fases = parsed.map(String).map((f: string) => f.trim()).filter(Boolean)
+          } catch { fases = [] }
+          byName.set(norm(String(row.nombre)), fases)
+        }
+        const nombresBase = Array.from(new Set((servs || []).map((s: any) => String(s.nombre || "").trim()).filter(Boolean)))
+        const nombres = nombresBase.map((n) => {
+          const exact = byName.get(norm(n))
+          if (exact && exact.length > 0) return n
+          return sufijo ? `${n} ${sufijo}` : n
+        })
+        if (nombres.length > 0) {
+          const allProds = (prods || []).map((r: any) => ({ key: norm(String(r.nombre)), fases: byName.get(norm(String(r.nombre))) || [], base: norm(String(r.nombre)).replace(/\s+(int|anlg)$/i, "") }))
+          const ordenFases: any[] = []
+          for (const n of nombres) {
+            const nl = norm(n)
+            const baseNl = nl.replace(/\s+(int|anlg)$/i, "")
+            let fases = byName.get(nl) || []
+            if (fases.length === 0) fases = byName.get(norm(`${n} ${sufijo}`)) || []
+            if (fases.length === 0) {
+              const match = allProds.find((p) => p.base === baseNl || p.key === baseNl || p.key.includes(baseNl) || baseNl.includes(p.base))
+              if (match) fases = match.fases
+            }
+            for (const f of fases) {
+              ordenFases.push({ tipo: f, estado: "pendiente", realizada_por: "", fecha_finalizacion: "", fecha_prueba: "", producto: n })
+            }
+          }
+          if (ordenFases.length > 0) updates.orden_fases = ordenFases
+        }
+      } catch (e) {
+        console.error("Error regenerando orden_fases:", e)
       }
     }
 
@@ -87,11 +141,11 @@ export async function PATCH(
       )
     }
 
-    return NextResponse.json({ success: true, data })
+    return NextResponse.json({ success: true, data, orden_fases: updates.orden_fases ?? null })
   } catch (error) {
     console.error("Error inesperado en PATCH /api/solicitudes/[id]:", error)
     return NextResponse.json(
-      { message: "Error interno del servidor." },
+      { message: "Error interno del servidor.", details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
     )
   }
