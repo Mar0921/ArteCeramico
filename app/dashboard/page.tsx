@@ -25,6 +25,7 @@ const statusStyles: Record<string, string> = {
 
 interface RecentOrder {
   id: string
+  codigo_trazabilidad: string | null
   client: string
   product: string
   status: string
@@ -116,6 +117,7 @@ export default function DashboardPage() {
            setRecentSolicitudes(
             data.map((item: any) => ({
               id: `SOL-${String(item.id).padStart(3, "0")}`,
+              codigo_trazabilidad: item.codigo_trazabilidad || null,
               client: item.cliente_nombre || "Sin cliente",
               product: item.servicio || "Servicio",
               status: item.estado
@@ -381,7 +383,7 @@ export default function DashboardPage() {
             <thead>
               <tr className="border-b border-border">
                 <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
-                  ID
+                  Código de Trazabilidad
                 </th>
                 <th className="px-6 py-4 text-left text-sm font-medium text-muted-foreground">
                   Cliente
@@ -426,7 +428,7 @@ export default function DashboardPage() {
                     className="border-b border-border last:border-0 hover:bg-muted/50"
                   >
                     <td className="px-6 py-4 text-sm font-medium text-foreground">
-                      {order.id}
+                      {order.codigo_trazabilidad || order.id}
                     </td>
                     <td className="px-6 py-4 text-sm text-muted-foreground">
                       {order.client}

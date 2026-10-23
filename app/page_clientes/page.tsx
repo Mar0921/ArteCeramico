@@ -3158,6 +3158,7 @@ export default function ClientesPage() {
                                         solicitudId={solicitud.id}
                                         defaultEmail={clientData?.correo ?? ""}
                                         defaultPaciente={solicitud.paciente ?? ""}
+                                        defaultNombreProfesional={clientData?.nombre ?? ""}
                                         surveyResponses={surveyResponses}
                                         setSurveyResponses={setSurveyResponses}
                                         submittingSurvey={submittingSurvey}

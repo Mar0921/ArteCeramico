@@ -10,9 +10,9 @@ export async function GET(request: Request) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    const { data: solicitudes, error } = await supabase
+        const { data: solicitudes, error } = await supabase
       .from("solicitudes")
-      .select("id, estado, created_at, cliente_id, servicio, fecha_entrega")
+      .select("id, codigo_trazabilidad, estado, created_at, cliente_id, servicio, fecha_entrega")
       .order("created_at", { ascending: false })
       .limit(1000)
 
@@ -41,6 +41,21 @@ export async function GET(request: Request) {
       }
     }
 
+    const solicitudIds = [...new Set((solicitudes || []).map((s: any) => s.id).filter(Boolean))]
+    const preciosMap = new Map<number, number>()
+    if (solicitudIds.length > 0) {
+      const { data: servicios } = await supabase
+        .from("servicios")
+        .select("solicitud_id, precio")
+        .in("solicitud_id", solicitudIds)
+      if (servicios) {
+        servicios.forEach((s: any) => {
+          const actual = preciosMap.get(s.solicitud_id) || 0
+          preciosMap.set(s.solicitud_id, actual + (Number(s.precio) || 0))
+        })
+      }
+    }
+
     const now = new Date()
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
     const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
@@ -48,14 +63,14 @@ export async function GET(request: Request) {
 
     const ingresosActual = (solicitudes || [])
       .filter((s: any) => new Date(s.created_at) >= startOfMonth)
-      .reduce((acc: number, s: any) => acc + (s.precio || 0), 0)
+      .reduce((acc: number, s: any) => acc + (preciosMap.get(s.id) || 0), 0)
 
     const ingresosAnterior = (solicitudes || [])
       .filter((s: any) => {
         const fecha = new Date(s.created_at)
         return fecha >= startOfPrevMonth && fecha <= endOfPrevMonth
       })
-      .reduce((acc: number, s: any) => acc + (s.precio || 0), 0)
+      .reduce((acc: number, s: any) => acc + (preciosMap.get(s.id) || 0), 0)
 
     const estadoCounts = {
       pendiente: 0,
@@ -106,11 +121,12 @@ export async function GET(request: Request) {
         actividadMensual: Object.entries(meses).map(([month, count]) => ({ month, count })),
         recentOrders: (solicitudes || []).slice(0, 5).map((item: any) => ({
           id: item.id,
+          codigo_trazabilidad: item.codigo_trazabilidad || null,
           cliente_nombre: clientesMap.get(item.cliente_id) || "Sin cliente",
           servicio: item.servicio || "Servicio",
           estado: item.estado || "pendiente",
           created_at: item.created_at,
-          precio: item.precio || 0,
+          precio: preciosMap.get(item.id) || item.precio || 0,
           fecha_entrega: item.fecha_entrega || null,
         })),
       },

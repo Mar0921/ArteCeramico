@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Calendar, CheckCircle2, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Calendar as CalendarComponent } from "@/components/ui/calendar"
@@ -14,6 +14,7 @@ interface SurveyFormProps {
   solicitudId: number
   defaultEmail: string
   defaultPaciente: string
+  defaultNombreProfesional?: string
   surveyResponses: Record<number, {
     email: string
     paciente: string
@@ -52,6 +53,7 @@ export function SurveyForm({
   solicitudId,
   defaultEmail,
   defaultPaciente,
+  defaultNombreProfesional = "",
   surveyResponses,
   setSurveyResponses,
   submittingSurvey,
@@ -66,9 +68,28 @@ export function SurveyForm({
     paciente: defaultPaciente,
     evaluaciones: [],
     opinion: "",
-    nombreProfesional: "",
+    nombreProfesional: defaultNombreProfesional,
     fechaEntrega: "",
   }
+
+  useEffect(() => {
+    setSurveyResponses((prev) => {
+      const existing = prev[solicitudId]
+      if (existing?.nombreProfesional) return prev
+      return {
+        ...prev,
+        [solicitudId]: {
+          ...(existing ?? {}),
+          email: existing?.email ?? defaultEmail,
+          paciente: existing?.paciente ?? defaultPaciente,
+          evaluaciones: existing?.evaluaciones ?? [],
+          opinion: existing?.opinion ?? "",
+          nombreProfesional: defaultNombreProfesional,
+          fechaEntrega: existing?.fechaEntrega ?? "",
+        },
+      }
+    })
+  }, [solicitudId, defaultNombreProfesional])
 
   const update = (field: string, value: string | string[]) => {
     setSurveyResponses((prev) => ({
@@ -116,7 +137,7 @@ export function SurveyForm({
           paciente: "",
           evaluaciones: [],
           opinion: "",
-          nombreProfesional: "",
+    nombreProfesional: defaultNombreProfesional,
           fechaEntrega: "",
         },
       }))
