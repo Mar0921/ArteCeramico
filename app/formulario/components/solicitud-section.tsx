@@ -11,7 +11,7 @@ import { DrawableTooth, DrawableToothRef } from "./drawable-tooth"
 import { SignaturePad } from "./signature-pad"
 import { Calendar as CalendarIcon, Upload, File, X, DollarSign } from "lucide-react"
 import { Calendar } from "@/components/ui/calendar"
-import { format } from "date-fns"
+import { format, addDays, isBefore, startOfDay } from "date-fns"
 import { es } from "date-fns/locale"
 import { SolicitudEntry, SolicitudFormData, ToothStatus, UploadedFile, ProductoLine } from "./solicitud-types"
 import { supabase } from "@/lib/supabase"
@@ -93,6 +93,8 @@ interface SolicitudSectionProps {
   onToothDrawRef: (ref: DrawableToothRef | null) => void
   onUpdate: (updates: Partial<SolicitudEntry>) => void
   onFormDataChange: (updates: Partial<SolicitudFormData>) => void
+  modo?: "cliente" | "empleado" | "admin"
+  bloquearEntrega?: boolean
 }
 
 export function SolicitudSection({
@@ -102,6 +104,8 @@ export function SolicitudSection({
   onToothDrawRef,
   onUpdate,
   onFormDataChange,
+  modo,
+  bloquearEntrega = false,
 }: SolicitudSectionProps) {
   const { formData, servicioTipo, selectedTeeth, toothStatuses, uploadedFiles } = solicitud
   const [showCalendarElaboracion, setShowCalendarElaboracion] = useState(false)
@@ -416,24 +420,34 @@ export function SolicitudSection({
                   </button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={formData.fechaEntrega.dia ? new Date(`${formData.fechaEntrega.anio}-${formData.fechaEntrega.mes}-${formData.fechaEntrega.dia}`) : undefined}
-                    onSelect={(date) => {
-                      if (date) {
-                        onFormDataChange({
-                          fechaEntrega: {
-                            dia: format(date, "dd"),
-                            mes: format(date, "MM"),
-                            anio: format(date, "yyyy"),
-                          },
-                        })
-                        setShowCalendarEntrega(false)
-                      }
-                    }}
-                    locale={es}
-                    initialFocus
-                  />
+                   <Calendar
+                     mode="single"
+                     selected={formData.fechaEntrega.dia ? new Date(`${formData.fechaEntrega.anio}-${formData.fechaEntrega.mes}-${formData.fechaEntrega.dia}`) : undefined}
+                     onSelect={(date) => {
+                       if (!date) return
+                       const elaboracion = formData.fechaElaboracion?.dia && formData.fechaElaboracion?.mes && formData.fechaElaboracion?.anio
+                         ? new Date(`${formData.fechaElaboracion.anio}-${formData.fechaElaboracion.mes}-${formData.fechaElaboracion.dia}`)
+                         : new Date()
+                       const minDate = addDays(elaboracion, 5)
+                        if (bloquearEntrega && isBefore(date, startOfDay(minDate))) return
+                       onFormDataChange({
+                         fechaEntrega: {
+                           dia: format(date, "dd"),
+                           mes: format(date, "MM"),
+                           anio: format(date, "yyyy"),
+                         },
+                       })
+                       setShowCalendarEntrega(false)
+                     }}
+disabled={bloquearEntrega ? (date: Date) => {
+                          const elaboracion = formData.fechaElaboracion?.dia && formData.fechaElaboracion?.mes && formData.fechaElaboracion?.anio
+                            ? new Date(`${formData.fechaElaboracion.anio}-${formData.fechaElaboracion.mes}-${formData.fechaElaboracion.dia}`)
+                            : new Date()
+                          return isBefore(date, startOfDay(addDays(elaboracion, 5)))
+                        } : undefined}
+                     locale={es}
+                     initialFocus
+                   />
                 </PopoverContent>
               </Popover>
             </div>

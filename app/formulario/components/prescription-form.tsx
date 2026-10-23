@@ -547,7 +547,9 @@ export function PrescriptionForm({
             }}
             onUpdate={(updates) => updateSolicitud(index, updates)}
             onFormDataChange={(updates) => updateFormData(index, updates)}
-          />
+             modo={modo}
+             bloquearEntrega={modo === "cliente" || !!cliente}
+           />
         </div>
       ))}
 
