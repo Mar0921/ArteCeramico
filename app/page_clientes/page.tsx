@@ -273,6 +273,19 @@ export default function ClientesPage() {
   const fileInputChatClienteRefs = useRef<{ [solicitudId: number]: HTMLInputElement | null }>({})
   const [expandedSolicitudId, setExpandedSolicitudId] = useState<number | null>(null)
   const [vistaSolicitudes, setVistaSolicitudes] = useState<"activas" | "finalizadas">("activas")
+
+  useEffect(() => {
+    if (expandedSolicitudId) {
+      setTimeout(() => {
+        const el = document.getElementById(`solicitud-${expandedSolicitudId}`)
+        if (el) {
+          const navbarHeight = 80
+          const elementTop = el.getBoundingClientRect().top + window.pageYOffset
+          window.scrollTo({ top: elementTop - navbarHeight - 20, behavior: "smooth" })
+        }
+      }, 500)
+    }
+  }, [expandedSolicitudId])
   const [surveyResponses, setSurveyResponses] = useState<Record<number, {
     email: string
     paciente: string
@@ -307,6 +320,7 @@ export default function ClientesPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [notificacionesNoLeidas, setNotificacionesNoLeidas] = useState<Record<number, number>>({})
+  const [notificacionesEncuesta, setNotificacionesEncuesta] = useState<any[]>([])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({
@@ -471,6 +485,11 @@ export default function ClientesPage() {
     }
     cargarEncuestasParaSolicitudes()
   }, [solicitudes])
+
+  useEffect(() => {
+    if (!clientData?.id || solicitudes.length === 0) return
+    crearNotificacionesEncuestaPendiente()
+  }, [clientData, solicitudes, encuestasExistentes])
 
   const cargarSolicitudes = async (clienteId: number) => {
     setLoadingSolicitudes(true)
@@ -686,6 +705,57 @@ export default function ClientesPage() {
       setNotificacionesLista(data || [])
     } catch (err) {
       console.error("Error cargando lista de notificaciones:", err)
+    }
+  }
+
+  const cargarNotificacionesEncuesta = async () => {
+    if (!clientData?.id) return
+    try {
+      const { data } = await supabase
+        .from("notificaciones")
+        .select(`
+          id,
+          solicitud_id,
+          contenido,
+          titulo,
+          tipo,
+          vista,
+          created_at
+        `)
+        .eq("cliente_id", clientData.id)
+        .eq("tipo", "encuesta_pendiente")
+        .order("created_at", { ascending: false })
+        .limit(50)
+      setNotificacionesEncuesta(data || [])
+    } catch (err) {
+      console.error("Error cargando notificaciones de encuesta:", err)
+    }
+  }
+
+  const crearNotificacionesEncuestaPendiente = async () => {
+    if (!clientData?.id) return
+    try {
+      const solicitudesFinalizadasSinEncuesta = solicitudes.filter(
+        (s: Solicitud) => (s.estado === "finalizado" || s.estado === "completado") && (!encuestasExistentes[s.id] || encuestasExistentes[s.id].length === 0)
+      )
+      for (const solicitud of solicitudesFinalizadasSinEncuesta) {
+        const yaExiste = notificacionesEncuesta.some(
+          (n) => n.solicitud_id === solicitud.id && !n.vista
+        )
+        if (yaExiste) continue
+        await supabase.from("notificaciones").insert({
+          cliente_id: clientData.id,
+          solicitud_id: solicitud.id,
+          tipo: "encuesta_pendiente",
+          titulo: "Encuesta post-adaptación pendiente",
+          contenido: `Tu solicitud #${String(solicitud.id).padStart(3, "0")} está finalizada. Por favor completa la encuesta post-adaptación.`,
+          vista: false,
+          created_at: new Date().toISOString()
+        })
+      }
+      await cargarNotificacionesEncuesta()
+    } catch (err) {
+      console.error("Error creando notificaciones de encuesta pendiente:", err)
     }
   }
 
@@ -948,6 +1018,13 @@ export default function ClientesPage() {
 
       setNotificacionesLista(prev => prev.map(n => ({ ...n, vista: true })))
       setNotificacionesNoLeidas({})
+      await supabase
+        .from("notificaciones")
+        .update({ vista: true })
+        .eq("cliente_id", clientData.id)
+        .eq("tipo", "encuesta_pendiente")
+        .eq("vista", false)
+      setNotificacionesEncuesta(prev => prev.map(n => ({ ...n, vista: true })))
     } catch (err) {
       console.error("Error marcando todas como leídas:", err)
     }
@@ -1845,7 +1922,13 @@ export default function ClientesPage() {
     solicitud.observaciones.toLowerCase().includes(busquedaSolicitud.toLowerCase())
   )
 
-  const sinLeer = notificacionesLista.filter(n => !n.vista).length
+  const sinLeer = [...notificacionesLista, ...notificacionesEncuesta].filter(n => !n.vista).length
+
+  const solicitudesEncuestaPendiente = solicitudes.filter(
+    (s: Solicitud) =>
+      (s.estado === "finalizado" || s.estado === "completado") &&
+      (!encuestasExistentes[s.id] || encuestasExistentes[s.id].length === 0)
+  )
 
   if (loading) {
     return (
@@ -1896,7 +1979,7 @@ export default function ClientesPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5">
     <Navbar
-        notificaciones={notificacionesLista}
+        notificaciones={[...notificacionesLista, ...notificacionesEncuesta]}
         notificacionesCount={sinLeer}
         notificacionesOpen={notificacionesOpen}
         setNotificacionesOpen={setNotificacionesOpen}
@@ -1906,6 +1989,43 @@ export default function ClientesPage() {
 
       {/* CONTENT */}
       <main className="mx-auto flex w-full max-w-7xl flex-col gap-8 px-6 py-8 pt-20">
+        {solicitudesEncuestaPendiente.length > 0 && (
+          <section className="mx-auto max-w-7xl px-6 py-4 mb-8">
+            <div className="rounded-xl border border-amber-200 bg-amber-50/90 p-6 shadow-lg">
+              <div className="flex items-start gap-3 mb-4">
+                <AlertCircle size={24} className="text-amber-600 shrink-0" />
+                <div>
+                  <h3 className="text-lg font-bold text-amber-900 mb-1">
+                    Tienes encuestas post-adaptación pendientes
+                  </h3>
+                  <p className="text-amber-800 text-sm">
+                    Completa la encuesta de las solicitudes ya finalizadas para
+                    ayudarnos a mejorar nuestro servicio.
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-2">
+                {solicitudesEncuestaPendiente.map((solicitud) => (
+                  <button
+                    key={solicitud.id}
+                    onClick={() => {
+                      setVistaSolicitudes("finalizadas")
+                      setExpandedSolicitudId(solicitud.id)
+                      setActiveTab((prev) => ({ ...prev, [solicitud.id]: "documentos" }))
+                    }}
+                    className="w-full flex items-center justify-between rounded-lg border border-amber-200 bg-white p-3 text-sm text-amber-900 hover:bg-amber-100 transition-colors"
+                  >
+                    <span>
+                      {solicitud.codigo_trazabilidad || `SOL-${String(solicitud.id).padStart(3, "0")}`} -{" "}
+                      {solicitud.servicio}
+                    </span>
+                    <span className="text-[10px] font-medium">Responder encuesta</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
         {/* INFO CARD */}
         <section className="rounded-3xl border border-border/50 bg-card/60 p-8 shadow-2xl backdrop-blur-xl">
           <div className="mb-6 flex items-center justify-between gap-3">
@@ -2576,6 +2696,7 @@ export default function ClientesPage() {
                   return (
                     <div
                       key={solicitud.id}
+                      id={`solicitud-${solicitud.id}`}
                       className="rounded-lg border border-border bg-white"
                     >
                        <div
@@ -3152,9 +3273,20 @@ export default function ClientesPage() {
                                          <span className="text-xs text-muted-foreground">{(solicitud as any).odontologo_firma}</span>
                                        )}
                                      </div>
-                                   )}
-                                    <div className="mt-4 pt-3 border-t border-border">
-                                    <SurveyForm
+                                    )}
+                                     <div className="mt-4 pt-3 border-t border-border">
+                                     {esSolicitudFinalizada(solicitud.estado) && (!encuestasExistentes[solicitud.id] || encuestasExistentes[solicitud.id].length === 0) && (
+                                       <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                                         <div className="flex items-center gap-2 mb-2">
+                                           <AlertCircle size={16} className="text-amber-600" />
+                                           <span className="text-sm font-medium text-amber-800">Encuesta post-adaptación pendiente</span>
+                                         </div>
+                                         <p className="text-sm text-amber-700">
+                                                                                       Tu solicitud {solicitud.codigo_trazabilidad || `SOL-${String(solicitud.id).padStart(3, "0")}`} está finalizada. Por favor, completa la encuesta post-adaptación para que podamos seguir mejorando nuestro servicio.
+                                         </p>
+                                       </div>
+                                     )}
+                                     <SurveyForm
                                         solicitudId={solicitud.id}
                                         defaultEmail={clientData?.correo ?? ""}
                                         defaultPaciente={solicitud.paciente ?? ""}

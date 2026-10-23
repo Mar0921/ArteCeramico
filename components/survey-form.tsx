@@ -148,7 +148,7 @@ export function SurveyForm({
     }
   }
 
-  const hasResponse = !!surveyResponses[solicitudId] && (surveyResponses[solicitudId].email || surveyResponses[solicitudId].paciente || surveyResponses[solicitudId].evaluaciones.length > 0)
+  const hasResponse = !!surveyResponses[solicitudId] && (surveyResponses[solicitudId].evaluaciones.length > 0 || surveyResponses[solicitudId].opinion)
   const isCompleted = !!surveySuccess[solicitudId]
 
   if (isCompleted) {
