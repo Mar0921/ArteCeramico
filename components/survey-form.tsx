@@ -130,6 +130,21 @@ export function SurveyForm({
   const hasResponse = !!surveyResponses[solicitudId] && (surveyResponses[solicitudId].email || surveyResponses[solicitudId].paciente || surveyResponses[solicitudId].evaluaciones.length > 0)
   const isCompleted = !!surveySuccess[solicitudId]
 
+  if (isCompleted) {
+    return (
+      <div className="rounded-lg border border-green-200 bg-green-50/50">
+        <div className="w-full flex items-center justify-between p-3 text-xs font-medium text-green-900">
+          <span className="flex items-center gap-2">
+            🦷 POS ADAPTACIÓN
+            <span className="text-[10px] bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">
+              Completado
+            </span>
+          </span>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="rounded-lg border border-border bg-white">
       <button

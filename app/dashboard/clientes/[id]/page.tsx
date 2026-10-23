@@ -3329,11 +3329,54 @@ loadClient()
                                                   <p className="text-xs text-gray-800 bg-gray-50 p-2 rounded border border-gray-200">{encuesta.opinion}</p>
                                                 </div>
                                               )}
-                                              <p className="text-[10px] text-gray-400 mt-2">
-                                                Registrado el {new Date(encuesta.created_at).toLocaleDateString("es-CO")} a las {new Date(encuesta.created_at).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}
-                                              </p>
-                                            </div>
-                                          ))}
+                                               <p className="text-[10px] text-gray-400 mt-2">
+                                                 Registrado el {new Date(encuesta.created_at).toLocaleDateString("es-CO")} a las {new Date(encuesta.created_at).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}
+                                               </p>
+                                              <button
+                                                type="button"
+                                                onClick={async () => {
+                                                  const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+                                                    import("jspdf"),
+                                                    import("html2canvas-pro"),
+                                                  ])
+                                                  const container = document.createElement("div")
+                                                  container.style.width = "800px"
+                                                  container.style.padding = "40px"
+                                                  container.style.background = "#ffffff"
+                                                  container.style.fontFamily = "Arial, sans-serif"
+                                                  container.innerHTML = `
+                                                    <div style="text-align: center; margin-bottom: 30px;">
+                                                      <h1 style="color: #166534; font-size: 22px; margin: 0;">LABORATORIO DENTAL ARTE CERÁMICO</h1>
+                                                      <h2 style="color: #22c55e; font-size: 18px; margin: 10px 0;">ENCUESTA POST-ADAPTACIÓN</h2>
+                                                      <p style="font-size: 12px; color: #666;">Solicitud: SOL-${String(solicitud.id).padStart(3, "0")}</p>
+                                                    </div>
+                                                    <div style="margin: 12px 0;"><strong>Email del profesional tratante:</strong> ${encuesta.email || "-"}</div>
+                                                    <div style="margin: 12px 0;"><strong>Nombre del Paciente:</strong> ${encuesta.paciente || "-"}</div>
+                                                    <div style="margin: 12px 0;"><strong>Evaluación clínica postentrega:</strong><ul style="margin: 8px 0; padding-left: 20px;">${(encuesta.evaluaciones || []).map((ev: string) => `<li>${ev}</li>`).join("")}</ul></div>
+                                                    <div style="margin: 12px 0;"><strong>Opinión general del profesional tratante:</strong> ${encuesta.opinion || "-"}</div>
+                                                    <div style="margin: 12px 0;"><strong>Registrar Nombre del profesional:</strong> ${encuesta.nombre_profesional || "-"}</div>
+                                                    <div style="margin: 12px 0;"><strong>Registrar Fecha de entrega al paciente:</strong> ${encuesta.fecha_entrega || "-"}</div>
+                                                  `
+                                                  document.body.appendChild(container)
+                                                  const canvas = await html2canvas(container, { backgroundColor: "#ffffff" })
+                                                  document.body.removeChild(container)
+                                                  const imgData = canvas.toDataURL("image/png")
+                                                  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" })
+                                                  const pageWidth = pdf.internal.pageSize.getWidth()
+                                                  const pageHeight = pdf.internal.pageSize.getHeight()
+                                                  const imgWidth = canvas.width
+                                                  const imgHeight = canvas.height
+                                                  const ratio = Math.min(pageWidth / imgWidth, pageHeight / imgHeight)
+                                                  pdf.addImage(imgData, "PNG", 0, 0, imgWidth * ratio, imgHeight * ratio)
+                                                  pdf.save(`encuesta-post-adaptacion-laboratorio-dental-arte-ceramico-SOL-${String(solicitud.id).padStart(3, "0")}.pdf`)
+                                                }}
+                                                className="inline-flex items-center gap-1 rounded-md border border-green-600 bg-green-600 px-2 py-1 text-[10px] font-medium text-white transition-all hover:bg-green-700"
+                                              >
+                                                <Download size={12} />
+                                                Descargar PDF
+                                              </button>
+                                             </div>
+                                           ))}
                                         </div>
                                       </div>
                                     )}

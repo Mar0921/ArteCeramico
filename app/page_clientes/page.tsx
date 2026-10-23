@@ -283,6 +283,8 @@ export default function ClientesPage() {
   }>>({})
   const [submittingSurvey, setSubmittingSurvey] = useState<Record<number, boolean>>({})
   const [surveySuccess, setSurveySuccess] = useState<Record<number, boolean>>({})
+  const [encuestasExistentes, setEncuestasExistentes] = useState<Record<number, any[]>>({})
+  const [loadingEncuestas, setLoadingEncuestas] = useState<Record<number, boolean>>({})
   const [complaintsResponses, setComplaintsResponses] = useState<Record<number, {
     email: string
     tipo: string
@@ -302,7 +304,6 @@ export default function ClientesPage() {
   const [dibujando, setDibujando] = useState(false)
 
   const { toast } = useToast()
-
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [notificacionesNoLeidas, setNotificacionesNoLeidas] = useState<Record<number, number>>({})
@@ -445,6 +446,31 @@ export default function ClientesPage() {
       supabase.removeChannel(channel)
     }
   }, [clientData?.id])
+
+  useEffect(() => {
+    if (solicitudes.length === 0) return
+    const cargarEncuestasParaSolicitudes = async () => {
+      for (const solicitud of solicitudes) {
+        try {
+          setLoadingEncuestas((prev) => ({ ...prev, [solicitud.id]: true }))
+          const res = await fetch(`/api/encuestas?solicitud_id=${solicitud.id}`)
+          if (res.ok) {
+            const result = await res.json()
+            const data = Array.isArray(result?.data) ? result.data : []
+            if (data.length > 0) {
+              setEncuestasExistentes((prev) => ({ ...prev, [solicitud.id]: data }))
+              setSurveySuccess((prev) => ({ ...prev, [solicitud.id]: true }))
+            }
+          }
+        } catch (err) {
+          console.error("Error cargando encuesta existente:", err)
+        } finally {
+          setLoadingEncuestas((prev) => ({ ...prev, [solicitud.id]: false }))
+        }
+      }
+    }
+    cargarEncuestasParaSolicitudes()
+  }, [solicitudes])
 
   const cargarSolicitudes = async (clienteId: number) => {
     setLoadingSolicitudes(true)
@@ -3128,7 +3154,7 @@ export default function ClientesPage() {
                                      </div>
                                    )}
                                     <div className="mt-4 pt-3 border-t border-border">
-                                      <SurveyForm
+                                    <SurveyForm
                                         solicitudId={solicitud.id}
                                         defaultEmail={clientData?.correo ?? ""}
                                         defaultPaciente={solicitud.paciente ?? ""}
@@ -3139,6 +3165,83 @@ export default function ClientesPage() {
                                         surveySuccess={surveySuccess}
                                         setSurveySuccess={setSurveySuccess}
                                       />
+                                      {encuestasExistentes[solicitud.id] && encuestasExistentes[solicitud.id].length > 0 && (
+                                        <div className="mt-3 rounded-lg border border-green-200 bg-green-50/50 p-4 space-y-3">
+                                          <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-2">
+                                              <CheckCircle2 size={16} className="text-green-600" />
+                                              <p className="text-sm font-medium text-green-900">Respuestas de la encuesta post-adaptación</p>
+                                            </div>
+                                            <button
+                                              onClick={async () => {
+                                                const encuesta = encuestasExistentes[solicitud.id][0]
+                                                const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+                                                  import("jspdf"),
+                                                  import("html2canvas-pro"),
+                                                ])
+                                                const container = document.createElement("div")
+                                                container.style.width = "800px"
+                                                container.style.padding = "40px"
+                                                container.style.background = "#ffffff"
+                                                container.style.fontFamily = "Arial, sans-serif"
+                                                container.innerHTML = `
+                                                  <div style="text-align: center; margin-bottom: 30px;">
+                                                    <h1 style="color: #166534; font-size: 22px; margin: 0;">LABORATORIO DENTAL ARTE CERÁMICO</h1>
+                                                    <h2 style="color: #22c55e; font-size: 18px; margin: 10px 0;">ENCUESTA POST-ADAPTACIÓN</h2>
+                                                    <p style="font-size: 12px; color: #666;">Solicitud: SOL-${String(solicitud.id).padStart(3, "0")}</p>
+                                                  </div>
+                                                  <div style="margin: 12px 0;"><strong>Email del profesional tratante:</strong> ${encuesta.email || "-"}</div>
+                                                  <div style="margin: 12px 0;"><strong>Nombre del Paciente:</strong> ${encuesta.paciente || "-"}</div>
+                                                  <div style="margin: 12px 0;"><strong>Evaluación clínica postentrega:</strong><ul style="margin: 8px 0; padding-left: 20px;">${(encuesta.evaluaciones || []).map((ev: string) => `<li>${ev}</li>`).join("")}</ul></div>
+                                                  <div style="margin: 12px 0;"><strong>Opinión general del profesional tratante:</strong> ${encuesta.opinion || "-"}</div>
+                                                  <div style="margin: 12px 0;"><strong>Registrar Nombre del profesional:</strong> ${encuesta.nombre_profesional || "-"}</div>
+                                                  <div style="margin: 12px 0;"><strong>Registrar Fecha de entrega al paciente:</strong> ${encuesta.fecha_entrega ? new Date(encuesta.fecha_entrega).toLocaleDateString("es-CO") : "-"}</div>
+                                                `
+                                                document.body.appendChild(container)
+                                                const canvas = await html2canvas(container, { backgroundColor: "#ffffff" })
+                                                document.body.removeChild(container)
+                                                const imgData = canvas.toDataURL("image/png")
+                                                const pdf = new jsPDF({ orientation: "portrait", unit: "px", format: [canvas.width, canvas.height] })
+                                                pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height)
+                                                pdf.save(`encuesta-post-adaptacion-laboratorio-dental-arte-ceramico-SOL-${String(solicitud.id).padStart(3, "0")}.pdf`)
+                                              }}
+                                              className="flex items-center gap-1 rounded-lg border border-green-600 bg-green-600 px-3 py-1.5 text-xs font-medium text-white transition-all hover:bg-green-700"
+                                            >
+                                              <Download size={14} />
+                                              Descargar
+                                            </button>
+                                          </div>
+                                          {encuestasExistentes[solicitud.id].map((encuesta: any, idx: number) => (
+                                            <div key={idx} className="space-y-2 text-xs text-foreground">
+                                              <div>
+                                                <span className="font-medium text-muted-foreground">Email:</span> {encuesta.email}
+                                              </div>
+                                              <div>
+                                                <span className="font-medium text-muted-foreground">Paciente:</span> {encuesta.paciente}
+                                              </div>
+                                              {encuesta.evaluaciones && Array.isArray(encuesta.evaluaciones) && encuesta.evaluaciones.length > 0 && (
+                                                <div>
+                                                  <span className="font-medium text-muted-foreground">Evaluación clínica:</span>
+                                                  <ul className="mt-1 ml-4 list-disc space-y-1">
+                                                    {encuesta.evaluaciones.map((ev: string, i: number) => (
+                                                      <li key={i}>{ev}</li>
+                                                    ))}
+                                                  </ul>
+                                                </div>
+                                              )}
+                                              <div>
+                                                <span className="font-medium text-muted-foreground">Opinión general:</span> {encuesta.opinion}
+                                              </div>
+                                              <div>
+                                                <span className="font-medium text-muted-foreground">Profesional tratante:</span> {encuesta.nombre_profesional}
+                                              </div>
+                                              <div>
+                                                <span className="font-medium text-muted-foreground">Fecha de entrega al paciente:</span> {encuesta.fecha_entrega ? new Date(encuesta.fecha_entrega).toLocaleDateString("es-CO") : "-"}
+                                              </div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
                                       <div className="mt-4">
                                         <ComplaintsSurvey
                                           solicitudId={solicitud.id}
