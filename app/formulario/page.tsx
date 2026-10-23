@@ -16,6 +16,7 @@ function FormContent() {
       tipoServicio={searchParams.get("tipoServicio") || ""}
       tipoTrabajo={searchParams.get("tipoTrabajo")?.split(",").filter(Boolean) || []}
       material={searchParams.get("material")?.split(",").filter(Boolean) || []}
+      modo="cliente"
     />
   )
 }

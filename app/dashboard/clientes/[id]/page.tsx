@@ -39,6 +39,24 @@ import { CartaConvenioContenido } from "@/components/carta-convenio"
 import { supabase } from "@/lib/supabase"
 import { FASES_PROCESO } from "@/lib/fases"
 import { useToast } from "@/hooks/use-toast"
+import { FichaTecnicaDisilicato } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-disilicato"
+import { FichaTecnicaMonolitica } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-monolitica"
+import { FichaTecnicaResina } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-resina"
+import { FichaTecnicaCeramicaEncia } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-ceramica-encia"
+import { FichaTecnicaColadoUcla } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-colado-ucla"
+import { FichaTecnicaCoronaDisilicatoEstratificada } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-corona-disilicato-estratificada"
+import { FichaTecnicaCoronaDisilicatoMonolitica } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-corona-disilicato-monolitica"
+import { FichaTecnicaCoronaDisilicatoImplante } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-corona-disilicato-implante"
+import { FichaTecnicaCoronaZirconioEstratificada } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-corona-zirconio-estratificada"
+import { FichaTecnicaCoronaZirconioMonolitica } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-corona-zirconio-monolitica"
+import { FichaTecnicaCoronaZirconioImplante } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-corona-zirconio-implante"
+import { FichaTecnicaIncrustacionDisilicato } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-incrustacion-disilicato"
+import { FichaTecnicaIncrustacionMetal } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-incrustacion-metal"
+import { FichaTecnicaNucleoNPG } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-nucleo-npg"
+import { FichaTecnicaProtesisHibridaAllOnFour } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-protesis-hibrida-all-on-four"
+import { FichaTecnicaProvisionalPmmaImplante } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-provisional-pmma-implante"
+import { FichaTecnicaProvisionalPmma } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-provisional-pmma"
+import { FichaTecnicaProvisionalResinaImpresa } from "@/app/dashboard/clientes/[id]/fichas-tecnicas/ficha-tecnica-provisional-resina-impresa"
 
 function mostrarTipoImpresion(valor: string | null | undefined): string {
   const normalizado = String(valor || "").trim().toLowerCase()
@@ -228,6 +246,8 @@ export default function ClientePerfilPage() {
   const [loadingMensajes, setLoadingMensajes] = useState<{ [solicitudId: number]: boolean }>({})
   const chatBottomRefs = useRef<{ [solicitudId: number]: HTMLDivElement | null }>({})
   const [adminId, setAdminId] = useState<number | null>(null)
+  const [archivosChat, setArchivosChat] = useState<{ [solicitudId: number]: File[] }>({})
+  const fileInputChatRefs = useRef<{ [solicitudId: number]: HTMLInputElement | null }>({})
 
   const [guardandoServicio, setGuardandoServicio] = useState<number | null>(null)
 
@@ -242,6 +262,14 @@ export default function ClientePerfilPage() {
   const [buzonQuejas, setBuzonQuejas] = useState<Record<number, BuzonQueja[]>>({})
   const [fichasTecnicasPorSolicitud, setFichasTecnicasPorSolicitud] = useState<Record<number, any[]>>({})
    const [loadingFichasTecnicas, setLoadingFichasTecnicas] = useState<Record<number, boolean>>({})
+  const [modalFichaVisible, setModalFichaVisible] = useState(false)
+  const [fichaModalSeleccionada, setFichaModalSeleccionada] = useState<any | null>(null)
+  const [fichaModalSecciones, setFichaModalSecciones] = useState<any[]>([])
+  const [tipoFichaModal, setTipoFichaModal] = useState<string>("")
+  const [downloadingFichaModal, setDownloadingFichaModal] = useState(false)
+  const [descargaPendiente, setDescargaPendiente] = useState<{ ficha: any; solicitudId: number } | null>(null)
+  const [solicitudModalId, setSolicitudModalId] = useState<number | null>(null)
+  const [solicitudModalActual, setSolicitudModalActual] = useState<any>(null)
    const [aceptandoSolicitud, setAceptandoSolicitud] = useState<{ [key: number]: boolean }>({})
    const [rechazandoSolicitud, setRechazandoSolicitud] = useState<{ [key: number]: boolean }>({})
    const [modalRechazarVisible, setModalRechazarVisible] = useState(false)
@@ -375,61 +403,152 @@ export default function ClientePerfilPage() {
    }
 
    const enviarMensajeCancelacion = async (solicitud: Solicitud) => {
-     try {
-       let { data: conversacion, error: convError } = await supabase
-         .from("conversaciones")
-         .select("id")
-         .eq("solicitud_id", solicitud.id)
-         .maybeSingle()
+      try {
+        let { data: conversacion, error: convError } = await supabase
+          .from("conversaciones")
+          .select("id")
+          .eq("solicitud_id", solicitud.id)
+          .maybeSingle()
 
-       if (convError) throw convError
+        if (convError) throw convError
 
-       if (!conversacion) {
-         const { data: nueva, error: createError } = await supabase
-           .from("conversaciones")
-           .insert({
-             solicitud_id: solicitud.id,
-             cliente_id: solicitud.cliente_id,
-             admin_id: adminId,
-             estado: "activa",
-           })
-           .select()
-           .single()
+        if (!conversacion) {
+          const { data: nueva, error: createError } = await supabase
+            .from("conversaciones")
+            .insert({
+              solicitud_id: solicitud.id,
+              cliente_id: solicitud.cliente_id,
+              admin_id: adminId,
+              estado: "activa",
+            })
+            .select()
+            .single()
 
-         if (createError) throw createError
-         conversacion = nueva
-       }
+          if (createError) throw createError
+          conversacion = nueva
+        }
 
-       const { error: msgError } = await supabase
-         .from("mensajes")
-         .insert({
-            conversacion_id: conversacion!.id,
-           contenido: "Su solicitud ha sido cancelada. Si necesita más información, comuníquese con nosotros.",
-           remitente: "admin",
-           leido: false,
-         })
-         .select()
-
-       if (msgError) throw msgError
-
-       setMensajesPorSolicitud((prev) => ({
-         ...prev,
-         [solicitud.id]: [
-           ...(prev[solicitud.id] || []),
-           {
-             id: Date.now(),
+        const { error: msgError } = await supabase
+          .from("mensajes")
+          .insert({
              conversacion_id: conversacion!.id,
-             contenido: "Su solicitud ha sido cancelada. Si necesita más información, comuníquese con nosotros.",
-             remitente: "admin",
-             leido: false,
-             created_at: new Date().toISOString(),
-           },
-         ],
-       }))
-      } catch (err) {
-        console.error("Error enviando mensaje de cancelación:", err)
+            contenido: "Su solicitud ha sido cancelada. Si necesita más información, comuníquese con nosotros.",
+            remitente: "admin",
+            leido: false,
+          })
+          .select()
+
+        if (msgError) throw msgError
+
+        setMensajesPorSolicitud((prev) => ({
+          ...prev,
+          [solicitud.id]: [
+            ...(prev[solicitud.id] || []),
+            {
+              id: Date.now(),
+              conversacion_id: conversacion!.id,
+              contenido: "Su solicitud ha sido cancelada. Si necesita más información, comuníquese con nosotros.",
+              remitente: "admin",
+              leido: false,
+              created_at: new Date().toISOString(),
+            },
+          ],
+        }))
+       } catch (err) {
+         console.error("Error enviando mensaje de cancelación:", err)
+       }
+     }
+
+  const handleEnviarMensaje = async (solicitudId: number) => {
+    const texto = mensajeInput[solicitudId]?.trim()
+    const archivos = archivosChat[solicitudId] || []
+    if (!texto && archivos.length === 0) return
+
+    setEnviandoMensaje((prev) => ({ ...prev, [solicitudId]: true }))
+
+    try {
+      let { data: conversaciones, error: convError } = await supabase
+        .from("conversaciones")
+        .select("*")
+        .eq("solicitud_id", solicitudId)
+        .order("created_at", { ascending: true })
+
+      if (convError) throw convError
+
+      let conversacion = conversaciones && conversaciones.length > 0 ? conversaciones[0] : null
+
+      if (!conversacion) {
+        const solicitud = solicitudes.find((s) => s.id === solicitudId)
+        if (!solicitud) throw new Error("Solicitud no encontrada")
+
+        const { data: nueva, error: createError } = await supabase
+          .from("conversaciones")
+          .insert({
+            solicitud_id: solicitudId,
+            cliente_id: solicitud.cliente_id,
+            admin_id: adminId,
+            estado: "activa",
+          })
+          .select()
+          .single()
+
+        if (createError) throw createError
+        conversacion = nueva
       }
+
+      if (!conversacion?.id) throw new Error("No se pudo obtener la conversación")
+
+      const adjuntos: string[] = []
+      for (const archivo of archivos) {
+        const extension = archivo.name.split(".").pop()?.toLowerCase() || "bin"
+        const nombreUnico = `mensajes/${conversacion.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`
+        const { error: uploadError } = await supabase.storage
+          .from("documentos")
+          .upload(nombreUnico, archivo, {
+            upsert: true,
+            contentType: archivo.type || "application/octet-stream",
+          })
+        if (uploadError) throw uploadError
+        const { data: publicData } = supabase.storage.from("documentos").getPublicUrl(nombreUnico)
+        adjuntos.push(publicData.publicUrl)
+      }
+
+      const { data, error } = await supabase
+        .from("mensajes")
+        .insert({
+          conversacion_id: conversacion.id,
+          contenido: texto || (archivos.length > 0 ? "Archivo adjunto" : ""),
+          remitente: "admin",
+          leido: false,
+          adjuntos: adjuntos.length > 0 ? adjuntos : [],
+        })
+        .select()
+        .single()
+
+      if (error) throw error
+
+      setMensajesPorSolicitud((prev) => ({
+        ...prev,
+        [solicitudId]: [...(prev[solicitudId] || []), data],
+      }))
+
+      setMensajeInput((prev) => ({ ...prev, [solicitudId]: "" }))
+      setArchivosChat((prev) => ({ ...prev, [solicitudId]: [] }))
+
+      setTimeout(() => {
+        chatBottomRefs.current[solicitudId]?.scrollIntoView({ behavior: "smooth" })
+      }, 50)
+    } catch (err: any) {
+      console.error("Error enviando mensaje:", err)
+      toast({
+        title: "Error",
+        description: err.message || "No se pudo enviar el mensaje",
+        variant: "destructive",
+      })
+    } finally {
+      setEnviandoMensaje((prev) => ({ ...prev, [solicitudId]: false }))
     }
+  }
 
     /**
      * Pide al servidor materializar por correo los avisos "Listo para envío".
@@ -845,6 +964,15 @@ loadClient()
       })
   }, [expandedSolicitud])
 
+  useEffect(() => {
+    if (solicitudIdParam && !expandedSolicitud) {
+      const idNum = Number(solicitudIdParam)
+      if (!isNaN(idNum)) {
+        setExpandedSolicitud(idNum)
+      }
+    }
+  }, [solicitudIdParam, expandedSolicitud])
+
   const handleCerrarDetalle = () => {
     setSelectedSolicitud(null)
     setServiciosDetalle([])
@@ -1177,6 +1305,123 @@ loadClient()
       }
     }
 
+    const handleVerFichaTecnica = (ficha: any, solicitudId: number) => {
+      setSolicitudModalId(solicitudId)
+      const sol = solicitudes.find((s: any) => s.id === solicitudId)
+      if (sol) setSolicitudModalActual(sol)
+      setFichaModalSeleccionada(ficha)
+      setTipoFichaModal(ficha.tipo)
+      setFichaModalSecciones(ficha.secciones || [])
+      setModalFichaVisible(true)
+    }
+
+    const handleDescargarFichaDirecta = async (ficha: any, solicitudId: number) => {
+      setDescargaPendiente({ ficha, solicitudId })
+      await handleVerFichaTecnica(ficha, solicitudId)
+    }
+
+    const forceSafeColors = (el: HTMLElement) => {
+      el.style.setProperty("color", "#000000", "important")
+      el.style.setProperty("background-color", "#ffffff", "important")
+      el.style.setProperty("border-color", "#d4d4d8", "important")
+      el.style.setProperty("outline-color", "#d4d4d8", "important")
+      el.style.setProperty("text-decoration-color", "#000000", "important")
+      el.style.setProperty("caret-color", "#000000", "important")
+      el.style.setProperty("column-rule-color", "#d4d4d8", "important")
+      el.style.setProperty("box-shadow", "none", "important")
+      el.style.setProperty("text-shadow", "none", "important")
+      for (const child of Array.from(el.children)) {
+        forceSafeColors(child as HTMLElement)
+      }
+    }
+
+    const handleDownloadPdfModal = async () => {
+      setDownloadingFichaModal(true)
+
+      try {
+        const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+          import("jspdf"),
+          import("html2canvas-pro"),
+        ])
+
+        const elemento = document.getElementById("ficha-tecnica-modal-contenido")
+        if (!elemento) return
+
+        const canvas = await html2canvas(elemento, {
+          backgroundColor: "#ffffff",
+          logging: false,
+          allowTaint: true,
+          useCORS: false,
+          onclone: (clonedDoc: Document) => {
+            const allElements = clonedDoc.querySelectorAll("*")
+            allElements.forEach((el: Element) => {
+              const style = (el as HTMLElement).style
+              if (style) {
+                const cssText = style.cssText
+                if (cssText) {
+                  style.cssText = cssText.replace(/oklab\([^)]*\)|lab\([^)]*\)|color-mix\([^)]*\)/gi, "#000000")
+                }
+              }
+            })
+          },
+        })
+
+        const imgData = canvas.toDataURL("image/png")
+        const pdf = new jsPDF({
+          orientation: "portrait",
+          unit: "px",
+          format: [canvas.width, canvas.height],
+        })
+
+        pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height)
+        const fileName = tipoFichaModal
+          .toLowerCase()
+          .replace(/[^a-z0-9\s-]/g, "")
+          .replace(/\s+/g, "-")
+          .replace(/-+/g, "-")
+        pdf.save(`${fileName}.pdf`)
+      } catch (err) {
+        console.error("Error generando PDF:", err)
+        alert("No se pudo generar el PDF.")
+      } finally {
+        setDownloadingFichaModal(false)
+      }
+    }
+
+    const handleCerrarModalFicha = () => {
+      setModalFichaVisible(false)
+      setFichaModalSecciones([])
+      setTipoFichaModal("")
+      setFichaModalSeleccionada(null)
+      setDescargaPendiente(null)
+    }
+
+    // Cuando se abre el modal desde "Descargar" directo de la lista, se espera
+    // a que el contenido esté en el DOM y entonces se genera el PDF.
+    useEffect(() => {
+      if (!modalFichaVisible || !descargaPendiente) return
+      let interval: NodeJS.Timeout
+      let timeout: NodeJS.Timeout
+      interval = setInterval(() => {
+        const elemento = document.getElementById("ficha-tecnica-modal-contenido")
+        if (elemento) {
+          clearInterval(interval)
+          clearTimeout(timeout)
+          handleDownloadPdfModal()
+          setDescargaPendiente(null)
+        }
+      }, 50)
+      timeout = setTimeout(() => {
+        clearInterval(interval)
+        handleDownloadPdfModal()
+        setDescargaPendiente(null)
+      }, 3000)
+      return () => {
+        clearInterval(interval)
+        clearTimeout(timeout)
+      }
+    }, [modalFichaVisible, descargaPendiente])
+
   const handleGuardarEstado = async () => {
     if (!selectedSolicitud || !nuevoEstado) return
     setGuardando(true)
@@ -1424,27 +1669,28 @@ loadClient()
 
   const handleSwitchTab = (solicitudId: number, tab: "detalle" | "chat" | "documentos" | "encuestas" | "orden") => {
     setActiveTab((prev) => ({ ...prev, [solicitudId]: tab }))
+    if (tab === "chat") {
+      cargarMensajes(solicitudId)
+    }
   }
 
   const cargarMensajes = async (solicitudId: number) => {
     setLoadingMensajes((prev) => ({ ...prev, [solicitudId]: true }))
 
     try {
-
       // buscar conversación por solicitud
-      const { data: conversacion, error: convError } = await supabase
+      const { data: conversaciones, error: convError } = await supabase
         .from("conversaciones")
-        .select("id")
+        .select("*")
         .eq("solicitud_id", solicitudId)
-        .single()
+        .order("created_at", { ascending: true })
 
+      if (convError) throw convError
 
-      let conversacionId = conversacion?.id
-
+      let conversacionId = conversaciones && conversaciones.length > 0 ? conversaciones[0].id : undefined
 
       // si no existe la crea
       if (!conversacionId && client) {
-
         const { data: nueva, error } = await supabase
           .from("conversaciones")
           .insert({
@@ -1456,17 +1702,19 @@ loadClient()
           .select()
           .single()
 
-
         if (error) {
           console.error(error)
+          setLoadingMensajes(prev => ({ ...prev, [solicitudId]: false }))
           return
         }
-
 
         conversacionId = nueva.id
       }
 
-
+      if (!conversacionId) {
+        setLoadingMensajes(prev => ({ ...prev, [solicitudId]: false }))
+        return
+      }
 
       const { data, error } = await supabase
         .from("mensajes")
@@ -1474,16 +1722,12 @@ loadClient()
         .eq("conversacion_id", conversacionId)
         .order("created_at", { ascending: true })
 
-
       if (error) throw error
-
 
       setMensajesPorSolicitud(prev => ({
         ...prev,
         [solicitudId]: data || []
       }))
-
-
     } catch (err) {
       console.error("chat error", err)
     }
@@ -1494,97 +1738,6 @@ loadClient()
       }))
     }
   }
-
-  const handleEnviarMensaje = async (solicitudId: number) => {
-
-    const mensaje = mensajeInput[solicitudId]?.trim()
-
-    if (!mensaje) return
-
-
-    setEnviandoMensaje(prev => ({
-      ...prev,
-      [solicitudId]: true
-    }))
-
-
-    try {
-
-
-      const { data: conv } = await supabase
-        .from("conversaciones")
-        .select("id")
-        .eq("solicitud_id", solicitudId)
-        .single()
-
-
-
-if (!conv) return
-
-      const insertPayload = {
-          conversacion_id: conv.id,
-          contenido: mensaje,
-          remitente: "admin",
-          leido: false
-        }
-
-        console.log("Insertando mensaje:", insertPayload)
-
-        const { data, error } = await supabase
-          .from("mensajes")
-          .insert(insertPayload)
-          .select()
-
-        console.log("Respuesta Supabase:", { data, error })
-
-        if (error) {
-          console.error("Error inserting mensaje:", error)
-          throw error
-        }
-
-
-
-      setMensajesPorSolicitud(prev => ({
-
-        ...prev,
-
-        [solicitudId]: [
-          ...(prev[solicitudId] || []),
-
-          {
-            id: Date.now(),
-            contenido: mensaje,
-            remitente: "admin",
-            created_at: new Date().toISOString()
-          }
-        ]
-
-      }))
-
-
-
-      setMensajeInput(prev => ({
-        ...prev,
-        [solicitudId]: ""
-      }))
-
-
-
-    } catch (e) {
-      console.error(e)
-    }
-
-    finally {
-
-      setEnviandoMensaje(prev => ({
-        ...prev,
-        [solicitudId]: false
-      }))
-
-    }
-
-  }
-
   const formatFechaMensaje = (fecha: string) => {
     const d = new Date(fecha)
     const hoy = new Date()
@@ -2226,7 +2379,7 @@ if (!conv) return
                                   }`}
                               >
                                 <FileText size={14} />
-                                Encuestas y Buzón
+                                Buzón
                               </button>
                               <button
                                 onClick={() => handleSwitchTab(solicitud.id, "orden")}
@@ -2821,7 +2974,7 @@ if (!conv) return
                                                                 </>
                                                               ) : (
                                                                 "Guardar"
-                                                              )}
+        )}
                                                             </button>
                                                           )}
                                                         </div>
@@ -2888,7 +3041,23 @@ if (!conv) return
                                               : "bg-white border border-border text-foreground rounded-tl-sm"
                                               }`}
                                           >
-                                            {msg.contenido}
+                                            {msg.contenido && msg.contenido !== "Archivo adjunto" && <div className="whitespace-pre-wrap">{msg.contenido}</div>}
+                                            {msg.adjuntos && Array.isArray(msg.adjuntos) && msg.adjuntos.length > 0 && (
+                                              <div className={`${msg.contenido && msg.contenido !== "Archivo adjunto" ? "mt-2" : ""} space-y-1`}>
+                                                {msg.adjuntos.map((adj: string, adjIdx: number) => (
+                                                  <a
+                                                    key={adjIdx}
+                                                    href={adj}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className={`flex items-center gap-1 text-[10px] underline ${esAdmin ? "text-primary-foreground/90" : "text-primary"}`}
+                                                  >
+                                                    <Paperclip size={10} />
+                                                    <span className="truncate max-w-[150px]">Archivo {adjIdx + 1}</span>
+                                                  </a>
+                                                ))}
+                                              </div>
+                                            )}
                                           </div>
                                           <span className="text-[10px] text-muted-foreground mt-1">
                                             {formatFechaMensaje(msg.created_at)}
@@ -2903,7 +3072,51 @@ if (!conv) return
 
                               {/* Input de mensaje */}
                               <div className="border-t border-border bg-white p-3">
+                                {archivosChat[solicitud.id] && archivosChat[solicitud.id].length > 0 && (
+                                  <div className="flex flex-wrap gap-2 mb-2">
+                                    {archivosChat[solicitud.id].map((archivo, idx) => (
+                                      <div key={idx} className="flex items-center gap-1 rounded-lg bg-muted px-2 py-1 text-[10px]">
+                                        <Paperclip size={10} />
+                                        <span className="max-w-[100px] truncate">{archivo.name}</span>
+                                        <button
+                                          onClick={() => {
+                                            setArchivosChat((prev) => ({
+                                              ...prev,
+                                              [solicitud.id]: (prev[solicitud.id] || []).filter((_, i) => i !== idx)
+                                            }))
+                                          }}
+                                          className="text-muted-foreground hover:text-foreground"
+                                        >
+                                          <X size={10} />
+                                        </button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
                                 <div className="flex gap-2 items-end">
+                                  <input
+                                    type="file"
+                                    multiple
+                                    className="hidden"
+                                    ref={(el) => { fileInputChatRefs.current[solicitud.id] = el }}
+                                    onChange={(e) => {
+                                      const files = Array.from(e.target.files || [])
+                                      if (files.length > 0) {
+                                        setArchivosChat((prev) => ({
+                                          ...prev,
+                                          [solicitud.id]: [...(prev[solicitud.id] || []), ...files]
+                                        }))
+                                      }
+                                      if (e.target) e.target.value = ""
+                                    }}
+                                  />
+                                  <button
+                                    onClick={() => fileInputChatRefs.current[solicitud.id]?.click()}
+                                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                    title="Adjuntar archivo"
+                                  >
+                                    <Paperclip size={14} />
+                                  </button>
                                   <textarea
                                     value={mensajeInput[solicitud.id] ?? ""}
                                     onChange={(e) =>
@@ -2927,7 +3140,7 @@ if (!conv) return
                                   />
                                   <button
                                     onClick={() => handleEnviarMensaje(solicitud.id)}
-                                    disabled={enviandoMensaje[solicitud.id] || !mensajeInput[solicitud.id]?.trim()}
+                                    disabled={enviandoMensaje[solicitud.id] || (!mensajeInput[solicitud.id]?.trim() && !(archivosChat[solicitud.id]?.length > 0))}
                                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
                                   >
                                     {enviandoMensaje[solicitud.id] ? (
@@ -3036,23 +3249,35 @@ if (!conv) return
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                   <button
-                                                    onClick={() => router.push(`/dashboard/clientes/${client.id}/fichas-tecnicas?solicitud_id=${solicitud.id}`)}
+                                                     type="button"
+                                                     onClick={() => { setModalFichaVisible(true); setTipoFichaModal(ficha.tipo); setFichaModalSecciones(ficha.secciones || []); setFichaModalSeleccionada(ficha); setSolicitudModalId(solicitud.id); }}
                                                     className="inline-flex items-center gap-1 rounded-md border border-border bg-card/50 px-2 py-1 text-[10px] font-medium text-muted-foreground transition-all hover:border-primary/60 hover:bg-primary/10 hover:text-primary"
                                                   >
-                                                    <Eye size={12} />
-                                                    Ver
+                                                     <Eye size={12} />
+                                                     Ver
                                                   </button>
-                                                  {ficha.url && (
-                                                    <a
-                                                      href={ficha.url}
-                                                      target="_blank"
-                                                      rel="noreferrer"
-                                                      className="inline-flex items-center gap-1 rounded-md border border-border bg-card/50 px-2 py-1 text-[10px] font-medium text-muted-foreground transition-all hover:border-primary/60 hover:bg-primary/10 hover:text-primary"
-                                                    >
+                                                  <button
+                                                     type="button"
+                                                    onClick={(e) => {
+                                                      e.preventDefault()
+                                                      e.stopPropagation()
+                                                      setDescargaPendiente({ ficha, solicitudId: solicitud.id })
+                                                      setModalFichaVisible(true)
+                                                      setTipoFichaModal(ficha.tipo)
+                                                      setFichaModalSecciones(ficha.secciones || [])
+                                                      setFichaModalSeleccionada(ficha)
+                                                      setSolicitudModalId(solicitud.id)
+                                                    }}
+                                                    className="inline-flex items-center gap-1 rounded-md border border-border bg-card/50 px-2 py-1 text-[10px] font-medium text-muted-foreground transition-all hover:border-primary/60 hover:bg-primary/10 hover:text-primary disabled:opacity-50"
+                                                    disabled={downloadingFichaModal}
+                                                  >
+                                                    {downloadingFichaModal ? (
+                                                      <Loader2 className="h-3 w-3 animate-spin" size={10} />
+                                                    ) : (
                                                       <Download size={12} />
-                                                      Descargar
-                                                    </a>
-                                                  )}
+                                                    )}
+                                                    Descargar
+                                                  </button>
                                                 </div>
                                               </div>
                                             ))}
@@ -3061,19 +3286,71 @@ if (!conv) return
                                       </div>
                                     )}
 
-                                   {/* Documentos adjuntos del cliente */}
-                                 {solicitud.urls_documentos && solicitud.urls_documentos.length > 0 && (
-                                   <div className="mt-4 pt-3 border-t border-border">
-                                     <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">Archivos Adjuntos</p>
-                                     <div className="flex flex-wrap gap-2">
-                                       {solicitud.urls_documentos.map((url, idx) => (
-                                         <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">
-                                           Adjunto {idx + 1}
-                                         </a>
-                                       ))}
-                                     </div>
-                                   </div>
-                                 )}
+                                    {/* Encuesta post-adaptación */}
+                                    {(encuestasPostAdaptacion[solicitud.id] && encuestasPostAdaptacion[solicitud.id].length > 0) && (
+                                      <div className="mt-4 pt-3 border-t border-border">
+                                        <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">Encuesta post-adaptación</p>
+                                        <div className="space-y-2">
+                                          {encuestasPostAdaptacion[solicitud.id].map((encuesta: any) => (
+                                            <div key={encuesta.id} className="bg-white rounded border border-gray-200 p-3 text-xs">
+                                              <div className="grid grid-cols-2 gap-2 mb-2">
+                                                <div>
+                                                  <span className="text-gray-500">Paciente:</span>{" "}
+                                                  <span className="font-medium text-gray-800">{encuesta.paciente || "-"}</span>
+                                                </div>
+                                                <div>
+                                                  <span className="text-gray-500">Correo:</span>{" "}
+                                                  <span className="text-gray-800">{encuesta.email || "-"}</span>
+                                                </div>
+                                                <div>
+                                                  <span className="text-gray-500">Profesional:</span>{" "}
+                                                  <span className="text-gray-800">{encuesta.nombre_profesional || "-"}</span>
+                                                </div>
+                                                <div>
+                                                  <span className="text-gray-500">Fecha de entrega:</span>{" "}
+                                                  <span className="text-gray-800">{encuesta.fecha_entrega || "-"}</span>
+                                                </div>
+                                              </div>
+                                              {encuesta.evaluaciones && encuesta.evaluaciones.length > 0 && (
+                                                <div className="mb-2">
+                                                  <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Evaluaciones</p>
+                                                  <div className="flex flex-wrap gap-1">
+                                                    {encuesta.evaluaciones.map((evalItem: string, idx: number) => (
+                                                      <span key={idx} className="inline-flex rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-medium text-blue-700">
+                                                        {evalItem}
+                                                      </span>
+                                                    ))}
+                                                  </div>
+                                                </div>
+                                              )}
+                                              {encuesta.opinion && (
+                                                <div>
+                                                  <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-1">Opinión</p>
+                                                  <p className="text-xs text-gray-800 bg-gray-50 p-2 rounded border border-gray-200">{encuesta.opinion}</p>
+                                                </div>
+                                              )}
+                                              <p className="text-[10px] text-gray-400 mt-2">
+                                                Registrado el {new Date(encuesta.created_at).toLocaleDateString("es-CO")} a las {new Date(encuesta.created_at).toLocaleTimeString("es-CO", { hour: "2-digit", minute: "2-digit" })}
+                                              </p>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* Documentos adjuntos del cliente */}
+                                  {solicitud.urls_documentos && solicitud.urls_documentos.length > 0 && (
+                                    <div className="mt-4 pt-3 border-t border-border">
+                                      <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">Archivos Adjuntos</p>
+                                      <div className="flex flex-wrap gap-2">
+                                        {solicitud.urls_documentos.map((url, idx) => (
+                                          <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="text-[10px] text-primary hover:underline">
+                                            Adjunto {idx + 1}
+                                          </a>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
 
                                  {/* Firma del Odontólogo */}
                                  {(solicitud as any).firma && (
@@ -3093,29 +3370,13 @@ if (!conv) return
                                </div>
                              </div>
                             )}
-                          
+
                            {/* Tab: Encuestas */}
-                           {tabActiva === "encuestas" && (
-                             <div className="bg-gray-50 p-4">
-                               <div className="space-y-4">
-                                 <div>
-                                   <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">Encuesta Pos Adaptación</p>
-                                   {encuestasPostAdaptacion[solicitud.id]?.length > 0 ? (
-                                     encuestasPostAdaptacion[solicitud.id].map((encuesta) => (
-                                       <div key={encuesta.id} className="text-xs bg-white p-3 rounded border border-gray-200 mb-2">
-                                         <p><strong>Profesional:</strong> {encuesta.nombre_profesional}</p>
-                                         <p><strong>Paciente:</strong> {encuesta.paciente}</p>
-                                         <p><strong>Fecha entrega:</strong> {encuesta.fecha_entrega}</p>
-                                         <p><strong>Opinión:</strong> {encuesta.opinion}</p>
-                                         <p><strong>Evaluaciones:</strong> {(encuesta.evaluaciones || []).join(", ")}</p>
-                                       </div>
-                                     ))
-                                   ) : (
-                                     <span className="text-xs text-gray-500">No hay encuestas registradas</span>
-                                   )}
-                                 </div>
-                                 <div>
-                                   <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">Buzón de Quejas</p>
+                            {tabActiva === "encuestas" && (
+                              <div className="bg-gray-50 p-4">
+                                <div className="space-y-4">
+                                  <div>
+                                    <p className="text-[10px] text-gray-500 uppercase tracking-wide mb-2">Buzón de Quejas</p>
                                    {buzonQuejas[solicitud.id]?.length > 0 ? (
                                      buzonQuejas[solicitud.id].map((queja) => (
                                        <div key={queja.id} className="text-xs bg-white p-3 rounded border border-gray-200 mb-2">
@@ -3212,14 +3473,43 @@ if (!conv) return
                                     <p className="text-xs text-gray-800">14676333</p>
                                   </div>
 
-                                  <div className="mb-4">
-                                    <p className="text-xs font-semibold text-gray-600 mb-1">Técnico Responsable</p>
-                                    <p className="text-xs text-gray-800">Jazmín Valencia</p>
-                                  </div>
-
-                                  <div className="mb-4">
-                                    <p className="text-xs font-semibold text-gray-600 mb-1">Código de trazabilidad</p>
-                                    <p className="text-xs text-gray-800">{solicitud.codigo_trazabilidad || "Sin código"}</p>
+                                  <div className="mb-4 grid grid-cols-3 gap-4">
+                                    <div>
+                                      <p className="text-xs font-semibold text-gray-600 mb-1">Técnico Responsable</p>
+                                      <p className="text-xs text-gray-800">Jazmín Valencia</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs font-semibold text-gray-600 mb-1">Código de trazabilidad</p>
+                                      <p className="text-xs text-gray-800">{solicitud.codigo_trazabilidad || "Sin código"}</p>
+                                    </div>
+                                    <div>
+                                      <p className="text-xs font-semibold text-gray-600 mb-1">Piezas enviadas</p>
+                                      <p className="text-xs text-gray-800 whitespace-pre-line">
+                                        {(() => {
+                                          const sAny: any = solicitud
+                                           const val = sAny.piezas_enviadas || (Array.isArray(sAny.servicios_detalle) ? sAny.servicios_detalle.map((s: any) => s.piezas_enviadas).filter(Boolean) : null)
+                                          if (Array.isArray(val)) {
+                                            const arr = val.filter((v: any) => v != null && String(v).trim())
+                                            if (arr.length) return arr.join("\n")
+                                          } else if (typeof val === "string") {
+                                            const t = val.trim()
+                                            if (t && t !== "null" && t !== "[]") {
+                                              if (t.startsWith("[")) {
+                                                try {
+                                                  const p = JSON.parse(t)
+                                                  if (Array.isArray(p)) {
+                                                    const arr = p.filter((v: any) => v != null && String(v).trim())
+                                                    if (arr.length) return arr.join("\n")
+                                                  }
+                                                } catch {}
+                                              }
+                                              return t
+                                            }
+                                          }
+                                          return "-"
+                                        })()}
+                                      </p>
+                                    </div>
                                   </div>
 
                                   {/* Detalles del Trabajo */}
@@ -3625,25 +3915,49 @@ if (!conv) return
                                           ))}
                                         </tbody>
                                       </table>
-                                      <button
-                                         onClick={() => {
-                                           setFasesOrden((prev) => {
-                                             const next = [
-                                               ...(prev[solicitud.id] || []),
-                                               { tipo: "", estado: "pendiente", realizada_por: "", fecha_finalizacion: "", fecha_prueba: "" },
-                                             ]
-                                             const updated = { ...prev, [solicitud.id]: next }
-                                             guardarFasesOrden(solicitud.id, next)
-                                             return updated
-                                           })
-                                         }}
-                                        className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted mt-2"
-                                      >
-                                        <Plus size={10} />
-                                        Agregar fase
-                                      </button>
-                                    </div>
-                                  </div>
+                                       <button
+                                          onClick={() => {
+                                            setFasesOrden((prev) => {
+                                              const next = [
+                                                ...(prev[solicitud.id] || []),
+                                                { tipo: "", estado: "pendiente", realizada_por: "", fecha_finalizacion: "", fecha_prueba: "" },
+                                              ]
+                                              const updated = { ...prev, [solicitud.id]: next }
+                                              guardarFasesOrden(solicitud.id, next)
+                                              return updated
+                                            })
+                                          }}
+                                         className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted mt-2"
+                                       >
+                                         <Plus size={10} />
+                                         Agregar fase
+                                       </button>
+                                     </div>
+                                   </div>
+
+                                   {/* OBSERVACIONES DE ORDEN */}
+                                   <div className="mb-4 border-t border-gray-300 pt-3">
+                                     <p className="text-xs font-semibold text-gray-600 mb-2">OBSERVACIONES</p>
+                                     <textarea
+                                       defaultValue={(solicitud as any).observaciones_orden || ""}
+                                       onBlur={async (e) => {
+                                         const valor = e.target.value
+                                         try {
+                                           await supabase
+                                             .from("solicitudes")
+                                             .update({ observaciones_orden: valor })
+                                             .eq("id", solicitud.id)
+                                           setSolicitudes((prev) =>
+                                             prev.map((s) => (s.id === solicitud.id ? { ...s, observaciones_orden: valor } as any : s))
+                                           )
+                                         } catch (err) {
+                                           console.error("Error guardando observaciones de orden:", err)
+                                         }
+                                       }}
+                                       className="w-full text-[11px] border border-gray-300 rounded px-2 py-1.5 min-h-[60px]"
+                                       placeholder="Escribir observaciones para la orden de fabricación..."
+                                     />
+                                   </div>
 
                                   {/* Footer del documento */}
                                   <div className="border-t border-gray-300 pt-2 mt-4 text-center text-[10px] text-gray-500">
@@ -3937,6 +4251,275 @@ if (!conv) return
               </div>
               <div className="absolute bottom-3 left-1/2 -translate-x-1/2 text-xs text-white/80 bg-black/60 px-3 py-1 rounded-full">
                 Click fuera de la imagen o la X para cerrar
+              </div>
+            </div>
+          </div>
+        )}
+
+
+
+        {modalFichaVisible && (
+          <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 overflow-y-auto">
+            <div className="rounded-xl bg-card shadow-xl w-full max-w-[850px] my-8 flex flex-col max-h-[90vh]">
+              <div className="flex items-center justify-between p-6 border-b border-border">
+                <h3 className="text-lg font-semibold text-foreground">
+                  {tipoFichaModal === "Carilla de Disilicato Monolitica" ? "Carilla de Disilicato Monolítica" : tipoFichaModal === "Carilla de Disilicato Impresa en Resina" ? "Carilla de Disilicato Impresa en Resina" : tipoFichaModal === "Ceramica de Encia" ? "Cerámica de Encía" : tipoFichaModal === "Colado de UCLA" ? "Colado de UCLA" : tipoFichaModal === "Corona Disilicato Estratificada" ? "Corona en Disilicato de litio estratificada" : tipoFichaModal === "Corona Disilicato Monolitica" ? "Corona en Disilicato de litio monolítica" : tipoFichaModal === "Corona Disilicato Sobre Implante" ? "Corona en Disilicato de litio sobre implante" : tipoFichaModal === "Corona Zirconio Estratificada" ? "Corona en zirconio estratificada" : tipoFichaModal === "Corona Zirconio Monolitica" ? "Corona en zirconio monolítica" : tipoFichaModal === "Incrustacion Disilicato" ? "Incrustación en Disilicato de litio" : tipoFichaModal === "Incrustacion Metal" ? "Incrustación en metal" : tipoFichaModal === "Nucleo NPG" ? "Núcleo NPG" : tipoFichaModal === "Protesis Hibrida All on Four" ? "Prótesis hibrida all on four" : tipoFichaModal === "Provisional PMMA Sobre implante" ? "Provisional en PMMA Sobre implante" : tipoFichaModal === "Provisional PMMA" ? "Provisional en PMMA" : tipoFichaModal === "Provisional Resina Impresa" ? "Provisional en resina impresa" : "Carilla de Disilicato Estratificada"}
+                </h3>
+                <button
+                  onClick={handleCerrarModalFicha}
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto bg-neutral-200">
+                <div id="ficha-tecnica-modal-contenido">
+                  {(function () {
+                    const solicitudSrc = solicitudModalActual || solicitudes.find((s: any) => s.id === solicitudModalId) || solicitudes[0]
+                    const dientesDisponibles = solicitudSrc?.dientes_disponibles || solicitudSrc?.dientes_trabajados || []
+                    const codigoRaw = solicitudSrc?.codigo_trazabilidad || ""
+                    const partes = codigoRaw.split("-")
+                    const codigoTrazabilidad = partes.length >= 2 ? `${partes[0]}-${partes[1]}` : codigoRaw
+
+                    return tipoFichaModal === "Carilla de Disilicato Monolitica" ? (
+                      <FichaTecnicaMonolitica
+                        secciones={fichaModalSecciones}
+                        onCampoChange={() => {}}
+                        editing={false}
+                        onToggleEditing={() => {}}
+                        onDownload={handleDownloadPdfModal}
+                        downloading={downloadingFichaModal}
+                        showToolbar={false}
+                        dientes={dientesDisponibles}
+                        codigoTrazabilidad={codigoTrazabilidad}
+                      />
+                    ) : tipoFichaModal === "Carilla de Disilicato Impresa en Resina" ? (
+                      <FichaTecnicaResina
+                        secciones={fichaModalSecciones}
+                        onCampoChange={() => {}}
+                        editing={false}
+                        onToggleEditing={() => {}}
+                        onDownload={handleDownloadPdfModal}
+                        downloading={downloadingFichaModal}
+                        showToolbar={false}
+                        dientes={dientesDisponibles}
+                        codigoTrazabilidad={codigoTrazabilidad}
+                      />
+                    ) : tipoFichaModal === "Ceramica de Encia" ? (
+                      <FichaTecnicaCeramicaEncia
+                        secciones={fichaModalSecciones}
+                        onCampoChange={() => {}}
+                        editing={false}
+                        onToggleEditing={() => {}}
+                        onDownload={handleDownloadPdfModal}
+                        downloading={downloadingFichaModal}
+                        showToolbar={false}
+                        dientes={dientesDisponibles}
+                        codigoTrazabilidad={codigoTrazabilidad}
+                      />
+                    ) : tipoFichaModal === "Colado de UCLA" ? (
+                      <FichaTecnicaColadoUcla
+                        secciones={fichaModalSecciones}
+                        onCampoChange={() => {}}
+                        editing={false}
+                        onToggleEditing={() => {}}
+                        onDownload={handleDownloadPdfModal}
+                        downloading={downloadingFichaModal}
+                        showToolbar={false}
+                        dientes={dientesDisponibles}
+                        codigoTrazabilidad={codigoTrazabilidad}
+                      />
+                    ) : tipoFichaModal === "Corona Disilicato Estratificada" ? (
+                      <FichaTecnicaCoronaDisilicatoEstratificada
+                        secciones={fichaModalSecciones}
+                        onCampoChange={() => {}}
+                        editing={false}
+                        onToggleEditing={() => {}}
+                        onDownload={handleDownloadPdfModal}
+                        downloading={downloadingFichaModal}
+                        showToolbar={false}
+                        dientes={dientesDisponibles}
+                        codigoTrazabilidad={codigoTrazabilidad}
+                      />
+                    ) : tipoFichaModal === "Corona Disilicato Monolitica" ? (
+                      <FichaTecnicaCoronaDisilicatoMonolitica
+                        secciones={fichaModalSecciones}
+                        onCampoChange={() => {}}
+                        editing={false}
+                        onToggleEditing={() => {}}
+                        onDownload={handleDownloadPdfModal}
+                        downloading={downloadingFichaModal}
+                        showToolbar={false}
+                        dientes={dientesDisponibles}
+                        codigoTrazabilidad={codigoTrazabilidad}
+                      />
+                    ) : tipoFichaModal === "Corona Disilicato Sobre Implante" ? (
+                      <FichaTecnicaCoronaDisilicatoImplante
+                        secciones={fichaModalSecciones}
+                        onCampoChange={() => {}}
+                        editing={false}
+                        onToggleEditing={() => {}}
+                        onDownload={handleDownloadPdfModal}
+                        downloading={downloadingFichaModal}
+                        showToolbar={false}
+                        dientes={dientesDisponibles}
+                        codigoTrazabilidad={codigoTrazabilidad}
+                      />
+                    ) : tipoFichaModal === "Corona Zirconio Estratificada" ? (
+                      <FichaTecnicaCoronaZirconioEstratificada
+                        secciones={fichaModalSecciones}
+                        onCampoChange={() => {}}
+                        editing={false}
+                        onToggleEditing={() => {}}
+                        onDownload={handleDownloadPdfModal}
+                        downloading={downloadingFichaModal}
+                        showToolbar={false}
+                        dientes={dientesDisponibles}
+                        codigoTrazabilidad={codigoTrazabilidad}
+                      />
+                    ) : tipoFichaModal === "Corona Zirconio Monolitica" ? (
+                      <FichaTecnicaCoronaZirconioMonolitica
+                        secciones={fichaModalSecciones}
+                        onCampoChange={() => {}}
+                        editing={false}
+                        onToggleEditing={() => {}}
+                        onDownload={handleDownloadPdfModal}
+                        downloading={downloadingFichaModal}
+                        showToolbar={false}
+                        dientes={dientesDisponibles}
+                        codigoTrazabilidad={codigoTrazabilidad}
+                      />
+                    ) : tipoFichaModal === "Corona Zirconio Implante" ? (
+                      <FichaTecnicaCoronaZirconioImplante
+                        secciones={fichaModalSecciones}
+                        onCampoChange={() => {}}
+                        editing={false}
+                        onToggleEditing={() => {}}
+                        onDownload={handleDownloadPdfModal}
+                        downloading={downloadingFichaModal}
+                        showToolbar={false}
+                        dientes={dientesDisponibles}
+                        codigoTrazabilidad={codigoTrazabilidad}
+                      />
+                    ) : tipoFichaModal === "Incrustacion Disilicato" ? (
+                      <FichaTecnicaIncrustacionDisilicato
+                        secciones={fichaModalSecciones}
+                        onCampoChange={() => {}}
+                        editing={false}
+                        onToggleEditing={() => {}}
+                        onDownload={handleDownloadPdfModal}
+                        downloading={downloadingFichaModal}
+                        showToolbar={false}
+                        dientes={dientesDisponibles}
+                        codigoTrazabilidad={codigoTrazabilidad}
+                      />
+                    ) : tipoFichaModal === "Incrustacion Metal" ? (
+                      <FichaTecnicaIncrustacionMetal
+                        secciones={fichaModalSecciones}
+                        onCampoChange={() => {}}
+                        editing={false}
+                        onToggleEditing={() => {}}
+                        onDownload={handleDownloadPdfModal}
+                        downloading={downloadingFichaModal}
+                        showToolbar={false}
+                        dientes={dientesDisponibles}
+                        codigoTrazabilidad={codigoTrazabilidad}
+                      />
+                    ) : tipoFichaModal === "Nucleo NPG" ? (
+                      <FichaTecnicaNucleoNPG
+                        secciones={fichaModalSecciones}
+                        onCampoChange={() => {}}
+                        editing={false}
+                        onToggleEditing={() => {}}
+                        onDownload={handleDownloadPdfModal}
+                        downloading={downloadingFichaModal}
+                        showToolbar={false}
+                        dientes={dientesDisponibles}
+                        codigoTrazabilidad={codigoTrazabilidad}
+                      />
+                    ) : tipoFichaModal === "Protesis Hibrida All on Four" ? (
+                      <FichaTecnicaProtesisHibridaAllOnFour
+                        secciones={fichaModalSecciones}
+                        onCampoChange={() => {}}
+                        editing={false}
+                        onToggleEditing={() => {}}
+                        onDownload={handleDownloadPdfModal}
+                        downloading={downloadingFichaModal}
+                        showToolbar={false}
+                        dientes={dientesDisponibles}
+                        codigoTrazabilidad={codigoTrazabilidad}
+                      />
+                    ) : tipoFichaModal === "Provisional PMMA Sobre implante" ? (
+                      <FichaTecnicaProvisionalPmmaImplante
+                        secciones={fichaModalSecciones}
+                        onCampoChange={() => {}}
+                        editing={false}
+                        onToggleEditing={() => {}}
+                        onDownload={handleDownloadPdfModal}
+                        downloading={downloadingFichaModal}
+                        showToolbar={false}
+                        dientes={dientesDisponibles}
+                        codigoTrazabilidad={codigoTrazabilidad}
+                      />
+                    ) : tipoFichaModal === "Provisional PMMA" ? (
+                      <FichaTecnicaProvisionalPmma
+                        secciones={fichaModalSecciones}
+                        onCampoChange={() => {}}
+                        editing={false}
+                        onToggleEditing={() => {}}
+                        onDownload={handleDownloadPdfModal}
+                        downloading={downloadingFichaModal}
+                        showToolbar={false}
+                        dientes={dientesDisponibles}
+                        codigoTrazabilidad={codigoTrazabilidad}
+                      />
+                    ) : tipoFichaModal === "Provisional Resina Impresa" ? (
+                      <FichaTecnicaProvisionalResinaImpresa
+                        secciones={fichaModalSecciones}
+                        onCampoChange={() => {}}
+                        editing={false}
+                        onToggleEditing={() => {}}
+                        onDownload={handleDownloadPdfModal}
+                        downloading={downloadingFichaModal}
+                        showToolbar={false}
+                        dientes={dientesDisponibles}
+                        codigoTrazabilidad={codigoTrazabilidad}
+                      />
+                    ) : (
+                      <FichaTecnicaDisilicato
+                        secciones={fichaModalSecciones}
+                        onCampoChange={() => {}}
+                        editing={false}
+                        onToggleEditing={() => {}}
+                        onDownload={handleDownloadPdfModal}
+                        downloading={downloadingFichaModal}
+                        showToolbar={false}
+                        dientes={dientesDisponibles}
+                        codigoTrazabilidad={codigoTrazabilidad}
+                      />
+                    )
+                  })()}
+                </div>
+              </div>
+              <div className="flex items-center justify-end gap-3 p-6 border-t border-border">
+                <button
+                  onClick={handleCerrarModalFicha}
+                  className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                >
+                  Cerrar
+                </button>
+                <button
+                  onClick={handleDownloadPdfModal}
+                  disabled={downloadingFichaModal}
+                  className="rounded-xl bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-dark disabled:opacity-50"
+                >
+                  {downloadingFichaModal ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Download size={16} />
+                  )}
+                  Descargar PDF
+                </button>
               </div>
             </div>
           </div>

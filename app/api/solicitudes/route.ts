@@ -1014,6 +1014,7 @@ export async function GET(request: Request) {
         tipoTrabajo: string[]
         materiales: string[]
         piezas: number
+        piezas_enviadas: string[] | null
         servicios_detalle: any[]
       }
     >()
@@ -1025,8 +1026,9 @@ export async function GET(request: Request) {
           dientes: [],
           tipoTrabajo: [],
           materiales: [],
-          piezas: 0,
-          servicios_detalle: [],
+           piezas: 0,
+           piezas_enviadas: null,
+           servicios_detalle: [],
         }
 
         const piezas = Array.isArray(serv.piezas_enviadas)
@@ -1044,8 +1046,14 @@ export async function GET(request: Request) {
           materiales: serv.es_principal
             ? [...(serv.material ? [serv.material] : [])]
             : actual.materiales,
-          piezas: serv.es_principal ? piezas : actual.piezas,
-          servicios_detalle: serv.es_principal
+           piezas: serv.es_principal ? piezas : actual.piezas,
+           piezas_enviadas: (() => {
+             const prev = Array.isArray(actual.piezas_enviadas) ? actual.piezas_enviadas : (actual.piezas_enviadas ? [String(actual.piezas_enviadas)] : [])
+             const cur = Array.isArray(serv.piezas_enviadas) ? serv.piezas_enviadas : (serv.piezas_enviadas ? [String(serv.piezas_enviadas)] : [])
+             const merged = [...prev, ...cur].filter((v: any) => v != null && String(v).trim())
+             return merged.length ? Array.from(new Set(merged)) : null
+           })(),
+           servicios_detalle: serv.es_principal
             ? []
             : [
                 ...actual.servicios_detalle,
@@ -1105,7 +1113,8 @@ export async function GET(request: Request) {
         servicios_detalle: info?.servicios_detalle || [],
         tiposTrabajo: item.tipos_trabajo || info?.tipoTrabajo || [],
         materiales: item.materiales || info?.materiales || [],
-        piezasEnviadas: info?.piezas || 0,
+         piezasEnviadas: info?.piezas || 0,
+         piezas_enviadas: item.piezas_enviadas || info?.piezas_enviadas || null,
         precio: info?.precio || null,
         fecha_elaboracion: item.fecha_elaboracion || null,
         fecha_entrega: item.fecha_entrega || null,

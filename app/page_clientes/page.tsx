@@ -196,9 +196,10 @@ export default function ClientesPage() {
   const [notificacionesLista, setNotificacionesLista] = useState<any[]>([])
   const [activeTab, setActiveTab] = useState<Record<number, "detalle" | "chat" | "documentos">>({})
   const [mensajesPorSolicitud, setMensajesPorSolicitud] = useState<Record<number, any[]>>({})
+  const [loadingMensajes, setLoadingMensajes] = useState<Record<number, boolean>>({})
   const [mensajeInput, setMensajeInput] = useState<Record<number, string>>({})
   const [enviandoMensaje, setEnviandoMensaje] = useState<Record<number, boolean>>({})
-  const [loadingMensajes, setLoadingMensajes] = useState<Record<number, boolean>>({})
+  const chatBottomRefs = useRef<{ [solicitudId: number]: HTMLDivElement | null }>({})
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -229,6 +230,7 @@ export default function ClientesPage() {
   const [tipoFichaModal, setTipoFichaModal] = useState<string>("")
   const [editingFichaModal, setEditingFichaModal] = useState(false)
   const [downloadingFichaModal, setDownloadingFichaModal] = useState(false)
+  const [descargaPendiente, setDescargaPendiente] = useState<{ ficha: any; solicitudId: number } | null>(null)
   const [solicitudModalId, setSolicitudModalId] = useState<number | null>(null)
   const [fichaModalSeleccionada, setFichaModalSeleccionada] = useState<any | null>(null)
   const [solicitudModalActual, setSolicitudModalActual] = useState<any>(null)
@@ -267,7 +269,8 @@ export default function ClientesPage() {
   const [editData, setEditData] = useState<Partial<Cliente>>({})
   const [saving, setSaving] = useState(false)
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false)
-  const [notificacionesNoLeidas, setNotificacionesNoLeidas] = useState<Record<number, number>>({})
+  const [archivosChatCliente, setArchivosChatCliente] = useState<{ [solicitudId: number]: File[] }>({})
+  const fileInputChatClienteRefs = useRef<{ [solicitudId: number]: HTMLInputElement | null }>({})
   const [expandedSolicitudId, setExpandedSolicitudId] = useState<number | null>(null)
   const [vistaSolicitudes, setVistaSolicitudes] = useState<"activas" | "finalizadas">("activas")
   const [surveyResponses, setSurveyResponses] = useState<Record<number, {
@@ -302,7 +305,7 @@ export default function ClientesPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const chatBottomRefs = useRef<Record<number, HTMLDivElement | null>>({})
+  const [notificacionesNoLeidas, setNotificacionesNoLeidas] = useState<Record<number, number>>({})
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({
@@ -751,6 +754,11 @@ export default function ClientesPage() {
     setModalFichaVisible(true)
   }
 
+  const handleDescargarFichaDirecta = async (ficha: any, solicitudId: number) => {
+    setDescargaPendiente({ ficha, solicitudId })
+    await handleVerFichaGuardadaPageClientes(ficha, solicitudId)
+  }
+
   const handleDownloadPdfModal = async () => {
     setDownloadingFichaModal(true)
     setEditingFichaModal(false)
@@ -759,7 +767,7 @@ export default function ClientesPage() {
     try {
       const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
         import("jspdf"),
-        import("html2canvas"),
+        import("html2canvas-pro"),
       ])
 
       const elemento = document.getElementById("ficha-tecnica-modal-contenido")
@@ -770,6 +778,18 @@ export default function ClientesPage() {
         logging: false,
         allowTaint: true,
         useCORS: false,
+        onclone: (clonedDoc: Document) => {
+          const allElements = clonedDoc.querySelectorAll("*")
+          allElements.forEach((el: Element) => {
+            const style = (el as HTMLElement).style
+            if (style) {
+              const cssText = style.cssText
+              if (cssText) {
+                style.cssText = cssText.replace(/oklab\([^)]*\)|lab\([^)]*\)|color-mix\([^)]*\)/gi, "#000000")
+              }
+            }
+          })
+        },
       })
 
       const imgData = canvas.toDataURL("image/png")
@@ -802,7 +822,34 @@ export default function ClientesPage() {
     setFichaModalSeleccionada(null)
     setSolicitudModalId(null)
     setSolicitudModalActual(null)
+    setDescargaPendiente(null)
   }
+
+  // Cuando se abre el modal desde "Descargar" directo de la lista, se espera
+  // a que el contenido esté en el DOM y entonces se genera el PDF.
+  useEffect(() => {
+    if (!modalFichaVisible || !descargaPendiente) return
+    let interval: NodeJS.Timeout
+    let timeout: NodeJS.Timeout
+    interval = setInterval(() => {
+      const elemento = document.getElementById("ficha-tecnica-modal-contenido")
+      if (elemento) {
+        clearInterval(interval)
+        clearTimeout(timeout)
+        handleDownloadPdfModal()
+        setDescargaPendiente(null)
+      }
+    }, 50)
+    timeout = setTimeout(() => {
+      clearInterval(interval)
+      handleDownloadPdfModal()
+      setDescargaPendiente(null)
+    }, 3000)
+    return () => {
+      clearInterval(interval)
+      clearTimeout(timeout)
+    }
+  }, [modalFichaVisible, descargaPendiente])
 
   const handleAbrirNotificacion = async (notificacion: any) => {
     if (!clientData?.id) return
@@ -1416,143 +1463,178 @@ export default function ClientesPage() {
      }
    }
  
-   const cargarMensajes = async (solicitudId: number) => {
-     setLoadingMensajes((prev) => ({ ...prev, [solicitudId]: true }))
+  const cargarMensajes = async (solicitudId: number) => {
+    setLoadingMensajes((prev) => ({ ...prev, [solicitudId]: true }))
+
+    try {
+      const { data: conversaciones, error: convError } = await supabase
+        .from("conversaciones")
+        .select("*")
+        .eq("solicitud_id", solicitudId)
+        .order("created_at", { ascending: true })
+
+      if (convError) throw convError
+
+      let conversacionId = conversaciones && conversaciones.length > 0 ? conversaciones[0].id : undefined
+
+      if (!conversacionId && clientData) {
+        const { data: nueva, error } = await supabase
+          .from("conversaciones")
+          .insert({
+            solicitud_id: solicitudId,
+            cliente_id: clientData.id,
+            admin_id: null,
+            estado: "activa",
+          })
+          .select()
+          .single()
+
+        if (error) {
+          console.error(error)
+          setLoadingMensajes((prev) => ({ ...prev, [solicitudId]: false }))
+          return
+        }
+
+        conversacionId = nueva.id
+      }
+
+      if (!conversacionId) {
+        setLoadingMensajes((prev) => ({ ...prev, [solicitudId]: false }))
+        return
+      }
+
+      const { data, error } = await supabase
+        .from("mensajes")
+        .select("*")
+        .eq("conversacion_id", conversacionId)
+        .order("created_at", { ascending: true })
+
+      if (error) throw error
+
+      setMensajesPorSolicitud(prev => ({
+        ...prev,
+        [solicitudId]: data || []
+      }))
+
+      await supabase
+        .from("mensajes")
+        .update({ leido: true })
+        .eq("conversacion_id", conversacionId)
+        .eq("remitente", "admin")
+        .eq("leido", false)
+
+      setNotificacionesNoLeidas((prev) => {
+        const next = { ...prev }
+        delete next[solicitudId]
+        return next
+      })
+    } catch (err) {
+      console.error("chat error", err)
+    }
+    finally {
+      setLoadingMensajes(prev => ({
+        ...prev,
+        [solicitudId]: false
+      }))
+    }
+  }
  
-     try {
-       const { data: conversacion, error: convError } = await supabase
-         .from("conversaciones")
-         .select("id")
-         .eq("solicitud_id", solicitudId)
-         .single()
- 
-       let conversacionId = conversacion?.id
- 
-       if (!conversacionId && clientData) {
-         const { data: nueva, error } = await supabase
-           .from("conversaciones")
-           .insert({
-             solicitud_id: solicitudId,
-             cliente_id: clientData.id,
-             admin_id: null,
-             estado: "activa",
-           })
-           .select()
-           .single()
- 
-         if (error) {
-           console.error(error)
-           return
-         }
- 
-         conversacionId = nueva.id
-       }
- 
-       if (!conversacionId) return
- 
-       const { data, error } = await supabase
-         .from("mensajes")
-         .select("*")
-         .eq("conversacion_id", conversacionId)
-         .order("created_at", { ascending: true })
- 
-       if (error) throw error
- 
-       setMensajesPorSolicitud((prev) => ({
-         ...prev,
-         [solicitudId]: data || [],
-       }))
- 
-       await supabase
-         .from("mensajes")
-         .update({ leido: true })
-         .eq("conversacion_id", conversacionId)
-         .eq("remitente", "admin")
-         .eq("leido", false)
- 
-       setNotificacionesNoLeidas((prev) => {
-         const next = { ...prev }
-         delete next[solicitudId]
-         return next
-       })
-     } catch (err) {
-       console.error("chat error", err)
-     } finally {
-       setLoadingMensajes((prev) => ({
-         ...prev,
-         [solicitudId]: false
-       }))
-     }
-   }
- 
-   const handleEnviarMensaje = async (solicitudId: number) => {
-     const mensaje = mensajeInput[solicitudId]?.trim()
- 
-     if (!mensaje) return
- 
-     setEnviandoMensaje((prev) => ({
-       ...prev,
-       [solicitudId]: true
-     }))
- 
-     try {
-       const { data: conv } = await supabase
-         .from("conversaciones")
-         .select("id")
-         .eq("solicitud_id", solicitudId)
-         .single()
- 
-       if (!conv) return
- 
-       const insertPayload = {
-         conversacion_id: conv.id,
-         contenido: mensaje,
-         remitente: "cliente",
-         leido: false,
-       }
- 
-       const { data, error } = await supabase
-         .from("mensajes")
-         .insert(insertPayload)
-         .select()
- 
-       if (error) {
-         console.error("Error inserting mensaje:", error)
-         throw error
-       }
- 
-       setMensajesPorSolicitud((prev) => ({
-         ...prev,
-         [solicitudId]: [
-           ...(prev[solicitudId] || []),
-           {
-             id: Date.now(),
-             contenido: mensaje,
-             remitente: "cliente",
-             created_at: new Date().toISOString(),
-           },
-         ],
-       }))
- 
-       setMensajeInput((prev) => ({
-         ...prev,
-         [solicitudId]: "",
-       }))
- 
-       setTimeout(() => {
-         chatBottomRefs.current[solicitudId]?.scrollIntoView({
-           behavior: "smooth",
-         })
-       }, 50)
-     } catch (e) {
-       console.error(e)
-     } finally {
-       setEnviandoMensaje((prev) => ({
-         ...prev,
-         [solicitudId]: false,
-       }))
-     }
-   }
+  const handleEnviarMensaje = async (solicitudId: number) => {
+    const mensaje = mensajeInput[solicitudId]?.trim()
+    const archivos = archivosChatCliente[solicitudId] || []
+
+    if (!mensaje && archivos.length === 0) return
+
+    setEnviandoMensaje((prev: Record<number, boolean>) => ({
+      ...prev,
+      [solicitudId]: true
+    }))
+
+    try {
+      const { data: conversaciones, error: convError } = await supabase
+        .from("conversaciones")
+        .select("*")
+        .eq("solicitud_id", solicitudId)
+        .order("created_at", { ascending: true })
+
+      if (convError) throw convError
+
+      let conversacion: any = conversaciones && conversaciones.length > 0 ? conversaciones[0] : null
+
+      if (!conversacion && clientData) {
+        const { data: nueva, error: createError } = await supabase
+          .from("conversaciones")
+          .insert({
+            solicitud_id: solicitudId,
+            cliente_id: clientData.id,
+            admin_id: null,
+            estado: "activa",
+          })
+          .select()
+          .single()
+
+        if (createError) throw createError
+        conversacion = nueva
+      }
+
+      if (!conversacion?.id) throw new Error("No se pudo obtener la conversación")
+
+      const adjuntos: string[] = []
+      for (const archivo of archivos) {
+        const extension = archivo.name.split(".").pop()?.toLowerCase() || "bin"
+        const nombreUnico = `mensajes/${conversacion.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`
+        const { error: uploadError } = await supabase.storage
+          .from("documentos")
+          .upload(nombreUnico, archivo, {
+            upsert: true,
+            contentType: archivo.type || "application/octet-stream",
+          })
+        if (uploadError) throw uploadError
+        const { data: publicData } = supabase.storage.from("documentos").getPublicUrl(nombreUnico)
+        adjuntos.push(publicData.publicUrl)
+      }
+
+      const insertPayload = {
+        conversacion_id: conversacion.id,
+        contenido: mensaje || (archivos.length > 0 ? "Archivo adjunto" : ""),
+        remitente: "cliente",
+        leido: false,
+        adjuntos: adjuntos.length > 0 ? adjuntos : [],
+      }
+
+      const { data, error } = await supabase
+        .from("mensajes")
+        .insert(insertPayload)
+        .select()
+
+      if (error) throw error
+
+      setMensajesPorSolicitud((prev: Record<number, any[]>) => ({
+        ...prev,
+        [solicitudId]: [...(prev[solicitudId] || []), ...(data || [])],
+      }))
+
+      setMensajeInput((prev: Record<number, string>) => ({ ...prev, [solicitudId]: "" }))
+      setArchivosChatCliente((prev: Record<number, File[]>) => ({ ...prev, [solicitudId]: [] }))
+
+      setTimeout(() => {
+        if (chatBottomRefs.current[solicitudId]) {
+          chatBottomRefs.current[solicitudId]?.scrollIntoView({
+            behavior: "smooth",
+          })
+        }
+      }, 50)
+    } catch (err: any) {
+      console.error("Error enviando mensaje:", err)
+      setSolicitudMensaje(err.message || "No se pudo enviar el mensaje")
+      setTimeout(() => setSolicitudMensaje(null), 4000)
+    } finally {
+      setEnviandoMensaje((prev: Record<number, boolean>) => ({
+        ...prev,
+        [solicitudId]: false
+      }))
+    }
+  }
 
   const handleCerrarDetalle = () => {
     setSelectedSolicitud(null)
@@ -2817,16 +2899,33 @@ export default function ClientesPage() {
                                               )}
                                               <span>{esAdmin ? "Admin" : clientData?.nombre || "Cliente"}</span>
                                             </div>
-                                            <div
-                                              className={`max-w-[75%] rounded-xl px-3 py-2 text-xs leading-relaxed ${esAdmin
-                                                ? "bg-primary text-primary-foreground rounded-tr-sm"
-                                                : "bg-white border border-border text-foreground rounded-tl-sm"
-                                                }`}
-                                            >
-                                              <p className="whitespace-pre-line break-words">
-                                                {msg.contenido}
-                                              </p>
-                                            </div>
+                                  <div className={`max-w-[75%] rounded-xl px-3 py-2 text-xs leading-relaxed ${esAdmin
+                                    ? "bg-white border border-border text-foreground rounded-tl-sm"
+                                    : "bg-primary text-primary-foreground rounded-tr-sm"
+                                    }`}
+                                  >
+                                    {msg.contenido && msg.contenido !== "Archivo adjunto" && (
+                                      <p className="whitespace-pre-line break-words">
+                                        {msg.contenido}
+                                      </p>
+                                    )}
+                                    {msg.adjuntos && Array.isArray(msg.adjuntos) && msg.adjuntos.length > 0 && (
+                                      <div className={`${msg.contenido && msg.contenido !== "Archivo adjunto" ? "mt-2" : ""} space-y-1`}>
+                                        {msg.adjuntos.map((adj: string, adjIdx: number) => (
+                                          <a
+                                            key={adjIdx}
+                                            href={adj}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className={`flex items-center gap-1 text-[10px] underline ${esAdmin ? "text-primary" : "text-primary-foreground/90"}`}
+                                          >
+                                            <Paperclip size={10} />
+                                            <span className="truncate max-w-[150px]">Archivo {adjIdx + 1}</span>
+                                          </a>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
                                             <span className="text-[10px] text-muted-foreground mt-1">
                                               {formatFechaMensajeSolicitud(msg.created_at)}
                                             </span>
@@ -2840,7 +2939,51 @@ export default function ClientesPage() {
 
                                 {/* Input de mensaje */}
                                 <div className="border-t border-border bg-white p-3">
+                                  {archivosChatCliente[solicitud.id] && archivosChatCliente[solicitud.id].length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mb-2">
+                                      {archivosChatCliente[solicitud.id].map((archivo, idx) => (
+                                        <div key={idx} className="flex items-center gap-1 rounded-lg bg-muted px-2 py-1 text-[10px]">
+                                          <Paperclip size={10} />
+                                          <span className="max-w-[100px] truncate">{archivo.name}</span>
+                                          <button
+                                            onClick={() => {
+                                              setArchivosChatCliente((prev) => ({
+                                                ...prev,
+                                                [solicitud.id]: (prev[solicitud.id] || []).filter((_, i) => i !== idx)
+                                              }))
+                                            }}
+                                            className="text-muted-foreground hover:text-foreground"
+                                          >
+                                            <X size={10} />
+                                          </button>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
                                   <div className="flex gap-2 items-end">
+                                    <input
+                                      type="file"
+                                      multiple
+                                      className="hidden"
+                                      ref={(el) => { fileInputChatClienteRefs.current[solicitud.id] = el }}
+                                      onChange={(e) => {
+                                        const files = Array.from(e.target.files || [])
+                                        if (files.length > 0) {
+                                          setArchivosChatCliente((prev) => ({
+                                            ...prev,
+                                            [solicitud.id]: [...(prev[solicitud.id] || []), ...files]
+                                          }))
+                                        }
+                                        if (e.target) e.target.value = ""
+                                      }}
+                                    />
+                                    <button
+                                      onClick={() => fileInputChatClienteRefs.current[solicitud.id]?.click()}
+                                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                                      title="Adjuntar archivo"
+                                    >
+                                      <Paperclip size={14} />
+                                    </button>
                                     <textarea
                                       value={mensajeInput[solicitud.id] ?? ""}
                                       onChange={(e) =>
@@ -2864,7 +3007,7 @@ export default function ClientesPage() {
                                     />
                                     <button
                                       onClick={() => handleEnviarMensaje(solicitud.id)}
-                                      disabled={enviandoMensaje[solicitud.id] || !mensajeInput[solicitud.id]?.trim()}
+                                      disabled={enviandoMensaje[solicitud.id] || (!mensajeInput[solicitud.id]?.trim() && !(archivosChatCliente[solicitud.id]?.length > 0))}
                                       className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-40"
                                     >
                                       {enviandoMensaje[solicitud.id] ? (
@@ -2934,15 +3077,22 @@ export default function ClientesPage() {
                                                 Ver
                                               </button>
                                               {ficha.url && (
-                                                <a
-                                                  href={ficha.url}
-                                                  target="_blank"
-                                                  rel="noreferrer"
-                                                  className="inline-flex items-center gap-1 rounded-md border border-border bg-card/50 px-2 py-1 text-[10px] font-medium text-muted-foreground transition-all hover:border-primary/60 hover:bg-primary/10 hover:text-primary"
+                                                <button
+                                                  onClick={(e) => {
+                                                    e.preventDefault()
+                                                    e.stopPropagation()
+                                                    handleDescargarFichaDirecta(ficha, solicitud.id)
+                                                  }}
+                                                  className="inline-flex items-center gap-1 rounded-md border border-border bg-card/50 px-2 py-1 text-[10px] font-medium text-muted-foreground transition-all hover:border-primary/60 hover:bg-primary/10 hover:text-primary disabled:opacity-50"
+                                                  disabled={downloadingFichaModal}
                                                 >
-                                                  <Download size={12} />
+                                                  {downloadingFichaModal ? (
+                                                    <Loader2 className="h-3 w-3 animate-spin" size={10} />
+                                                  ) : (
+                                                    <Download size={12} />
+                                                  )}
                                                   Descargar
-                                                </a>
+                                                </button>
                                               )}
                                             </div>
                                           </div>

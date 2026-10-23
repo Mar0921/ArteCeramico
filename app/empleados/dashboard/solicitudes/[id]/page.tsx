@@ -69,6 +69,7 @@ interface Solicitud {
   id: number
   servicio: string
   observaciones: string | null
+  observaciones_orden: string | null
   estado: string
   created_at: string
   updated_at: string | null
@@ -623,13 +624,46 @@ export default function EmpleadoSolicitudDetallePage() {
         </div>
 
         <div className="xl:col-span-2 space-y-5">
-          <div className="rounded-xl border border-border bg-card p-5">
-            <div className="flex items-center gap-2 border-b border-border pb-3 mb-3">
-              <Package className="size-4 text-primary" />
-              <h2 className="font-semibold text-foreground">Información del trabajo</h2>
+           <div className="rounded-xl border border-border bg-card p-5">
+            <div className="flex items-center justify-between border-b border-border pb-3 mb-3">
+              <div className="flex items-center gap-2">
+                <Package className="size-4 text-primary" />
+                <h2 className="font-semibold text-foreground">Información del trabajo</h2>
+              </div>
             </div>
-            <InfoRow label="Trabajo (servicio)">{s.servicio || s.observaciones}</InfoRow>
-            <InfoRow label="Observaciones">{s.observaciones}</InfoRow>
+            <InfoRow label="Trabajo (servicio)">{s.servicio}</InfoRow>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:py-1.5">
+              <span className="text-xs text-muted-foreground">Observaciones de la orden</span>
+              <div className="sm:col-span-2 space-y-2">
+                {s.observaciones_orden ? (
+                  <p className="text-sm text-foreground whitespace-pre-wrap">{s.observaciones_orden}</p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Sin observaciones</p>
+                )}
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const valor = prompt("Observaciones de la orden:", s.observaciones_orden || "")
+                    if (valor === null) return
+                    try {
+                      const { error } = await supabase
+                        .from("solicitudes")
+                        .update({ observaciones_orden: valor })
+                        .eq("id", s.id)
+                      if (error) throw error
+                      setS((prev) => (prev ? { ...prev, observaciones_orden: valor } : prev))
+                    } catch (err) {
+                      console.error("Error guardando observaciones:", err)
+                      alert("No se pudo guardar la observación")
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                >
+                  <Plus className="size-3.5" />
+                  {s.observaciones_orden ? "Editar observación" : "Agregar observación"}
+                </button>
+              </div>
+            </div>
             <InfoRow label="Tipo de servicio">{joinList(s.tipos_trabajo)}</InfoRow>
             <InfoRow label="Materiales">{joinList(s.materiales)}</InfoRow>
             <InfoRow label="Caja">{s.caja}</InfoRow>

@@ -192,6 +192,7 @@ export default function ClientesPage() {
   const [fichaModalSecciones, setFichaModalSecciones] = useState<Seccion[]>([])
   const [tipoFichaModal, setTipoFichaModal] = useState<string>("")
   const [downloadingFichaModal, setDownloadingFichaModal] = useState(false)
+  const [descargaPendiente, setDescargaPendiente] = useState<{ ficha: any; solicitudId: number } | null>(null)
   const [solicitudModalId, setSolicitudModalId] = useState<number | null>(null)
   const [fichaModalSeleccionada, setFichaModalSeleccionada] = useState<any | null>(null)
   const [solicitudModalActual, setSolicitudModalActual] = useState<any>(null)
@@ -349,61 +350,117 @@ export default function ClientesPage() {
        }
      }
 
-     const seccionesActualizadas = inicializarNumeroSerie(ficha.secciones || [], solicitud)
-     setFichaModalSeleccionada(ficha)
-     setFichaModalSecciones(seccionesActualizadas)
-     setTipoFichaModal(ficha.tipo)
-     setModalFichaVisible(true)
-   }
+      const seccionesActualizadas = inicializarNumeroSerie(ficha.secciones || [], solicitud)
+      setFichaModalSeleccionada(ficha)
+      setFichaModalSecciones(seccionesActualizadas)
+      setTipoFichaModal(ficha.tipo)
+      setModalFichaVisible(true)
+    }
 
-   const handleDownloadPdfModal = async () => {
-     setDownloadingFichaModal(true)
+    const handleDescargarFichaDirecta = async (ficha: any, solicitudId: number) => {
+      setDescargaPendiente({ ficha, solicitudId })
+      await handleVerFichaTecnica(ficha, solicitudId)
+    }
 
-     try {
-       const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
-         import("jspdf"),
-         import("html2canvas"),
-       ])
+    const COLOR_FN_REGEX = /\b(oklch|oklab|lab|color)(\s*\([^)]*\))/gi
 
-       const elemento = document.getElementById("ficha-tecnica-modal-contenido")
-       if (!elemento) return
+    const forceSafeColors = (el: HTMLElement) => {
+      el.style.setProperty("color", "#000000", "important")
+      el.style.setProperty("background-color", "#ffffff", "important")
+      el.style.setProperty("border-color", "#d4d4d8", "important")
+      el.style.setProperty("outline-color", "#d4d4d8", "important")
+      el.style.setProperty("text-decoration-color", "#000000", "important")
+      el.style.setProperty("caret-color", "#000000", "important")
+      el.style.setProperty("column-rule-color", "#d4d4d8", "important")
+      el.style.setProperty("box-shadow", "none", "important")
+      el.style.setProperty("text-shadow", "none", "important")
+      for (const child of Array.from(el.children)) {
+        forceSafeColors(child as HTMLElement)
+      }
+    }
 
-const canvas = await html2canvas(elemento, {
+    const handleDownloadPdfModal = async () => {
+      setDownloadingFichaModal(true)
+
+      try {
+        const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+          import("jspdf"),
+          import("html2canvas-pro"),
+        ])
+
+        const elemento = document.getElementById("ficha-tecnica-modal-contenido")
+        if (!elemento) {
+          toast({ title: "Error", description: "No se encontró el contenido de la ficha para descargar.", variant: "destructive" })
+          return
+        }
+
+        const clone = elemento.cloneNode(true) as HTMLElement
+        forceSafeColors(clone)
+
+        const canvas = await html2canvas(clone, {
+          scale: 2,
           backgroundColor: "#ffffff",
-          logging: false,
+          useCORS: true,
           allowTaint: true,
-          useCORS: false,
         })
 
-       const imgData = canvas.toDataURL("image/png")
-       const pdf = new jsPDF({
-         orientation: "portrait",
-         unit: "px",
-         format: [canvas.width, canvas.height],
-       })
+        const imgData = canvas.toDataURL("image/png")
+        const pdf = new jsPDF({
+          orientation: "portrait",
+          unit: "px",
+          format: [canvas.width, canvas.height],
+        })
 
-       pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height)
-       const fileName = tipoFichaModal
-         .toLowerCase()
-         .replace(/[^a-z0-9\s-]/g, "")
-         .replace(/\s+/g, "-")
-         .replace(/-+/g, "-")
-       pdf.save(`${fileName}.pdf`)
-     } catch (err) {
-       console.error("Error generando PDF:", err)
-       alert("No se pudo generar el PDF.")
-     } finally {
-       setDownloadingFichaModal(false)
-     }
-   }
+        pdf.addImage(imgData, "PNG", 0, 0, canvas.width, canvas.height)
+        const fileName = tipoFichaModal
+          .toLowerCase()
+          .replace(/[^a-z0-9\s-]/g, "")
+          .replace(/\s+/g, "-")
+          .replace(/-+/g, "-")
+        pdf.save(`${fileName}.pdf`)
+        toast({ title: "Descargado", description: `Ficha ${tipoFichaModal} guardada como PDF.` })
+      } catch (err: any) {
+        console.error("Error generando PDF:", err)
+        toast({ title: "Error", description: err?.message || "No se pudo generar el PDF.", variant: "destructive" })
+      } finally {
+        setDownloadingFichaModal(false)
+      }
+    }
 
    const handleCerrarModalFicha = () => {
-     setModalFichaVisible(false)
-     setFichaModalSecciones([])
-     setTipoFichaModal("")
-     setFichaModalSeleccionada(null)
-     setSolicitudModalId(null)
-   }
+      setModalFichaVisible(false)
+      setFichaModalSecciones([])
+      setTipoFichaModal("")
+      setFichaModalSeleccionada(null)
+      setSolicitudModalId(null)
+      setDescargaPendiente(null)
+    }
+
+    // Cuando se abre el modal desde "Descargar" directo de la lista, se espera
+    // a que el contenido esté en el DOM y entonces se genera el PDF.
+    useEffect(() => {
+      if (!modalFichaVisible || !descargaPendiente) return
+      let interval: NodeJS.Timeout
+      let timeout: NodeJS.Timeout
+      interval = setInterval(() => {
+        const elemento = document.getElementById("ficha-tecnica-modal-contenido")
+        if (elemento) {
+          clearInterval(interval)
+          clearTimeout(timeout)
+          handleDownloadPdfModal()
+          setDescargaPendiente(null)
+        }
+      }, 50)
+      timeout = setTimeout(() => {
+        clearInterval(interval)
+        handleDownloadPdfModal()
+        setDescargaPendiente(null)
+      }, 3000)
+      return () => {
+        clearInterval(interval)
+        clearTimeout(timeout)
+      }
+    }, [modalFichaVisible, descargaPendiente])
 
    const loadClients = useCallback(async () => {
     const { data, error } = await supabase
@@ -1760,17 +1817,24 @@ const canvas = await html2canvas(elemento, {
                                                       <Eye size={12} />
                                                       Ver
                                                     </button>
-                                                    {ficha.url && (
-                                                      <a
-                                                        href={ficha.url}
-                                                        target="_blank"
-                                                        rel="noreferrer"
-                                                        className="inline-flex items-center gap-1 rounded-md border border-border bg-card/50 px-2 py-1 text-[10px] font-medium text-muted-foreground transition-all hover:border-primary/60 hover:bg-primary/10 hover:text-primary"
-                                                      >
+                                                  {ficha.url && (
+                                                    <button
+                                                      onClick={(e) => {
+                                                        e.preventDefault()
+                                                        e.stopPropagation()
+                                                        handleDescargarFichaDirecta(ficha, solicitud.id)
+                                                      }}
+                                                      className="inline-flex items-center gap-1 rounded-md border border-border bg-card/50 px-2 py-1 text-[10px] font-medium text-muted-foreground transition-all hover:border-primary/60 hover:bg-primary/10 hover:text-primary disabled:opacity-50"
+                                                      disabled={downloadingFichaModal}
+                                                    >
+                                                      {downloadingFichaModal ? (
+                                                        <Loader2 className="h-3 w-3 animate-spin" size={10} />
+                                                      ) : (
                                                         <Download size={12} />
-                                                        Descargar
-                                                      </a>
-                                                    )}
+                                                      )}
+                                                      Descargar
+                                                    </button>
+                                                  )}
                                                   </div>
                                                 </div>
                                               ))}

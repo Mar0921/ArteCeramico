@@ -21,10 +21,10 @@ const adminNavItems = [
   { label: "Trabajos", href: "/dashboard/trabajos", icon: Package },
   { label: "Calendario", href: "/dashboard/calendario", icon: Calendar },
   { label: "Fases", href: "/dashboard/fases", icon: CheckCircle },
+  { label: "Productos", href: "/dashboard/productos", icon: Package },
   { label: "Clientes", href: "/dashboard/clientes", icon: Users },
   { label: "Empleados", href: "/admin/empleados", icon: UserPlus },
   { label: "Cuenta", href: "/dashboard/cuenta", icon: User },
-  { label: "Productos", href: "/dashboard/productos", icon: Package },
 ]
 
 export function Navbar({
