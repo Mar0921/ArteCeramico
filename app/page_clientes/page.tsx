@@ -114,6 +114,9 @@ interface Solicitud {
   observaciones: string
   precio: number | null
   urls_documentos: string[]
+   factura_url?: string | null
+   facturas_url?: string | null
+   comprobante_pago?: string | null
   fecha_elaboracion: string | null
   fecha_entrega: string | null
   historia_clinica: string | null
@@ -261,9 +264,12 @@ export default function ClientesPage() {
     descripcion: string
     precio: number
     cantidad: number
-    fecha: string
-    estado: string
-  }[]>([])
+     fecha: string
+     estado: string
+     facturaUrl?: string | null
+     comprobantePagoUrl?: string | null
+     codigoTrazabilidad?: string | null
+   }[]>([])
   const [totalPagar, setTotalPagar] = useState(0)
   const [procesandoPago, setProcesandoPago] = useState(false)
   const [seleccionados, setSeleccionados] = useState<Set<number>>(new Set())
@@ -635,24 +641,33 @@ export default function ClientesPage() {
         data = serviciosData
       }
 
-      const items = (data ?? [])
-        .filter((item: any) => item.precio && Number(item.precio) > 0)
-        .map((item: any) => {
-          const solicitud = solicitudesMap.get(item.solicitud_id)
-          return {
-            id: item.id,
-            solicitudId: item.solicitud_id,
-            nombre: item.nombre,
-            descripcion: item.descripcion || "",
-            precio: Number(item.precio),
-            cantidad: item.cantidad || 1,
-            estado: solicitud?.estado || "pendiente",
-            fecha: solicitud?.created_at || item.created_at,
-          }
-        })
+       const itemsPorSolicitud = new Map<number, any>()
+       for (const item of (data ?? []).filter((it: any) => it.precio && Number(it.precio) > 0)) {
+         const solicitud = solicitudesMap.get(item.solicitud_id)
+         const existente = itemsPorSolicitud.get(item.solicitud_id)
+         if (existente) {
+           existente.nombre = [existente.nombre, item.nombre].filter(Boolean).join(", ")
+           existente.precio += Number(item.precio)
+         } else {
+           itemsPorSolicitud.set(item.solicitud_id, {
+             id: item.id,
+             solicitudId: item.solicitud_id,
+             nombre: item.nombre,
+             descripcion: item.descripcion || "",
+             precio: Number(item.precio),
+             cantidad: item.cantidad || 1,
+             estado: solicitud?.estado || "pendiente",
+              fecha: solicitud?.created_at || item.created_at,
+              facturaUrl: solicitud?.facturas_url || solicitud?.factura_url || null,
+              comprobantePagoUrl: solicitud?.comprobante_pago || null,
+              codigoTrazabilidad: solicitud?.codigo_trazabilidad || null,
+            })
+         }
+       }
+       const items = Array.from(itemsPorSolicitud.values())
 
-      setItemsEstadoCuenta(items)
-      setTotalPagar(items.reduce((acc, item) => acc + item.precio, 0))
+       setItemsEstadoCuenta(items)
+       setTotalPagar(items.reduce((acc, item) => acc + item.precio, 0))
     } catch (err: any) {
       console.error("Error cargando estado de cuenta:", {
         message: err?.message,
@@ -2375,8 +2390,10 @@ export default function ClientesPage() {
                           <th className="pb-3 pr-4 font-medium text-muted-foreground">Servicio</th>
                           <th className="pb-3 pr-4 font-medium text-muted-foreground">Solicitud</th>
                           <th className="pb-3 pr-4 font-medium text-muted-foreground">Fecha</th>
-                          <th className="pb-3 pr-4 font-medium text-muted-foreground">Estado</th>
-                          <th className="pb-3 text-right font-medium text-muted-foreground">Precio</th>
+                           <th className="pb-3 pr-4 font-medium text-muted-foreground">Estado</th>
+                           <th className="pb-3 text-right font-medium text-muted-foreground">Precio</th>
+                            <th className="pb-3 text-right font-medium text-muted-foreground">Factura</th>
+                            <th className="pb-3 text-right font-medium text-muted-foreground">Comprobante de pago</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border/40">
@@ -2396,9 +2413,9 @@ export default function ClientesPage() {
                               <td className="py-3 pr-4 text-muted-foreground">{index + 1}</td>
                               <td className="py-3 pr-4 font-medium text-foreground">{item.nombre}</td>
                               <td className="py-3 pr-4">
-                                <span className="inline-flex items-center rounded-full border border-border bg-background/70 px-2 py-0.5 text-xs font-medium text-muted-foreground">
-                                  SOL-{String(item.solicitudId).padStart(3, "0")}
-                                </span>
+                                 <span className="inline-flex items-center rounded-full border border-border bg-background/70 px-2 py-0.5 text-xs font-medium text-muted-foreground">
+                                   {item.codigoTrazabilidad || `SOL-${String(item.solicitudId).padStart(3, "0")}`}
+                                 </span>
                               </td>
                               <td className="py-3 pr-4 text-muted-foreground">
                                 {new Date(item.fecha).toLocaleDateString()}
@@ -2408,10 +2425,51 @@ export default function ClientesPage() {
                                   {item.estado.replace("_", " ")}
                                 </span>
                               </td>
-                              <td className="py-3 text-right font-semibold text-foreground">
-                                {item.precio ? `$${item.precio.toLocaleString("es-CO")}` : "-"}
-                              </td>
-                            </tr>
+                               <td className="py-3 text-right font-semibold text-foreground">
+                                 {item.precio ? `$${item.precio.toLocaleString("es-CO")}` : "-"}
+                               </td>
+                               <td className="py-3 text-right">
+                                 {item.facturaUrl ? (
+                                   <a href={item.facturaUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+                                     Ver/Descargar
+                                   </a>
+                                  ) : (
+                                    <span className="text-muted-foreground">Pendiente por factura</span>
+                                  )}
+                                </td>
+                                <td className="py-3 text-right">
+                                  {item.comprobantePagoUrl ? (
+                                    <a href={item.comprobantePagoUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-primary hover:underline">
+                                      Ver
+                                    </a>
+                                  ) : (
+                                    <label className="inline-flex items-center gap-1 cursor-pointer text-primary hover:underline">
+                                      <Upload className="h-3 w-3" />
+                                      Subir
+                                      <input
+                                        type="file"
+                                        accept="image/*,application/pdf"
+                                        className="hidden"
+                                        onChange={async (e) => {
+                                          const file = e.target.files?.[0]
+                                          if (!file) return
+                                          try {
+                                            const fileName = `comprobantes/${item.solicitudId}-${Date.now()}-${file.name}`
+                                            const { error: upErr } = await supabase.storage.from("documentos").upload(fileName, file, { upsert: true })
+                                            if (upErr) throw upErr
+                                            const { data: { publicUrl } } = supabase.storage.from("documentos").getPublicUrl(fileName)
+                                            await supabase.from("solicitudes").update({ comprobante_pago: publicUrl }).eq("id", item.solicitudId)
+                                            setItemsEstadoCuenta(prev => prev.map(it => it.solicitudId === item.solicitudId ? { ...it, comprobantePagoUrl: publicUrl } : it))
+                                          } catch (err) {
+                                            console.error(err)
+                                            alert("No se pudo subir el comprobante")
+                                          }
+                                        }}
+                                      />
+                                    </label>
+                                  )}
+                                </td>
+                             </tr>
                           )
                         })}
                       </tbody>

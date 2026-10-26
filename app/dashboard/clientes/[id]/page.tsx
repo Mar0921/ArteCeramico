@@ -164,7 +164,8 @@ interface EstadoCuentaItem {
   precio: number | null
   estado: string
   fecha: string
-  estado_pago: string
+estado_pago: string
+   codigo_trazabilidad: string | null
   comprobante_pago: string | null
   urlPdf: string
   facturaUrl: string | null
@@ -2004,41 +2005,60 @@ loadClient()
         serviciosPorSolicitud.set(serv.solicitud_id, arr)
       })
 
-      const items = solicitudes.map((sudoku: any) => {
-        const servicios = serviciosPorSolicitud.get(sudoku.id) || []
-        const urlPdf = sudoku.urls_documentos?.[0] || null
-        const facturaUrl = sudoku.facturas_url || sudoku.factura_url || null
-        const nombresServicios = servicios.length > 0
-          ? servicios.map((s: any) => s.nombre).filter(Boolean).join(", ")
-          : (sudoku.servicio || "Servicio")
-        const precioTotal = servicios.length > 0
-          ? servicios.reduce((sum: number, s: any) => sum + (Number(s.precio) || 0), 0)
-          : (Number(sudoku.precio) || 0)
-        const fechaServicio = servicios.length > 0
-          ? (servicios[0].created_at || sudoku.created_at)
-          : sudoku.created_at
-        return {
-          id: String(sudoku.id),
-          solicitudId: sudoku.id,
-          servicio: nombresServicios,
-          precio: precioTotal,
-          estado: sudoku.estado || "pendiente",
-          fecha: fechaServicio,
-estado_pago: sudoku.estado_pago || "pendientePago",
+       const items = solicitudes.map((sudoku: any) => {
+         const servicios = serviciosPorSolicitud.get(sudoku.id) || []
+         const urlPdf = sudoku.urls_documentos?.[0] || null
+         const facturaUrl = sudoku.facturas_url || sudoku.factura_url || null
+         const nombresServicios = servicios.length > 0
+           ? servicios.map((s: any) => s.nombre).filter(Boolean).join(", ")
+           : (sudoku.servicio || "Servicio")
+         const precioTotal = servicios.length > 0
+           ? servicios.reduce((sum: number, s: any) => sum + (Number(s.precio) || 0), 0)
+           : (Number(sudoku.precio) || 0)
+         const fechaServicio = servicios.length > 0
+           ? (servicios[0].created_at || sudoku.created_at)
+           : sudoku.created_at
+         return {
+           id: String(sudoku.id),
+           solicitudId: sudoku.id,
+           servicio: nombresServicios,
+           precio: precioTotal,
+           estado: sudoku.estado || "pendiente",
+           fecha: fechaServicio,
+           estado_pago: sudoku.estado_pago || "pendientePago",
+           codigo_trazabilidad: sudoku.codigo_trazabilidad || null,
            comprobante_pago: sudoku.comprobante_pago || null,
-          urlPdf,
-          facturaUrl,
-          seleccionado: false,
-        }
-      })
-      setItemsEstadoCuenta((prev) => ({
-        ...prev,
-        [clienteId]: items,
-      }))
-      setTotalPagarPorCliente((prev) => ({
-        ...prev,
-        [clienteId]: items.reduce((sum: number, item: EstadoCuentaItem) => sum + (item.precio || 0), 0),
-      }))
+           urlPdf,
+           facturaUrl,
+           seleccionado: false,
+         }
+       })
+
+       // Agrupar por código de solicitud para que cada solicitud aparezca una sola vez
+       const agrupados = new Map<string, EstadoCuentaItem>()
+       for (const it of items) {
+         const key = it.codigo_trazabilidad ? `#${it.codigo_trazabilidad}` : `SOL-${String(it.solicitudId).padStart(3, "0")}`
+         const existente = agrupados.get(key)
+         if (existente) {
+           existente.servicio = [existente.servicio, it.servicio].filter(Boolean).join(", ")
+           existente.precio = (existente.precio || 0) + (it.precio || 0)
+            if (!existente.facturaUrl) existente.facturaUrl = it.facturaUrl
+            if (!existente.urlPdf) existente.urlPdf = it.urlPdf
+            if (!existente.comprobante_pago) existente.comprobante_pago = it.comprobante_pago
+         } else {
+           agrupados.set(key, { ...it })
+         }
+       }
+       const itemsFinales = Array.from(agrupados.values())
+
+       setItemsEstadoCuenta((prev) => ({
+         ...prev,
+         [clienteId]: itemsFinales,
+       }))
+       setTotalPagarPorCliente((prev) => ({
+         ...prev,
+         [clienteId]: itemsFinales.reduce((sum: number, item: EstadoCuentaItem) => sum + (item.precio || 0), 0),
+       }))
     } catch (err) {
       console.error("Error cargando estado de cuenta:", err)
     } finally {
@@ -4925,11 +4945,9 @@ estado_pago: sudoku.estado_pago || "pendientePago",
                         <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Fecha</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Estado</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Estado Pago</th>
-                         <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Factura</th>
-                         <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground">Seleccionar</th>
-                         <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Comprobante</th>
-                         <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">PDF</th>
-                         <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">Precio</th>
+<th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Factura</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Comprobante</th>
+                          <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">Precio</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/40">
@@ -4937,11 +4955,11 @@ estado_pago: sudoku.estado_pago || "pendientePago",
                         <tr key={item.id}>
                           <td className="py-2 pr-3 text-xs text-muted-foreground">{index + 1}</td>
                           <td className="py-2 pr-3 text-xs font-medium text-foreground">{item.servicio}</td>
-                          <td className="py-2 pr-3">
-                            <span className="inline-flex items-center rounded-full border border-border bg-background/70 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                              SOL-{String(item.solicitudId).padStart(3, "0")}
-                            </span>
-                          </td>
+<td className="py-2 pr-3">
+                             <span className="inline-flex items-center rounded-full border border-border bg-background/70 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                               {item.codigo_trazabilidad ? `#${item.codigo_trazabilidad}` : `SOL-${String(item.solicitudId).padStart(3, "0")}`}
+                             </span>
+                           </td>
                           <td className="py-2 pr-3 text-xs text-muted-foreground">
                             {new Date(item.fecha).toLocaleDateString()}
                           </td>
@@ -4978,15 +4996,17 @@ estado_pago: sudoku.estado_pago || "pendientePago",
                             </div>
                           </td>
                           <td className="py-2 pr-3">
-                            {item.facturaUrl ? (
-                              <button
-                                onClick={() => handleDescargarFactura(item.facturaUrl!)}
-                                className="text-[10px] text-primary hover:underline flex items-center gap-1"
-                              >
-                                <FileText size={12} />
-                                Ver factura
-                              </button>
-                            ) : (
+{item.facturaUrl ? (
+                               <a
+                                 href={item.facturaUrl}
+                                 target="_blank"
+                                 rel="noopener noreferrer"
+                                 className="text-[10px] text-primary hover:underline flex items-center gap-1"
+                               >
+                                 <FileText size={12} />
+                                 Ver factura
+                               </a>
+                             ) : (
                               <div className="flex items-center gap-2">
                                 <input
                                   type="file"
@@ -5023,17 +5043,8 @@ estado_pago: sudoku.estado_pago || "pendientePago",
                                 )}
                               </div>
                             )}
-                          </td>
-                          <td className="py-2 text-center">
-                            <input
-                              type="checkbox"
-                              checked={item.seleccionado}
-                              onChange={() => toggleSeleccionPago(item.solicitudId)}
-                              disabled={item.estado_pago !== "pendiente_pago"}
-                              className="rounded border-border text-primary focus:ring-primary"
-                            />
-                          </td>
-                          <td className="py-2 pr-3">
+</td>
+                           <td className="py-2 pr-3">
                             {item.comprobante_pago ? (
                               <a
                                 href={item.comprobante_pago}
@@ -5047,25 +5058,10 @@ estado_pago: sudoku.estado_pago || "pendientePago",
                             ) : (
                               <span className="text-[10px] text-muted-foreground">Sin comprobante</span>
                             )}
-                          </td>
-                          <td className="py-2 pr-3">
-                            {item.urlPdf ? (
-                              <a
-                                href={item.urlPdf}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-[10px] text-primary hover:underline flex items-center gap-1"
-                              >
-                                <FileText size={12} />
-                                Ver PDF
-                              </a>
-                            ) : (
-                              <span className="text-[10px] text-muted-foreground">-</span>
-                            )}
-                          </td>
-                          <td className="py-2 text-right text-xs font-semibold text-foreground">
-                            {item.precio ? `$${item.precio.toLocaleString("es-CO")}` : "-"}
-                          </td>
+                           </td>
+                           <td className="py-2 text-right text-xs font-semibold text-foreground">
+                             {item.precio ? `$${item.precio.toLocaleString("es-CO")}` : "-"}
+                           </td>
                         </tr>
                       ))}
                     </tbody>
