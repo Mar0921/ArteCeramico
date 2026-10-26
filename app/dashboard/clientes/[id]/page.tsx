@@ -4173,197 +4173,420 @@ loadClient()
                                     </div>
                                   </div>
 
-                                  {/* FASES DE FABRICACIÓN - Tabla rellenable */}
-                                  <div className="mb-4 border-t border-gray-300 pt-3">
-                                       <p className="text-xs font-semibold text-gray-600 mb-2">FASES DE FABRICACIÓN</p>
-                                       {(fasesOrden[solicitud.id] || []).length === 0 && !String(solicitud.tipo_impresion || "").trim() && (
-                                         <div className="mb-2 flex items-center gap-2 rounded border border-amber-300 bg-amber-50 p-2 text-[11px]">
-                                           <span>Selecciona el tipo de impresión para cargar las fases:</span>
-                                           {["analoga", "intraoral"].map((t) => (
-                                             <button
-                                               key={t}
-                                               type="button"
-                                               className="rounded bg-primary px-2 py-1 text-white"
-                                               onClick={async () => {
-                                                 const patchRes = await fetch(`/api/solicitudes/${solicitud.id}`, {
-                                                   method: "PATCH",
-                                                   headers: { "Content-Type": "application/json" },
-                                                   body: JSON.stringify({ tipo_impresion: t }),
-                                                 })
-                                                 const pj = await patchRes.json()
-                                                 const of = pj?.orden_fases
-                                                 const res = await fetch(`/api/solicitudes/${solicitud.id}`)
-                                                 const j = await res.json()
-                                                 const of2 = of ?? j?.data?.solicitud?.orden_fases
-                                                 try { setFasesOrden((prev) => ({ ...prev, [solicitud.id]: of2 ? (typeof of2 === "string" ? JSON.parse(of2) : of2) : [] })) } catch {}
-                                                 setSolicitudes((prev) => prev.map((s) => s.id === solicitud.id ? { ...s, tipo_impresion: t, orden_fases: of2 ?? s.orden_fases } : s))
-                                               }}
-                                             >
-                                               {t}
-                                             </button>
-                                           ))}
-                                         </div>
-                                       )}
-                                      <div className="overflow-x-auto">
-                                      <table className="w-full text-[10px] border border-gray-300">
-                                        <thead className="bg-gray-200">
-                                          <tr>
-                                            <th className="border border-gray-300 px-2 py-1 text-left">Tipo</th>
-                                            <th className="border border-gray-300 px-2 py-1 text-left">Estado</th>
-                                            <th className="border border-gray-300 px-2 py-1 text-left">Realizada por</th>
-                                            <th className="border border-gray-300 px-2 py-1 text-left">Fecha finalización</th>
-                                            <th className="border border-gray-300 px-2 py-1 text-left">Fecha prueba</th>
-                                            <th className="border border-gray-300 px-2 py-1 text-center w-12">Acciones</th>
-                                          </tr>
-                                        </thead>
-                                        <tbody>
-                                          {(fasesOrden[solicitud.id] || []).map((fase, idx) => (
-                                            <tr key={idx}>
-                                              <td className="border border-gray-300 px-1">
-                                                {fase.tipo ? (
-                                                  <span className="text-[10px]">{fase.tipo}</span>
-                                                ) : (
-                                                  <select
-                                                    value={fase.tipo}
-                                                     onChange={(e) => {
-                                                       const newTipo = e.target.value
-                                                       setFasesOrden((prev) => {
-                                                         const next = (prev[solicitud.id] || []).map((f, i) =>
-                                                           i === idx ? { ...f, tipo: newTipo } : f
-                                                         )
-                                                         const updated = { ...prev, [solicitud.id]: next }
-                                                         guardarFasesOrden(solicitud.id, next)
-                                                         return updated
-                                                       })
-                                                     }}
-                                                    className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
-                                                  >
-                                                    <option value="">Seleccionar fase</option>
-                                                    {FASES_PROCESO.map((opt) => (
-                                                      <option key={opt} value={opt}>{opt}</option>
-                                                    ))}
-                                                  </select>
-                                                )}
-                                              </td>
-                                              <td className="border border-gray-300 px-1">
-                                                <select
-                                                  value={fase.estado}
-                                                   onChange={(e) => {
-                                                     const newEstado = e.target.value
-                                                     setFasesOrden((prev) => {
-                                                       const next = (prev[solicitud.id] || []).map((f, i) =>
-                                                         i === idx ? { ...f, estado: newEstado } : f
-                                                       )
-                                                       const updated = { ...prev, [solicitud.id]: next }
-                                                       guardarFasesOrden(solicitud.id, next)
-                                                       return updated
-                                                     })
-                                                   }}
-                                                  className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
-                                                >
-                                                  <option value="pendiente">Pendiente</option>
-                                                  <option value="en_proceso">En proceso</option>
-                                                  <option value="completado">Completado</option>
-                                                </select>
-                                              </td>
-<td className="border border-gray-300 px-1">
-                                                <select
-                                                  value={fase.realizada_por}
-                                                  onChange={(e) => {
-                                                    const newVal = e.target.value
-                                                    setFasesOrden((prev) => {
-                                                      const next = (prev[solicitud.id] || []).map((f, i) =>
-                                                        i === idx ? { ...f, realizada_por: newVal } : f
-                                                      )
-                                                      const updated = { ...prev, [solicitud.id]: next }
-                                                      guardarFasesOrden(solicitud.id, next)
-                                                      return updated
-                                                    })
-                                                  }}
-                                                  className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
-                                                >
-                                                  <option value="">Seleccionar empleado</option>
-                                                  {empleados.map((emp) => (
-                                                    <option key={emp.id} value={emp.nombre}>
-                                                      {emp.nombre}
-                                                    </option>
-                                                  ))}
-                                                </select>
-                                              </td>
-                                              <td className="border border-gray-300 px-1">
-                                                <input
-                                                  type="date"
-                                                  value={fase.fecha_finalizacion}
-                                                   onChange={(e) => {
-                                                     const newVal = e.target.value
-                                                     setFasesOrden((prev) => {
-                                                       const next = (prev[solicitud.id] || []).map((f, i) =>
-                                                         i === idx ? { ...f, fecha_finalizacion: newVal } : f
-                                                       )
-                                                       const updated = { ...prev, [solicitud.id]: next }
-                                                       guardarFasesOrden(solicitud.id, next)
-                                                       return updated
-                                                     })
-                                                   }}
-                                                  className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
-                                                />
-                                              </td>
-                                              <td className="border border-gray-300 px-1">
-                                                <input
-                                                  type="date"
-                                                  value={fase.fecha_prueba}
-                                                   onChange={(e) => {
-                                                     const newVal = e.target.value
-                                                     setFasesOrden((prev) => {
-                                                       const next = (prev[solicitud.id] || []).map((f, i) =>
-                                                         i === idx ? { ...f, fecha_prueba: newVal } : f
-                                                       )
-                                                       const updated = { ...prev, [solicitud.id]: next }
-                                                       guardarFasesOrden(solicitud.id, next)
-                                                       return updated
-                                                     })
-                                                   }}
-                                                  className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
-                                                />
-                                              </td>
-                                              <td className="border border-gray-300 px-1 text-center">
-                                                <button
-                                                   onClick={() => {
-                                                     setFasesOrden((prev) => {
-                                                       const next = (prev[solicitud.id] || []).filter((_, i) => i !== idx)
-                                                       const updated = { ...prev, [solicitud.id]: next }
-                                                       guardarFasesOrden(solicitud.id, next)
-                                                       return updated
-                                                     })
-                                                   }}
-                                                  className="text-red-500 hover:text-red-700"
-                                                >
-                                                  <X size={10} />
-                                                </button>
-                                              </td>
-                                            </tr>
-                                          ))}
-                                        </tbody>
-                                      </table>
-                                       <button
-                                          onClick={() => {
-                                            setFasesOrden((prev) => {
-                                              const next = [
-                                                ...(prev[solicitud.id] || []),
-                                                { tipo: "", estado: "pendiente", realizada_por: "", fecha_finalizacion: "", fecha_prueba: "" },
-                                              ]
-                                              const updated = { ...prev, [solicitud.id]: next }
-                                              guardarFasesOrden(solicitud.id, next)
-                                              return updated
+                                   {/* FASES DE FABRICACIÓN - Divididas por servicio */}
+                                   <div className="mb-4 border-t border-gray-300 pt-3">
+                                        <p className="text-xs font-semibold text-gray-600 mb-2">FASES DE FABRICACIÓN</p>
+                                        {(fasesOrden[solicitud.id] || []).length === 0 && !String(solicitud.tipo_impresion || "").trim() && (
+                                          <div className="mb-2 flex items-center gap-2 rounded border border-amber-300 bg-amber-50 p-2 text-[11px]">
+                                            <span>Selecciona el tipo de impresión para cargar las fases:</span>
+                                            {["analoga", "intraoral"].map((t) => (
+                                              <button
+                                                key={t}
+                                                type="button"
+                                                className="rounded bg-primary px-2 py-1 text-white"
+                                                onClick={async () => {
+                                                  const patchRes = await fetch(`/api/solicitudes/${solicitud.id}`, {
+                                                    method: "PATCH",
+                                                    headers: { "Content-Type": "application/json" },
+                                                    body: JSON.stringify({ tipo_impresion: t }),
+                                                  })
+                                                  const pj = await patchRes.json()
+                                                  const of = pj?.orden_fases
+                                                  const res = await fetch(`/api/solicitudes/${solicitud.id}`)
+                                                  const j = await res.json()
+                                                  const of2 = of ?? j?.data?.solicitud?.orden_fases
+                                                  try { 
+                                                    let fasesCargadas = []
+                                                    if (of2) {
+                                                      fasesCargadas = typeof of2 === "string" ? JSON.parse(of2) : of2
+                                                      // Asignar a primer servicio si no tienen servicio
+                                                      const serviciosLista = solicitud.servicios_detalle || []
+                                                      if (Array.isArray(fasesCargadas) && fasesCargadas.length > 0 && serviciosLista.length > 0) {
+                                                        const primerServicio = serviciosLista[0]?.nombre || "Servicio 1"
+                                                        fasesCargadas = fasesCargadas.map((f: any) => ({ ...f, servicio: f.servicio || primerServicio }))
+                                                      }
+                                                    }
+                                                    setFasesOrden((prev) => ({ ...prev, [solicitud.id]: fasesCargadas })) 
+                                                    await guardarFasesOrden(solicitud.id, fasesCargadas)
+                                                  } catch {}
+                                                  setSolicitudes((prev) => prev.map((s) => s.id === solicitud.id ? { ...s, tipo_impresion: t, orden_fases: of2 ?? s.orden_fases } : s))
+                                                }}
+                                              >
+                                                {t}
+                                              </button>
+                                            ))}
+                                          </div>
+                                        )}
+                                        {(solicitud.servicios_detalle && solicitud.servicios_detalle.length > 0) ? (
+                                          (() => {
+                                            const allFases = ((fasesOrden[solicitud.id] || []) as any[])
+                                            const serviciosLista = solicitud.servicios_detalle || []
+                                            // Auto-asignar fases sin servicio cuando hay múltiples servicios
+                                            if (allFases.some((f: any) => !f.servicio) && serviciosLista.length > 1) {
+                                              const unassigned = allFases.filter((f: any) => !f.servicio)
+                                              unassigned.forEach((f: any, idx: number) => {
+                                                const targetIdx = idx % serviciosLista.length
+                                                f.servicio = serviciosLista[targetIdx]?.nombre || `Servicio ${targetIdx + 1}`
+                                              })
+                                            }
+                                            return serviciosLista.map((serv: any, sIdx: number) => {
+                                              const servKey = serv.nombre || `Servicio ${sIdx + 1}`
+                                              const fasesServicio = allFases.filter((f: any) => {
+                                                if (f.servicio) return f.servicio === servKey
+                                                if (serviciosLista.length === 1) return true
+                                                return false
+                                              })
+                                              return (
+                                                <div key={sIdx} className="mb-4">
+                                                  <div className="mb-2 flex items-center justify-between">
+                                                    <p className="text-[11px] font-semibold text-gray-700">
+                                                      {serv.nombre || `Servicio ${sIdx + 1}`}
+                                                      {serv.dientes && <span className="ml-2 text-gray-500 font-normal">Dientes: {serv.dientes}</span>}
+                                                      {serv.cantidad && <span className="ml-2 text-gray-500 font-normal">Cant: {serv.cantidad}</span>}
+                                                    </p>
+                                                  </div>
+                                                  <div className="overflow-x-auto">
+                                                    <table className="w-full text-[10px] border border-gray-300">
+                                                      <thead className="bg-gray-200">
+                                                        <tr>
+                                                          <th className="border border-gray-300 px-2 py-1 text-left">Tipo</th>
+                                                          <th className="border border-gray-300 px-2 py-1 text-left">Estado</th>
+                                                          <th className="border border-gray-300 px-2 py-1 text-left">Realizada por</th>
+                                                          <th className="border border-gray-300 px-2 py-1 text-left">Fecha finalización</th>
+                                                          <th className="border border-gray-300 px-2 py-1 text-left">Fecha prueba</th>
+                                                          <th className="border border-gray-300 px-2 py-1 text-center w-12">Acciones</th>
+                                                        </tr>
+                                                      </thead>
+                                                      <tbody>
+                                                        {fasesServicio.map((fase: any, idx: number) => {
+                                                          const realIdx = allFases.indexOf(fase)
+                                                          return (
+                                                            <tr key={realIdx}>
+                                                              <td className="border border-gray-300 px-1">
+                                                                {fase.tipo ? (
+                                                                  <span className="text-[10px]">{fase.tipo}</span>
+                                                                ) : (
+                                                                  <select
+                                                                    value={fase.tipo || ""}
+                                                                    onChange={(e) => {
+                                                                      const newTipo = e.target.value
+                                                                  setFasesOrden((prev) => {
+                                                                    const all = [...(prev[solicitud.id] || [])] as any[]
+                                                                    if (serviciosLista.length > 1) {
+                                                                      all[realIdx] = { ...all[realIdx], tipo: newTipo, servicio: servKey }
+                                                                    } else {
+                                                                      all[realIdx] = { ...all[realIdx], tipo: newTipo }
+                                                                    }
+                                                                    const updated = { ...prev, [solicitud.id]: all }
+                                                                    guardarFasesOrden(solicitud.id, all)
+                                                                    return updated
+                                                                  })
+                                                                    }}
+                                                                    className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
+                                                                  >
+                                                                    <option value="">Seleccionar fase</option>
+                                                                    {FASES_PROCESO.map((opt) => (
+                                                                      <option key={opt} value={opt}>{opt}</option>
+                                                                    ))}
+                                                                  </select>
+                                                                )}
+                                                              </td>
+                                                              <td className="border border-gray-300 px-1">
+                                                                <select
+                                                                  value={fase.estado || "pendiente"}
+                                                                  onChange={(e) => {
+                                                                    const newEstado = e.target.value
+                                                                  setFasesOrden((prev) => {
+                                                                    const all = [...(prev[solicitud.id] || [])] as any[]
+                                                                    if (serviciosLista.length > 1) {
+                                                                      all[realIdx] = { ...all[realIdx], estado: newEstado, servicio: servKey }
+                                                                    } else {
+                                                                      all[realIdx] = { ...all[realIdx], estado: newEstado }
+                                                                    }
+                                                                    const updated = { ...prev, [solicitud.id]: all }
+                                                                    guardarFasesOrden(solicitud.id, all)
+                                                                    return updated
+                                                                  })
+                                                                  }}
+                                                                  className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
+                                                                >
+                                                                  <option value="pendiente">Pendiente</option>
+                                                                  <option value="en_proceso">En proceso</option>
+                                                                  <option value="completado">Completado</option>
+                                                                </select>
+                                                              </td>
+                                                              <td className="border border-gray-300 px-1">
+                                                                <select
+                                                                  value={fase.realizada_por || ""}
+                                                                  onChange={(e) => {
+                                                                    const newVal = e.target.value
+                                                                  setFasesOrden((prev) => {
+                                                                    const all = [...(prev[solicitud.id] || [])] as any[]
+                                                                    if (serviciosLista.length > 1) {
+                                                                      all[realIdx] = { ...all[realIdx], realizada_por: newVal, servicio: servKey }
+                                                                    } else {
+                                                                      all[realIdx] = { ...all[realIdx], realizada_por: newVal }
+                                                                    }
+                                                                    const updated = { ...prev, [solicitud.id]: all }
+                                                                    guardarFasesOrden(solicitud.id, all)
+                                                                    return updated
+                                                                  })
+                                                                  }}
+                                                                  className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
+                                                                >
+                                                                  <option value="">Seleccionar empleado</option>
+                                                                  {empleados.map((emp) => (
+                                                                    <option key={emp.id} value={emp.nombre}>
+                                                                      {emp.nombre}
+                                                                    </option>
+                                                                  ))}
+                                                                </select>
+                                                              </td>
+                                                              <td className="border border-gray-300 px-1">
+                                                                <input
+                                                                  type="date"
+                                                                  value={fase.fecha_finalizacion || ""}
+                                                                  onChange={(e) => {
+                                                                    const newVal = e.target.value
+                                                                  setFasesOrden((prev) => {
+                                                                    const all = [...(prev[solicitud.id] || [])] as any[]
+                                                                    if (serviciosLista.length > 1) {
+                                                                      all[realIdx] = { ...all[realIdx], fecha_finalizacion: newVal, servicio: servKey }
+                                                                    } else {
+                                                                      all[realIdx] = { ...all[realIdx], fecha_finalizacion: newVal }
+                                                                    }
+                                                                    const updated = { ...prev, [solicitud.id]: all }
+                                                                    guardarFasesOrden(solicitud.id, all)
+                                                                    return updated
+                                                                  })
+                                                                  }}
+                                                                  className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
+                                                                />
+                                                              </td>
+                                                              <td className="border border-gray-300 px-1">
+                                                                <input
+                                                                  type="date"
+                                                                  value={fase.fecha_prueba || ""}
+                                                                  onChange={(e) => {
+                                                                    const newVal = e.target.value
+                                                                    setFasesOrden((prev) => {
+                                                                      const all = [...(prev[solicitud.id] || [])] as any[]
+                                                                      all[realIdx] = { ...all[realIdx], fecha_prueba: newVal, servicio: servKey }
+                                                                      const updated = { ...prev, [solicitud.id]: all }
+                                                                      guardarFasesOrden(solicitud.id, all)
+                                                                      return updated
+                                                                    })
+                                                                  }}
+                                                                  className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
+                                                                />
+                                                              </td>
+                                                              <td className="border border-gray-300 px-1 text-center">
+                                                                <button
+                                                                  onClick={() => {
+                                                                    setFasesOrden((prev) => {
+                                                                      const all = [...(prev[solicitud.id] || [])] as any[]
+                                                                      all.splice(realIdx, 1)
+                                                                      const updated = { ...prev, [solicitud.id]: all }
+                                                                      guardarFasesOrden(solicitud.id, all)
+                                                                      return updated
+                                                                    })
+                                                                  }}
+                                                                  className="text-red-500 hover:text-red-700"
+                                                                >
+                                                                  <X size={10} />
+                                                                </button>
+                                                              </td>
+                                                            </tr>
+                                                          )
+                                                        })}
+                                                      </tbody>
+                                                    </table>
+                                                  <button
+                                                    onClick={() => {
+                                                      setFasesOrden((prev) => {
+                                                        const all = [...(prev[solicitud.id] || [])] as any[]
+                                                        if (serviciosLista.length > 1) {
+                                                          all.push({ tipo: "", estado: "pendiente", realizada_por: "", fecha_finalizacion: "", fecha_prueba: "", servicio: servKey })
+                                                        } else {
+                                                          all.push({ tipo: "", estado: "pendiente", realizada_por: "", fecha_finalizacion: "", fecha_prueba: "" })
+                                                        }
+                                                        const updated = { ...prev, [solicitud.id]: all }
+                                                        guardarFasesOrden(solicitud.id, all)
+                                                        return updated
+                                                      })
+                                                    }}
+                                                      className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted mt-2"
+                                                    >
+                                                      <Plus size={10} />
+                                                      Agregar fase
+                                                    </button>
+                                                  </div>
+                                                </div>
+                                              )
                                             })
-                                          }}
-                                         className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted mt-2"
-                                       >
-                                         <Plus size={10} />
-                                         Agregar fase
-                                       </button>
+                                          })()
+                                        ) : (
+                                          <div className="overflow-x-auto">
+                                            <table className="w-full text-[10px] border border-gray-300">
+                                              <thead className="bg-gray-200">
+                                                <tr>
+                                                  <th className="border border-gray-300 px-2 py-1 text-left">Tipo</th>
+                                                  <th className="border border-gray-300 px-2 py-1 text-left">Estado</th>
+                                                  <th className="border border-gray-300 px-2 py-1 text-left">Realizada por</th>
+                                                  <th className="border border-gray-300 px-2 py-1 text-left">Fecha finalización</th>
+                                                  <th className="border border-gray-300 px-2 py-1 text-left">Fecha prueba</th>
+                                                  <th className="border border-gray-300 px-2 py-1 text-center w-12">Acciones</th>
+                                                </tr>
+                                              </thead>
+                                              <tbody>
+                                                {(fasesOrden[solicitud.id] || []).map((fase: any, idx: number) => (
+                                                  <tr key={idx}>
+                                                    <td className="border border-gray-300 px-1">
+                                                      {fase.tipo ? (
+                                                        <span className="text-[10px]">{fase.tipo}</span>
+                                                      ) : (
+                                                        <select
+                                                          value={fase.tipo || ""}
+                                                          onChange={(e) => {
+                                                            const newTipo = e.target.value
+                                                            setFasesOrden((prev) => {
+                                                              const next = (prev[solicitud.id] || []).map((f: any, i: number) =>
+                                                                i === idx ? { ...f, tipo: newTipo } : f
+                                                              )
+                                                              const updated = { ...prev, [solicitud.id]: next }
+                                                              guardarFasesOrden(solicitud.id, next)
+                                                              return updated
+                                                            })
+                                                          }}
+                                                          className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
+                                                        >
+                                                          <option value="">Seleccionar fase</option>
+                                                          {FASES_PROCESO.map((opt) => (
+                                                            <option key={opt} value={opt}>{opt}</option>
+                                                          ))}
+                                                        </select>
+                                                      )}
+                                                    </td>
+                                                    <td className="border border-gray-300 px-1">
+                                                      <select
+                                                        value={fase.estado || "pendiente"}
+                                                        onChange={(e) => {
+                                                          const newEstado = e.target.value
+                                                          setFasesOrden((prev) => {
+                                                            const next = (prev[solicitud.id] || []).map((f: any, i: number) =>
+                                                              i === idx ? { ...f, estado: newEstado } : f
+                                                            )
+                                                            const updated = { ...prev, [solicitud.id]: next }
+                                                            guardarFasesOrden(solicitud.id, next)
+                                                            return updated
+                                                          })
+                                                        }}
+                                                        className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
+                                                      >
+                                                        <option value="pendiente">Pendiente</option>
+                                                        <option value="en_proceso">En proceso</option>
+                                                        <option value="completado">Completado</option>
+                                                      </select>
+                                                    </td>
+                                                    <td className="border border-gray-300 px-1">
+                                                      <select
+                                                        value={fase.realizada_por || ""}
+                                                        onChange={(e) => {
+                                                          const newVal = e.target.value
+                                                          setFasesOrden((prev) => {
+                                                            const next = (prev[solicitud.id] || []).map((f: any, i: number) =>
+                                                              i === idx ? { ...f, realizada_por: newVal } : f
+                                                            )
+                                                            const updated = { ...prev, [solicitud.id]: next }
+                                                            guardarFasesOrden(solicitud.id, next)
+                                                            return updated
+                                                          })
+                                                        }}
+                                                        className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
+                                                      >
+                                                        <option value="">Seleccionar empleado</option>
+                                                        {empleados.map((emp) => (
+                                                          <option key={emp.id} value={emp.nombre}>
+                                                            {emp.nombre}
+                                                          </option>
+                                                        ))}
+                                                      </select>
+                                                    </td>
+                                                    <td className="border border-gray-300 px-1">
+                                                      <input
+                                                        type="date"
+                                                        value={fase.fecha_finalizacion || ""}
+                                                        onChange={(e) => {
+                                                          const newVal = e.target.value
+                                                          setFasesOrden((prev) => {
+                                                            const next = (prev[solicitud.id] || []).map((f: any, i: number) =>
+                                                              i === idx ? { ...f, fecha_finalizacion: newVal } : f
+                                                            )
+                                                            const updated = { ...prev, [solicitud.id]: next }
+                                                            guardarFasesOrden(solicitud.id, next)
+                                                            return updated
+                                                          })
+                                                        }}
+                                                        className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
+                                                      />
+                                                    </td>
+                                                    <td className="border border-gray-300 px-1">
+                                                      <input
+                                                        type="date"
+                                                        value={fase.fecha_prueba || ""}
+                                                        onChange={(e) => {
+                                                          const newVal = e.target.value
+                                                          setFasesOrden((prev) => {
+                                                            const next = (prev[solicitud.id] || []).map((f: any, i: number) =>
+                                                              i === idx ? { ...f, fecha_prueba: newVal } : f
+                                                            )
+                                                            const updated = { ...prev, [solicitud.id]: next }
+                                                            guardarFasesOrden(solicitud.id, next)
+                                                            return updated
+                                                          })
+                                                        }}
+                                                        className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
+                                                      />
+                                                    </td>
+                                                    <td className="border border-gray-300 px-1 text-center">
+                                                      <button
+                                                        onClick={() => {
+                                                          setFasesOrden((prev) => {
+                                                            const next = (prev[solicitud.id] || []).filter((_: any, i: number) => i !== idx)
+                                                            const updated = { ...prev, [solicitud.id]: next }
+                                                            guardarFasesOrden(solicitud.id, next)
+                                                            return updated
+                                                          })
+                                                        }}
+                                                        className="text-red-500 hover:text-red-700"
+                                                      >
+                                                        <X size={10} />
+                                                      </button>
+                                                    </td>
+                                                  </tr>
+                                                ))}
+                                              </tbody>
+                                            </table>
+                                            <button
+                                              onClick={() => {
+                                                setFasesOrden((prev) => {
+                                                  const next = [
+                                                    ...(prev[solicitud.id] || []),
+                                                    { tipo: "", estado: "pendiente", realizada_por: "", fecha_finalizacion: "", fecha_prueba: "" },
+                                                  ]
+                                                  const updated = { ...prev, [solicitud.id]: next }
+                                                  guardarFasesOrden(solicitud.id, next)
+                                                  return updated
+                                                })
+                                              }}
+                                              className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted mt-2"
+                                            >
+                                              <Plus size={10} />
+                                              Agregar fase
+                                            </button>
+                                          </div>
+                                        )}
                                      </div>
-                                    </div>
 
                                    {/* INCIDENCIAS */}
                                    <div className="mb-4 border-t border-gray-300 pt-3">
