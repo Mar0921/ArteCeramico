@@ -328,6 +328,7 @@ const [eliminando, setEliminando] = useState<string | null>(null)
 
   const [empleados, setEmpleados] = useState<Empleado[]>([])
   const [loadingEmpleados, setLoadingEmpleados] = useState(false)
+  const [materialesDisponiblesGlobal, setMaterialesDisponiblesGlobal] = useState<any[]>([])
 
   useEffect(() => {
     if (editandoSolicitudId) {
@@ -844,6 +845,23 @@ loadClient()
     }
 
     cargarEmpleados()
+  }, [])
+
+  useEffect(() => {
+    const cargarMaterialesDisponibles = async () => {
+      try {
+        const { data, error } = await supabase
+          .from("materiales")
+          .select("*")
+          .order("nombre", { ascending: true })
+        if (!error && data) {
+          setMaterialesDisponiblesGlobal(data)
+        }
+      } catch (err) {
+        console.error("Error cargando materiales:", err)
+      }
+    }
+    cargarMaterialesDisponibles()
   }, [])
 
   useEffect(() => {
@@ -4047,36 +4065,39 @@ loadClient()
                                                   ) : (
                                                     <select
                                                     value={mat.material || ""}
-                                                    onChange={(e) => {
-                                                     const value = e.target.value
-                                                     const materialesDisponibles = (solicitud as any).materiales_disponibles || []
-                                                     const seleccionado = materialesDisponibles.find((m: any) => m.nombre === value) || null
-                                                     setMaterialesOrden((prev) => {
-                                                       const next = (prev[solicitud.id] || []).map((m, i) =>
-                                                         i === idx
-                                                           ? {
-                                                               ...m,
-                                                               material: value,
-                                                               producto: seleccionado?.producto ?? m.producto ?? "",
-                                                               lote: seleccionado?.numero_lote ?? m.lote ?? "",
-                                                               fabricante: seleccionado?.marca_fabricante ?? seleccionado?.fabricante ?? m.fabricante ?? "",
-                                                               proveedor: seleccionado?.proveedor ?? m.proveedor ?? "",
-                                                             }
-                                                           : m
-                                                       )
-                                                       const updated = { ...prev, [solicitud.id]: next }
-                                                       guardarMaterialesOrden(solicitud.id, next)
-                                                       return updated
-                                                     })
-                                                   }}
+                                                     onChange={(e) => {
+                                                      const value = e.target.value
+                                                      const materialesDisponibles = materialesDisponiblesGlobal.length > 0 ? materialesDisponiblesGlobal : ((solicitud as any).materiales_disponibles || [])
+                                                      const seleccionado = materialesDisponibles.find((m: any) => m.nombre === value || m.id === value) || null
+                                                      setMaterialesOrden((prev) => {
+                                                        const next = (prev[solicitud.id] || []).map((m, i) =>
+                                                          i === idx
+                                                            ? {
+                                                                ...m,
+                                                                material: seleccionado?.nombre || value,
+                                                                producto: seleccionado?.producto ?? seleccionado?.descripcion ?? m.producto ?? "",
+                                                                lote: seleccionado?.numero_lote ?? seleccionado?.lote ?? m.lote ?? "",
+                                                                fabricante: seleccionado?.marca_fabricante ?? seleccionado?.fabricante ?? seleccionado?.marca ?? m.fabricante ?? "",
+                                                                proveedor: seleccionado?.proveedor ?? m.proveedor ?? "",
+                                                              }
+                                                            : m
+                                                        )
+                                                        const updated = { ...prev, [solicitud.id]: next }
+                                                        guardarMaterialesOrden(solicitud.id, next)
+                                                        return updated
+                                                      })
+                                                    }}
                                                    className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
                                                  >
-                                                   <option value="">Seleccionar material</option>
-                                                   {((solicitud as any).materiales_disponibles || []).map((m: any) => (
-                                                     <option key={m.id || m.codigo} value={m.nombre}>
-                                                       {m.codigo ? `${m.codigo} - ${m.nombre}` : m.nombre}
-                                                     </option>
-                                                   ))}
+                                                    <option value="">Seleccionar material</option>
+                                                    {(materialesDisponiblesGlobal.length > 0
+                                                      ? materialesDisponiblesGlobal
+                                                      : ((solicitud as any).materiales_disponibles || [])
+                                                    ).map((m: any) => (
+                                                      <option key={m.id || m.codigo || m.nombre} value={m.nombre}>
+                                                        {m.codigo ? `${m.codigo} - ${m.nombre}` : m.nombre}
+                                                      </option>
+                                                    ))}
                                                   </select>
                                                   )
                                                 } 
