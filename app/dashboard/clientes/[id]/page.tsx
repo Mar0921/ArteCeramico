@@ -12,28 +12,29 @@ import {
   Phone,
   Building2,
   Loader2,
-  Eye,
-  FileText,
-  Upload,
-  Edit3,
-  Save,
-  ChevronDown,
-  ChevronUp,
-  X,
-  Wallet,
-  CreditCard,
-   MessageCircle,
-   Calendar,
-   Shield,
-   User,
-   Search,
-   Plus,
-   Filter,
-   AlertCircle,
-   Paperclip,
-   Send,
-   Download,
- } from "lucide-react"
+   Eye,
+   FileText,
+   Upload,
+   Edit3,
+   Save,
+   ChevronDown,
+   ChevronUp,
+   X,
+   Wallet,
+   CreditCard,
+    MessageCircle,
+    Calendar,
+    Shield,
+    User,
+    Search,
+    Plus,
+    Filter,
+    AlertCircle,
+    Paperclip,
+    Send,
+    Download,
+    Trash2,
+   } from "lucide-react"
 import { DentalChart as DentalChartForm } from "@/app/formulario/components/dental-chart"
 import { CartaConvenioContenido } from "@/components/carta-convenio"
 import { supabase } from "@/lib/supabase"
@@ -238,7 +239,24 @@ export default function ClientePerfilPage() {
   const [editMateriales, setEditMateriales] = useState<string[]>([])
   const [editDientes, setEditDientes] = useState<string[]>([])
   const [expandedSolicitud, setExpandedSolicitud] = useState<number | null>(null)
-  const [activeTab, setActiveTab] = useState<{ [solicitudId: number]: "detalle" | "chat" | "documentos" | "encuestas" | "orden" }>({})
+  const [activeTab, setActiveTab] = useState<{ [solicitudId: number]: "detalle" | "chat" | "documentos" | "encuestas" | "orden" | "incidencias" }>({})
+  const [incidenciasCliente, setIncidenciasCliente] = useState<any[]>([])
+  const [medidasCliente, setMedidasCliente] = useState<any[]>([])
+  const [adminsLista, setAdminsLista] = useState<any[]>([])
+  const [mostrarFormIncidencia, setMostrarFormIncidencia] = useState(false)
+  const [incCodigo, setIncCodigo] = useState("20261023113750")
+  const [incFecha, setIncFecha] = useState("")
+  const [incHora, setIncHora] = useState("")
+  const [incTipo, setIncTipo] = useState("")
+  const [incEmpleado, setIncEmpleado] = useState("")
+const [editandoIncidencia, setEditandoIncidencia] = useState<any>(null)
+const [mostrarEditIncidencia, setMostrarEditIncidencia] = useState(false)
+const [tabEdicionIncidencia, setTabEdicionIncidencia] = useState("datos")
+const [tabEditInc, setTabEditInc] = useState("basicos")
+const [incFase, setIncFase] = useState("")
+const [incDesc, setIncDesc] = useState("")
+const [eliminandoId, setEliminandoId] = useState<string | null>(null)
+const [eliminando, setEliminando] = useState<string | null>(null)
   const [mensajesNoLeidos, setMensajesNoLeidos] = useState<{ [solicitudId: number]: number }>({})
   const [mensajesPorSolicitud, setMensajesPorSolicitud] = useState<{ [solicitudId: number]: any[] }>({})
   const [mensajeInput, setMensajeInput] = useState<{ [solicitudId: number]: string }>({})
@@ -821,6 +839,60 @@ loadClient()
   }, [])
 
   useEffect(() => {
+    const cargarIncidencias = async (solicitudesIds: number[]) => {
+      if (solicitudesIds.length === 0) {
+        setIncidenciasCliente([])
+        return
+      }
+      try {
+        const { data: incData, error: incError } = await supabase
+          .from("incidencias")
+          .select("*")
+          .in("solicitud_id", solicitudesIds)
+
+        if (!incError && incData) {
+          setIncidenciasCliente(incData)
+        }
+      } catch (err) {
+        console.error("Error cargando incidencias:", err)
+      }
+    }
+
+    const cargarMedidas = async () => {
+      try {
+        const { data: medData, error: medError } = await supabase
+          .from("medidas_incidencia")
+          .select("*")
+
+        if (!medError && medData) {
+          setMedidasCliente(medData)
+        }
+      } catch (err) {
+        console.error("Error cargando medidas:", err)
+      }
+    }
+
+    const cargarAdmins = async () => {
+      try {
+        const { data: adminData, error: adminError } = await supabase
+          .from("admins")
+          .select("id, nombre, email")
+
+        if (!adminError && adminData) {
+          setAdminsLista(adminData)
+        }
+      } catch (err) {
+        console.error("Error cargando admins:", err)
+      }
+    }
+
+    if (id) {
+      cargarMedidas()
+      cargarAdmins()
+    }
+  }, [id])
+
+  useEffect(() => {
      const loadSolicitudes = async () => {
        if (!id) return
        setLoadingSolicitudes(true)
@@ -861,6 +933,24 @@ loadClient()
           setMaterialesOrden(materialesIniciales)
           setFasesOrden(fasesIniciales)
           setSolicitudes(solicitudesConPrecio as Solicitud[])
+
+          try {
+            const solicitudesIds = solicitudesConPrecio.map((s: any) => s.id)
+            if (solicitudesIds.length > 0) {
+              const { data: incData, error: incError } = await supabase
+                .from("incidencias")
+                .select("*")
+                .in("solicitud_id", solicitudesIds)
+              if (!incError && incData) {
+                setIncidenciasCliente(incData)
+              }
+            } else {
+              setIncidenciasCliente([])
+            }
+          } catch (err) {
+            console.error("Error cargando incidencias:", err)
+          }
+
          for (const solicitud of solicitudesConPrecio) {
            cargarEncuestasPostAdaptacion(solicitud.id)
            cargarBuzonQuejas(solicitud.id)
@@ -1667,10 +1757,136 @@ loadClient()
     setExpandedSolicitud((prev) => prev === solicitudId ? null : solicitudId)
   }
 
-  const handleSwitchTab = (solicitudId: number, tab: "detalle" | "chat" | "documentos" | "encuestas" | "orden") => {
+  const handleSwitchTab = (solicitudId: number, tab: "detalle" | "chat" | "documentos" | "encuestas" | "orden" | "incidencias") => {
     setActiveTab((prev) => ({ ...prev, [solicitudId]: tab }))
     if (tab === "chat") {
       cargarMensajes(solicitudId)
+    }
+    if (tab === "incidencias") {
+      cargarIncidenciasPorSolicitud(solicitudId)
+    }
+  }
+
+  const handleCrearIncidencia = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!incCodigo.trim() || !incTipo.trim() || !incFecha) return
+    setMostrarFormIncidencia(false)
+    try {
+      const { error } = await supabase
+        .from("incidencias")
+        .insert({
+          codigo: incCodigo.trim(),
+          fecha: incFecha,
+          hora: incHora || null,
+          tipo: incTipo.trim(),
+          fase: incFase || null,
+          descripcion: incDesc || null,
+          solicitud_id: selectedSolicitud?.id || null,
+          estado: "nueva",
+        })
+      if (error) throw error
+      setIncCodigo("")
+      setIncFecha("")
+      setIncHora("")
+      setIncTipo("")
+      setIncFase("")
+      setIncDesc("")
+      await cargarIncidenciasPorSolicitud(selectedSolicitud?.id || 0)
+    } catch (err: any) {
+      alert(err.message || "No se pudo crear la incidencia.")
+    }
+  }
+
+  const startEditarIncidencia = (inc: any) => {
+    setIncCodigo(inc.codigo || "")
+    setIncFecha(inc.fecha || "")
+    setIncHora(inc.hora || "")
+    setIncTipo(inc.tipo || "")
+    setIncFase(inc.fase || "")
+    setIncDesc(inc.descripcion || "")
+    setEditandoIncidencia(inc)
+    setMostrarEditIncidencia(true)
+  }
+
+  const cancelarEdicion = () => {
+    setEditandoIncidencia(null)
+    setMostrarEditIncidencia(false)
+    setIncCodigo("")
+    setIncFecha("")
+    setIncHora("")
+    setIncTipo("")
+    setIncFase("")
+    setIncDesc("")
+  }
+
+  const guardarEdicion = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editandoIncidencia?.id) return
+    if (!incCodigo.trim() || !incTipo.trim() || !incFecha) return
+    try {
+      const { error } = await supabase
+        .from("incidencias")
+        .update({
+          codigo: incCodigo.trim(),
+          fecha: incFecha,
+          hora: incHora || null,
+          tipo: incTipo.trim(),
+          fase: incFase || null,
+          descripcion: incDesc || null,
+        })
+        .eq("id", editandoIncidencia.id)
+      if (error) throw error
+      setEditandoIncidencia(null)
+      setMostrarEditIncidencia(false)
+      setIncCodigo("")
+      setIncFecha("")
+      setIncHora("")
+      setIncTipo("")
+      setIncFase("")
+      setIncDesc("")
+      await cargarIncidenciasPorSolicitud(selectedSolicitud?.id || 0)
+    } catch (err: any) {
+      alert(err.message || "No se pudo guardar la incidencia.")
+    }
+  }
+
+  const confirmarEliminar = (id: string) => {
+    setEliminandoId(id)
+  }
+
+  const cancelarEliminar = () => {
+    setEliminandoId(null)
+  }
+
+  const eliminarIncidencia = async (id: string) => {
+    setEliminando(id)
+    try {
+      const { error } = await supabase.from("incidencias").delete().eq("id", id)
+      if (error) throw error
+      setEliminandoId(null)
+      await cargarIncidenciasPorSolicitud(selectedSolicitud?.id || 0)
+    } catch (err: any) {
+      alert(err.message || "No se pudo eliminar la incidencia.")
+    } finally {
+      setEliminando(null)
+    }
+  }
+
+  const cargarIncidenciasPorSolicitud = async (solicitudId: number) => {
+    if (!solicitudId) {
+      setIncidenciasCliente([])
+      return
+    }
+    try {
+      const { data: incData, error: incError } = await supabase
+        .from("incidencias")
+        .select("*")
+        .eq("solicitud_id", solicitudId)
+      if (!incError && incData) {
+        setIncidenciasCliente(incData)
+      }
+    } catch (err) {
+      console.error("Error cargando incidencias:", err)
     }
   }
 
@@ -2381,16 +2597,26 @@ loadClient()
                                 <FileText size={14} />
                                 Buzón
                               </button>
-                              <button
-                                onClick={() => handleSwitchTab(solicitud.id, "orden")}
-                                className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${tabActiva === "orden"
-                                  ? "border-primary text-primary"
-                                  : "border-transparent text-muted-foreground hover:text-foreground"
-                                  }`}
-                              >
-                                <FileText size={14} />
-                                Orden de Fabricación
-                              </button>
+                               <button
+                                 onClick={() => handleSwitchTab(solicitud.id, "orden")}
+                                 className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${tabActiva === "orden"
+                                   ? "border-primary text-primary"
+                                   : "border-transparent text-muted-foreground hover:text-foreground"
+                                   }`}
+                               >
+                                 <FileText size={14} />
+                                 Orden de Fabricación
+                               </button>
+                                <button
+                                  onClick={() => handleSwitchTab(solicitud.id, "incidencias")}
+                                  className={`flex items-center gap-2 px-4 py-2.5 text-xs font-medium border-b-2 transition-colors ${tabActiva === "incidencias"
+                                    ? "border-primary text-primary"
+                                    : "border-transparent text-muted-foreground hover:text-foreground"
+                                    }`}
+                                >
+                                  <FileText size={14} />
+                                  Incidencias
+                                </button>
                             </div>
 
                           {/* Tab: Detalle */}
@@ -3642,113 +3868,100 @@ loadClient()
                                   {/* MATERIALES EMPLEADOS - Tabla rellenable */}
                                   <div className="mb-4 border-t border-gray-300 pt-3">
                                     <p className="text-xs font-semibold text-gray-600 mb-2">MATERIALES EMPLEADOS</p>
-                                    <div className="overflow-x-auto">
-                                      <table className="w-full text-[10px] border border-gray-300">
-                                        <thead className="bg-gray-200">
-                                          <tr>
-                                            <th className="border border-gray-300 px-2 py-1 text-left">Material</th>
-                                            <th className="border border-gray-300 px-2 py-1 text-left">Producto</th>
-                                            <th className="border border-gray-300 px-2 py-1 text-left">Número de lote</th>
-                                            <th className="border border-gray-300 px-2 py-1 text-left">Fabricante</th>
-                                            <th className="border border-gray-300 px-2 py-1 text-left">Proveedor</th>
-                                            <th className="border border-gray-300 px-2 py-1 text-center w-12">Acciones</th>
-                                          </tr>
-                                        </thead>
-                                        <tbody>
-                                          {(materialesOrden[solicitud.id] || []).map((mat, idx) => (
-                                            <tr key={idx}>
-                                              <td className="border border-gray-300 px-1">
-                                                <input
-                                                  type="text"
-                                                  value={mat.material}
-                                                   onChange={(e) => {
-                                                     const newMat = e.target.value
+                                     <div className="overflow-x-auto">
+                                       <table className="w-full text-[10px] border border-gray-300">
+                                         <thead className="bg-gray-200">
+                                           <tr>
+                                             <th className="border border-gray-300 px-2 py-1 text-left">Material</th>
+                                             <th className="border border-gray-300 px-2 py-1 text-left">Producto</th>
+                                             <th className="border border-gray-300 px-2 py-1 text-left">Número de lote</th>
+                                             <th className="border border-gray-300 px-2 py-1 text-left">Fabricante</th>
+                                             <th className="border border-gray-300 px-2 py-1 text-left">Proveedor</th>
+                                             <th className="border border-gray-300 px-2 py-1 text-center w-12">Acciones</th>
+                                           </tr>
+                                         </thead>
+                                         <tbody>
+                                           {(materialesOrden[solicitud.id] || []).map((mat, idx) => (
+                                             <tr key={idx}>
+                                                <td className="border border-gray-300 px-1">
+                                                  {mat.material ? (
+                                                    <input
+                                                      type="text"
+                                                      value={mat.material}
+                                                      readOnly
+                                                      className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5 bg-gray-100"
+                                                    />
+                                                  ) : (
+                                                    <select
+                                                    value={mat.material || ""}
+                                                    onChange={(e) => {
+                                                     const value = e.target.value
+                                                     const materialesDisponibles = (solicitud as any).materiales_disponibles || []
+                                                     const seleccionado = materialesDisponibles.find((m: any) => m.nombre === value) || null
                                                      setMaterialesOrden((prev) => {
                                                        const next = (prev[solicitud.id] || []).map((m, i) =>
-                                                         i === idx ? { ...m, material: newMat } : m
+                                                         i === idx
+                                                           ? {
+                                                               ...m,
+                                                               material: value,
+                                                               producto: seleccionado?.producto ?? m.producto ?? "",
+                                                               lote: seleccionado?.numero_lote ?? m.lote ?? "",
+                                                               fabricante: seleccionado?.marca_fabricante ?? seleccionado?.fabricante ?? m.fabricante ?? "",
+                                                               proveedor: seleccionado?.proveedor ?? m.proveedor ?? "",
+                                                             }
+                                                           : m
                                                        )
                                                        const updated = { ...prev, [solicitud.id]: next }
                                                        guardarMaterialesOrden(solicitud.id, next)
                                                        return updated
                                                      })
                                                    }}
-                                                  className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
-                                                />
-                                              </td>
-                                              <td className="border border-gray-300 px-1">
-                                                <input
-                                                  type="text"
-                                                  value={mat.producto}
-                                                   onChange={(e) => {
-                                                     const newProducto = e.target.value
-                                                     setMaterialesOrden((prev) => {
-                                                       const next = (prev[solicitud.id] || []).map((m, i) =>
-                                                         i === idx ? { ...m, producto: newProducto } : m
-                                                       )
-                                                       const updated = { ...prev, [solicitud.id]: next }
-                                                       guardarMaterialesOrden(solicitud.id, next)
-                                                       return updated
-                                                     })
-                                                   }}
-                                                  className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
-                                                />
-                                              </td>
-                                              <td className="border border-gray-300 px-1">
-                                                <input
-                                                  type="text"
-                                                  value={mat.lote}
-                                                   onChange={(e) => {
-                                                     const newLote = e.target.value
-                                                     setMaterialesOrden((prev) => {
-                                                       const next = (prev[solicitud.id] || []).map((m, i) =>
-                                                         i === idx ? { ...m, lote: newLote } : m
-                                                       )
-                                                       const updated = { ...prev, [solicitud.id]: next }
-                                                       guardarMaterialesOrden(solicitud.id, next)
-                                                       return updated
-                                                     })
-                                                   }}
-                                                  className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
-                                                />
-                                              </td>
-                                              <td className="border border-gray-300 px-1">
-                                                <input
-                                                  type="text"
-                                                  value={mat.fabricante}
-                                                   onChange={(e) => {
-                                                     const newFab = e.target.value
-                                                     setMaterialesOrden((prev) => {
-                                                       const next = (prev[solicitud.id] || []).map((m, i) =>
-                                                         i === idx ? { ...m, fabricante: newFab } : m
-                                                       )
-                                                       const updated = { ...prev, [solicitud.id]: next }
-                                                       guardarMaterialesOrden(solicitud.id, next)
-                                                       return updated
-                                                     })
-                                                   }}
-                                                  className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
-                                                />
-                                              </td>
-                                              <td className="border border-gray-300 px-1">
-                                                <input
-                                                  type="text"
-                                                  value={mat.proveedor}
-                                                   onChange={(e) => {
-                                                     const newProv = e.target.value
-                                                     setMaterialesOrden((prev) => {
-                                                       const next = (prev[solicitud.id] || []).map((m, i) =>
-                                                         i === idx ? { ...m, proveedor: newProv } : m
-                                                       )
-                                                       const updated = { ...prev, [solicitud.id]: next }
-                                                       guardarMaterialesOrden(solicitud.id, next)
-                                                       return updated
-                                                     })
-                                                   }}
-                                                  className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
-                                                />
-                                              </td>
-                                              <td className="border border-gray-300 px-1 text-center">
-                                                <button
+                                                   className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5"
+                                                 >
+                                                   <option value="">Seleccionar material</option>
+                                                   {((solicitud as any).materiales_disponibles || []).map((m: any) => (
+                                                     <option key={m.id || m.codigo} value={m.nombre}>
+                                                       {m.codigo ? `${m.codigo} - ${m.nombre}` : m.nombre}
+                                                     </option>
+                                                   ))}
+                                                  </select>
+                                                  )
+                                                } 
+                                                </td>
+                                               <td className="border border-gray-300 px-1">
+                                                 <input
+                                                   type="text"
+                                                   value={mat.producto || ""}
+                                                   readOnly
+                                                   className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5 bg-gray-100"
+                                                 />
+                                               </td>
+                                               <td className="border border-gray-300 px-1">
+                                                 <input
+                                                   type="text"
+                                                   value={mat.lote || ""}
+                                                   readOnly
+                                                   className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5 bg-gray-100"
+                                                 />
+                                               </td>
+                                               <td className="border border-gray-300 px-1">
+                                                 <input
+                                                   type="text"
+                                                   value={mat.fabricante || ""}
+                                                   readOnly
+                                                   className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5 bg-gray-100"
+                                                 />
+                                               </td>
+                                               <td className="border border-gray-300 px-1">
+                                                 <input
+                                                   type="text"
+                                                   value={mat.proveedor || ""}
+                                                   readOnly
+                                                   className="w-full text-[10px] border border-gray-200 rounded px-1 py-0.5 bg-gray-100"
+                                                 />
+                                               </td>
+                                               <td className="border border-gray-300 px-1 text-center">
+                                                 <button
                                                    onClick={() => {
                                                      setMaterialesOrden((prev) => {
                                                        const next = (prev[solicitud.id] || []).filter((_, i) => i !== idx)
@@ -3757,17 +3970,17 @@ loadClient()
                                                        return updated
                                                      })
                                                    }}
-                                                  className="text-red-500 hover:text-red-700"
-                                                >
-                                                  <X size={10} />
-                                                </button>
-                                              </td>
-                                            </tr>
-                                          ))}
+                                                   className="text-red-500 hover:text-red-700"
+                                                 >
+                                                   <X size={10} />
+                                                 </button>
+                                               </td>
+                                             </tr>
+                                           ))}
                                         </tbody>
                                       </table>
                                       <button
-                                         onClick={() => {
+                                        onClick={() => {
                                            setMaterialesOrden((prev) => {
                                              const next = [
                                                ...(prev[solicitud.id] || []),
@@ -3778,11 +3991,11 @@ loadClient()
                                              return updated
                                            })
                                          }}
-                                        className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted mt-2"
-                                      >
-                                        <Plus size={10} />
-                                        Agregar material
-                                      </button>
+                                         className="inline-flex items-center gap-1 rounded-lg border border-border bg-white px-2 py-1 text-[10px] font-medium text-foreground hover:bg-muted mt-2"
+                                       >
+                                         <Plus size={10} />
+                                         Agregar material
+                                       </button>
                                     </div>
                                   </div>
 
@@ -3976,30 +4189,162 @@ loadClient()
                                          Agregar fase
                                        </button>
                                      </div>
+                                    </div>
+
+                                   {/* INCIDENCIAS */}
+                                   <div className="mb-4 border-t border-gray-300 pt-3">
+                                     <p className="text-xs font-semibold text-gray-600 mb-2">INCIDENCIAS</p>
+                                     <div className="overflow-x-auto">
+                                       <table className="w-full text-[10px] border border-gray-300">
+                                         <thead className="bg-gray-200">
+                                           <tr>
+                                             <th className="border border-gray-300 px-2 py-1 text-left">Código</th>
+                                             <th className="border border-gray-300 px-2 py-1 text-left">Fecha</th>
+                                             <th className="border border-gray-300 px-2 py-1 text-left">Hora</th>
+                                             <th className="border border-gray-300 px-2 py-1 text-left">Tipo</th>
+                                             <th className="border border-gray-300 px-2 py-1 text-left">Fase</th>
+                                             <th className="border border-gray-300 px-2 py-1 text-left">Registrado por</th>
+                                             <th className="border border-gray-300 px-2 py-1 text-left">Descripción</th>
+                                             <th className="border border-gray-300 px-2 py-1 text-left">Estado</th>
+                                           </tr>
+                                         </thead>
+                                         <tbody>
+{(incidenciasCliente || [])
+                                              .sort((a: any, b: any) => {
+                                                const fa = `${a.fecha || ""} ${a.hora || ""}`
+                                                const fb = `${b.fecha || ""} ${b.hora || ""}`
+                                                return fa.localeCompare(fb)
+                                              })
+                                              .map((inc: any, idx: number) => {
+                                               const medida = (medidasCliente || []).find((m: any) => m.incidencia_id === inc.id)
+                                               const registradoPor =
+                                                 (empleados || []).find((e: any) => e.id == inc.empleado_id)?.nombre ||
+                                                 (adminsLista || []).find((a: any) => a.id == inc.empleado_id)?.nombre ||
+                                                 inc.registrado_por ||
+                                                 "-"
+                                               return (
+                                          <tr key={inc.id ?? idx}>
+                                                   <td className="border border-gray-300 px-2 py-1">{inc.codigo || "-"}</td>
+                                                   <td className="border border-gray-300 px-2 py-1">{inc.fecha || "-"}</td>
+                                                   <td className="border border-gray-300 px-2 py-1">{inc.hora || "-"}</td>
+                                                   <td className="border border-gray-300 px-2 py-1">{inc.tipo || "-"}</td>
+                                                   <td className="border border-gray-300 px-2 py-1">{inc.fase || "-"}</td>
+                                                   <td className="border border-gray-300 px-2 py-1">{registradoPor}</td>
+                                                   <td className="border border-gray-300 px-2 py-1 whitespace-pre-wrap">{inc.descripcion || "-"}</td>
+                                                   <td className="border border-gray-300 px-2 py-1">{medida?.estado || inc.estado || "nueva"}</td>
+                                                 </tr>
+                                               )
+                                             })}
+                                           {(incidenciasCliente || []).length === 0 && (
+                                             <tr>
+                                               <td colSpan={8} className="border border-gray-300 px-2 py-1 text-center text-gray-500">
+                                                 Sin incidencias registradas
+                                               </td>
+                                             </tr>
+                                           )}
+                                         </tbody>
+                                       </table>
+                                     </div>
                                    </div>
 
                                    {/* OBSERVACIONES DE ORDEN */}
                                    <div className="mb-4 border-t border-gray-300 pt-3">
                                      <p className="text-xs font-semibold text-gray-600 mb-2">OBSERVACIONES</p>
+                                     <div className="overflow-x-auto mb-3">
+                                       <table className="w-full text-[10px] border border-gray-300">
+                                         <thead className="bg-gray-100">
+                                           <tr className="border-b border-gray-300 text-left">
+                                             <th className="px-2 py-1 font-semibold w-20">Fecha</th>
+                                             <th className="px-2 py-1 font-semibold">Observación</th>
+                                           </tr>
+                                         </thead>
+                                         <tbody>
+                                           {Array.isArray((solicitud as any).observaciones_orden) ? (
+                                             ((solicitud as any).observaciones_orden as Array<{ fecha: string; texto: string }>).map((obs, idx) => (
+                                               <tr key={idx} className="border-b border-gray-200 last:border-0">
+                                                 <td className="px-2 py-1 text-gray-600 whitespace-nowrap">{obs.fecha || ""}</td>
+                                                 <td className="px-2 py-1 text-gray-800">{obs.texto}</td>
+                                               </tr>
+                                             ))
+                                           ) : (solicitud as any).observaciones_orden ? (
+                                             (() => {
+                                               try {
+                                                 const parsed = typeof (solicitud as any).observaciones_orden === "string" && (solicitud as any).observaciones_orden.trim().startsWith("[")
+                                                   ? JSON.parse((solicitud as any).observaciones_orden)
+                                                   : null
+                                                 if (Array.isArray(parsed)) {
+                                                   return parsed.map((obs: any, idx: number) => (
+                                                     <tr key={idx} className="border-b border-gray-200 last:border-0">
+                                                       <td className="px-2 py-1 text-gray-600 whitespace-nowrap">{obs.fecha || ""}</td>
+                                                       <td className="px-2 py-1 text-gray-800">{obs.texto}</td>
+                                                     </tr>
+                                                   ))
+                                                 }
+                                               } catch {}
+                                               return (
+                                                 <tr>
+                                                   <td className="px-2 py-1 text-gray-600 whitespace-nowrap"></td>
+                                                   <td className="px-2 py-1 text-gray-800">{(solicitud as any).observaciones_orden}</td>
+                                                 </tr>
+                                               )
+                                             })()
+                                           ) : (
+                                             <tr>
+                                               <td className="px-2 py-2 text-center text-gray-500" colSpan={2}>
+                                                 Sin observaciones registradas
+                                               </td>
+                                             </tr>
+                                           )}
+                                         </tbody>
+                                       </table>
+                                     </div>
                                      <textarea
-                                       defaultValue={(solicitud as any).observaciones_orden || ""}
-                                       onBlur={async (e) => {
-                                         const valor = e.target.value
-                                         try {
-                                           await supabase
-                                             .from("solicitudes")
-                                             .update({ observaciones_orden: valor })
-                                             .eq("id", solicitud.id)
-                                           setSolicitudes((prev) =>
-                                             prev.map((s) => (s.id === solicitud.id ? { ...s, observaciones_orden: valor } as any : s))
-                                           )
-                                         } catch (err) {
-                                           console.error("Error guardando observaciones de orden:", err)
-                                         }
-                                       }}
-                                       className="w-full text-[11px] border border-gray-300 rounded px-2 py-1.5 min-h-[60px]"
-                                       placeholder="Escribir observaciones para la orden de fabricación..."
+                                       id={`obs-orden-${solicitud.id}`}
+                                       placeholder="Escribir observación..."
+                                       rows={2}
+                                       className="w-full text-[11px] border border-gray-300 rounded px-2 py-1.5 mb-2"
                                      />
+                                     <div className="flex justify-end">
+                                       <button
+                                         type="button"
+                                         onClick={async () => {
+                                           const textarea = document.getElementById(`obs-orden-${solicitud.id}`) as HTMLTextAreaElement | null
+                                           const texto = textarea?.value?.trim() || ""
+                                           if (!texto) return
+                                           const fechaHoy = new Date().toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit", year: "numeric" })
+                                           let actuales: Array<{ fecha: string; texto: string }> = []
+                                           const raw = (solicitud as any).observaciones_orden
+                                           if (Array.isArray(raw)) {
+                                             actuales = raw
+                                           } else if (typeof raw === "string" && raw.trim()) {
+                                             if (raw.trim().startsWith("[")) {
+                                               try {
+                                                 const parsed = JSON.parse(raw)
+                                                 if (Array.isArray(parsed)) actuales = parsed
+                                               } catch {}
+                                             } else {
+                                               actuales = [{ fecha: "", texto: raw }]
+                                             }
+                                           }
+                                           const nuevasArr = [...actuales, { fecha: fechaHoy, texto }]
+                                           try {
+                                             await supabase
+                                               .from("solicitudes")
+                                               .update({ observaciones_orden: JSON.stringify(nuevasArr) })
+                                               .eq("id", solicitud.id)
+                                             setSolicitudes((prev) =>
+                                               prev.map((s) => (s.id === solicitud.id ? { ...s, observaciones_orden: JSON.stringify(nuevasArr) } as any : s))
+                                             )
+                                             if (textarea) textarea.value = ""
+                                           } catch (err) {
+                                             console.error("Error guardando observación:", err)
+                                           }
+                                         }}
+                                         className="px-2 py-1 text-[10px] bg-gray-200 hover:bg-gray-300 rounded"
+                                       >
+                                         Agregar observación
+                                       </button>
+                                     </div>
                                    </div>
 
                                   {/* Footer del documento */}
@@ -4010,9 +4355,337 @@ loadClient()
                               </div>
                             )}
                           </motion.div>
-                       )}
-                       </AnimatePresence>
-     </div>
+                            )}
+                            {/* Tab: Incidencias */}
+                            {tabActiva === "incidencias" && (
+                              <div className="bg-gray-50 p-4">
+                                <div className="flex items-center justify-between mb-4">
+                                  <h3 className="text-lg font-semibold text-foreground">Incidencias</h3>
+                                  <button
+                                    onClick={() => {
+                                      setMostrarFormIncidencia(true)
+                                      setIncCodigo("")
+                                      setIncFecha("")
+                                      setIncHora("")
+                                      setIncTipo("")
+                                      setIncFase("")
+                                      setIncDesc("")
+                                    }}
+                                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary hover:bg-primary/5"
+                                  >
+                                    <Plus size={14} />
+                                    Crear Incidencia
+                                  </button>
+                                </div>
+
+                                {mostrarFormIncidencia && (
+                                  <div className="mb-4 p-3 rounded-xl border border-border bg-white">
+                                    <h4 className="text-xs font-semibold text-foreground mb-2">Nueva Incidencia</h4>
+                                    <form onSubmit={handleCrearIncidencia} className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                      <div>
+                                        <label className="block text-[10px] font-medium text-muted-foreground mb-1">Código</label>
+                                        <input
+                                          type="text"
+                                          value={incCodigo}
+                                          onChange={(e) => setIncCodigo(e.target.value)}
+                                          placeholder="Ej. INC-001"
+                                          className="w-full rounded border border-border bg-input py-1.5 pl-3 pr-3 text-[11px] text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[10px] font-medium text-muted-foreground mb-1">Tipo</label>
+                                        <input
+                                          type="text"
+                                          value={incTipo}
+                                          onChange={(e) => setIncTipo(e.target.value)}
+                                          placeholder="Ej. Retraso, Calidad"
+                                          className="w-full rounded border border-border bg-input py-1.5 pl-3 pr-3 text-[11px] text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[10px] font-medium text-muted-foreground mb-1">Fecha</label>
+                                        <input
+                                          type="date"
+                                          value={incFecha}
+                                          onChange={(e) => setIncFecha(e.target.value)}
+                                          className="w-full rounded border border-border bg-input py-1.5 pl-3 pr-3 text-[11px] text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[10px] font-medium text-muted-foreground mb-1">Hora</label>
+                                        <input
+                                          type="time"
+                                          value={incHora}
+                                          onChange={(e) => setIncHora(e.target.value)}
+                                          className="w-full rounded border border-border bg-input py-1.5 pl-3 pr-3 text-[11px] text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[10px] font-medium text-muted-foreground mb-1">Fase</label>
+                                        <input
+                                          type="text"
+                                          value={incFase}
+                                          onChange={(e) => setIncFase(e.target.value)}
+                                          placeholder="Ej. Pulido"
+                                          className="w-full rounded border border-border bg-input py-1.5 pl-3 pr-3 text-[11px] text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                        />
+                                      </div>
+                                      <div className="sm:col-span-2">
+                                        <label className="block text-[10px] font-medium text-muted-foreground mb-1">Descripción</label>
+                                        <textarea
+                                          value={incDesc}
+                                          onChange={(e) => setIncDesc(e.target.value)}
+                                          rows={2}
+                                          placeholder="Descripción de la incidencia"
+                                          className="w-full rounded border border-border bg-input py-1.5 pl-3 pr-3 text-[11px] text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                        />
+                                      </div>
+                                      <div className="sm:col-span-2 flex items-end gap-2">
+                                        <button
+                                          type="submit"
+                                          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
+                                        >
+                                          <Save size={14} />
+                                          Guardar
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => setMostrarFormIncidencia(false)}
+                                          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-xs font-medium text-foreground transition-colors hover:bg-red/50 hover:text-red-600"
+                                        >
+                                          <X size={14} />
+                                          Cancelar
+                                        </button>
+                                      </div>
+                                    </form>
+                                  </div>
+                                )}
+
+
+
+                                <div className="overflow-x-auto">
+                                  <table className="w-full text-sm border border-gray-300">
+                                    <thead className="bg-gray-200">
+                                      <tr>
+                                        <th className="border border-gray-300 px-2 py-1 text-left">Código</th>
+                                        <th className="border border-gray-300 px-2 py-1 text-left">Fecha</th>
+                                        <th className="border border-gray-300 px-2 py-1 text-left">Hora</th>
+                                        <th className="border border-gray-300 px-2 py-1 text-left">Tipo</th>
+                                        <th className="border border-gray-300 px-2 py-1 text-left">Fase</th>
+                                        <th className="border border-gray-300 px-2 py-1 text-left">Registrado por</th>
+                                        <th className="border border-gray-300 px-2 py-1 text-left">Descripción</th>
+                                        <th className="border border-gray-300 px-2 py-1 text-left">Estado</th>
+                                        <th className="border border-gray-300 px-2 py-1 text-left">Acciones</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {(incidenciasCliente || []).map((inc: any, idx: number) => {
+                                        const medida = (medidasCliente || []).find((m: any) => m.incidencia_id === inc.id)
+                                        const registradoPor =
+                                          (empleados || []).find((e: any) => e.id == inc.empleado_id)?.nombre ||
+                                          (adminsLista || []).find((a: any) => a.id == inc.empleado_id)?.nombre ||
+                                          inc.registrado_por ||
+                                          "-"
+                                        return (
+                                          <>
+                                            <tr key={`row-${inc.id ?? idx}`} className="border-b border-border last:border-0 hover:bg-muted/50">
+                                              <td className="border border-gray-300 px-2 py-1">{inc.codigo || "-"}</td>
+                                              <td className="border border-gray-300 px-2 py-1">{inc.fecha || "-"}</td>
+                                              <td className="border border-gray-300 px-2 py-1">{inc.hora || "-"}</td>
+                                              <td className="border border-gray-300 px-2 py-1">{inc.tipo || "-"}</td>
+                                              <td className="border border-gray-300 px-2 py-1">{inc.fase || "-"}</td>
+                                              <td className="border border-gray-300 px-2 py-1">{registradoPor}</td>
+                                              <td className="border border-gray-300 px-2 py-1 whitespace-pre-wrap">{inc.descripcion || "-"}</td>
+                                              <td className="border border-gray-300 px-2 py-1">{medida?.estado || inc.estado || "nueva"}</td>
+                                              <td className="border border-gray-300 px-2 py-1">
+                                                <div className="flex items-center gap-1">
+                                                  <button
+                                                    onClick={(e) => { e.stopPropagation(); startEditarIncidencia(inc) }}
+                                                    className="inline-flex items-center gap-1 rounded border border-border bg-card px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:border-primary hover:text-primary hover:bg-primary/5"
+                                                  >
+                                                    <Edit3 size={12} />
+                                                    Editar
+                                                  </button>
+                                                  <button
+                                                    onClick={(e) => { e.stopPropagation(); confirmarEliminar(inc.id) }}
+                                                    className="inline-flex items-center gap-1 rounded border border-border bg-card px-2 py-1 text-[10px] font-medium text-muted-foreground transition-colors hover:border-red hover:text-red-600 hover:bg-red/5"
+                                                  >
+                                                    <Trash2 size={12} />
+                                                    Borrar
+                                                  </button>
+                                                </div>
+                                                {eliminandoId === inc.id && (
+                                                  <div className="mt-1 p-2 rounded border border-red-200 bg-red-50 text-[10px] text-red-800 leading-relaxed">
+                                                    ¿Eliminar incidencia "{inc.codigo}"? Esta acción no se puede deshacer.
+                                                    <div className="mt-1 flex items-center gap-1">
+                                                      <button
+                                                        onClick={(e) => { e.stopPropagation(); eliminarIncidencia(inc.id) }}
+                                                        disabled={eliminando === inc.id}
+                                                        className="inline-flex items-center gap-1 rounded border border-red-300 bg-red-100 px-2 py-1 text-[10px] font-medium text-red-800 transition-colors hover:bg-red-200 disabled:opacity-60"
+                                                      >
+                                                        {eliminando === inc.id ? (
+                                                          <Loader2 size={12} className="animate-spin" />
+                                                        ) : (
+                                                          <Trash2 size={12} />
+                                                        )}
+                                                        Eliminar
+                                                      </button>
+                                                      <button
+                                                        onClick={(e) => { e.stopPropagation(); cancelarEliminar() }}
+                                                        className="inline-flex items-center gap-1 rounded border border-border bg-card px-2 py-1 text-[10px] font-medium text-foreground transition-colors hover:bg-muted"
+                                                      >
+                                                        <X size={12} />
+                                                        Cancelar
+                                                      </button>
+                                                    </div>
+                                                  </div>
+                                                )}
+                                              </td>
+                                            </tr>
+
+                                            {mostrarEditIncidencia && editandoIncidencia?.id === inc.id && (
+                                              <tr key={`edit-${inc.id}`} className="border-b border-border bg-muted/30">
+                                                <td colSpan={9} className="px-2 py-1">
+                                                  <div className="flex gap-2 mb-2">
+                                                    {["datos","productos","medidas"].map(t => (
+                                                      <button key={t} type="button" onClick={() => setTabEdicionIncidencia(t)} className={`px-2 py-1 text-[10px] rounded ${tabEdicionIncidencia===t?"bg-primary text-white":"border"}`}>{t==="datos"?"Datos básicos":t==="productos"?"Productos":"Medidas"}</button>
+                                                    ))}
+                                                  </div>
+                                                  <form onSubmit={guardarEdicion} className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                                    <div className="sm:col-span-2">
+                                                      <label className="block text-[10px] font-medium text-muted-foreground mb-1">Código</label>
+                                                      <input
+                                                        type="text"
+                                                        value={incCodigo}
+                                                        onChange={(e) => setIncCodigo(e.target.value)}
+                                                        className="w-full rounded border border-border bg-input py-1 pl-2 pr-2 text-[10px] text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                                      />
+                                                    </div>
+                                                    <div>
+                                                      <label className="block text-[10px] font-medium text-muted-foreground mb-1">Tipo</label>
+                                                      <input
+                                                        type="text"
+                                                        value={incTipo}
+                                                        onChange={(e) => setIncTipo(e.target.value)}
+                                                        className="w-full rounded border border-border bg-input py-1 pl-2 pr-2 text-[10px] text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                                      />
+                                                    </div>
+                                                    <div>
+                                                      <label className="block text-[10px] font-medium text-muted-foreground mb-1">Fecha</label>
+                                                      <input
+                                                        type="date"
+                                                        value={incFecha}
+                                                        onChange={(e) => setIncFecha(e.target.value)}
+                                                        className="w-full rounded border border-border bg-input py-1 pl-2 pr-2 text-[10px] text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                                      />
+                                                    </div>
+                                                    <div>
+                                                      <label className="block text-[10px] font-medium text-muted-foreground mb-1">Hora</label>
+                                                      <input
+                                                        type="time"
+                                                        value={incHora}
+                                                        onChange={(e) => setIncHora(e.target.value)}
+                                                        className="w-full rounded border border-border bg-input py-1 pl-2 pr-2 text-[10px] text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                                      />
+                                                    </div>
+                                                    <div>
+                                                      <label className="block text-[10px] font-medium text-muted-foreground mb-1">Fase</label>
+                                                      <input
+                                                        type="text"
+                                                        value={incFase}
+                                                        onChange={(e) => setIncFase(e.target.value)}
+                                                        className="w-full rounded border border-border bg-input py-1 pl-2 pr-2 text-[10px] text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                                      />
+                                                    </div>
+                                                    <div>
+                                                      <label className="block text-[10px] font-medium text-muted-foreground mb-1">Estado</label>
+                                                      <select
+                                                        value={inc.estado || "nueva"}
+                                                        onChange={(e) => {
+                                                          // estado se maneja por la medida, aquí solo informativo
+                                                        }}
+                                                        className="w-full rounded border border-border bg-input py-1 pl-2 pr-2 text-[10px] text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                                      >
+                                                        <option value="nueva">Nueva</option>
+                                                        <option value="abierta">Abierta</option>
+                                                        <option value="en_proceso">En proceso</option>
+                                                        <option value="resuelta">Resuelta</option>
+                                                      </select>
+                                                    </div>
+                                                    <div className="sm:col-span-2">
+                                                      <label className="block text-[10px] font-medium text-muted-foreground mb-1">Descripción</label>
+                                                      <textarea
+                                                        value={incDesc}
+                                                        onChange={(e) => setIncDesc(e.target.value)}
+                                                        rows={2}
+                                                        className="w-full rounded border border-border bg-input py-1 pl-2 pr-2 text-[10px] text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                                      />
+                                                    </div>
+                                                    <div className="sm:col-span-2 flex items-end gap-1">
+                                                      <button
+                                                        type="submit"
+                                                        className="inline-flex items-center gap-1 rounded border border-border bg-card px-2 py-1.5 text-[10px] font-medium text-foreground transition-colors hover:bg-primary hover:text-primary-foreground"
+                                                      >
+                                                        <Save size={12} />
+                                                        Guardar
+                                                      </button>
+                                                      <button
+                                                        type="button"
+                                                        onClick={cancelarEdicion}
+                                                        className="inline-flex items-center gap-1 rounded border border-border bg-card px-2 py-1.5 text-[10px] font-medium text-foreground transition-colors hover:bg-red/50 hover:text-red-600"
+                                                      >
+                                                        <X size={12} />
+                                                        Cancelar
+                                                      </button>
+                                                    </div>
+                                                  </form>
+                                                </td>
+                                              </tr>
+                                            )}
+                                          </>
+                                        )
+                                      })}
+                                      {(incidenciasCliente || []).length === 0 && (
+                                        <tr>
+                                          <td colSpan={9} className="border border-gray-300 px-2 py-1 text-center text-gray-500">
+                                            Sin incidencias registradas
+                                          </td>
+                                        </tr>
+                                      )}
+                                    </tbody>
+                                  </table>
+                                </div>
+
+                                {eliminandoId && (
+                                  <div className="mt-3 p-3 rounded-xl border border-red-200 bg-red-50 text-xs text-red-800 leading-relaxed">
+                                    ¿Estás seguro de que deseas eliminar esta incidencia? Esta acción no se puede deshacer.
+                                    <div className="mt-2 flex items-center gap-2">
+                                      <button
+                                        onClick={() => eliminarIncidencia(eliminandoId!)}
+                                        disabled={eliminando === eliminandoId}
+                                        className="inline-flex items-center gap-1 rounded border border-red-300 bg-red-100 px-3 py-1.5 text-xs font-medium text-red-800 transition-colors hover:bg-red-200 disabled:opacity-60"
+                                      >
+                                        {eliminando === eliminandoId ? (
+                                          <Loader2 size={14} className="animate-spin" />
+                                        ) : (
+                                          <Trash2 size={14} />
+                                        )}
+                                        Eliminar
+                                      </button>
+                                      <button
+                                        onClick={cancelarEliminar}
+                                        className="inline-flex items-center gap-1 rounded border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
+                                      >
+                                        <X size={14} />
+                                        Cancelar
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                        </AnimatePresence>
+                      </div>
      )
    }
 

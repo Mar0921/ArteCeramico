@@ -216,6 +216,9 @@ export default function ClientesPage() {
     correo: "",
     telefono: "",
     clinica: "",
+    direccion: "",
+    locacionExtra: "",
+    direccionExtra: "",
   })
 
   const abrirModalNuevoCliente = () => {
@@ -226,6 +229,9 @@ export default function ClientesPage() {
       correo: "",
       telefono: "",
       clinica: "",
+      direccion: "",
+      locacionExtra: "",
+      direccionExtra: "",
     })
     setErrorNuevoCliente(null)
     setModalNuevoCliente(true)
@@ -2441,6 +2447,58 @@ export default function ClientesPage() {
                       className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary"
                     />
                   </div>
+                  <div>
+                    <label htmlFor="nuevo-direccion" className="mb-1.5 block text-sm font-medium text-foreground">
+                      Dirección
+                    </label>
+                    <input
+                      id="nuevo-direccion"
+                      value={nuevoCliente.direccion}
+                      onChange={(e) => setNuevoCliente({ ...nuevoCliente, direccion: e.target.value })}
+                      placeholder="Ej: Cra 10 # 20-30"
+                      className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => setNuevoCliente({ ...nuevoCliente, locacionExtra: nuevoCliente.locacionExtra || " " })}
+                      className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted"
+                    >
+                      Agregar locación
+                    </button>
+                    <p className="text-xs text-muted-foreground">
+                      Si tienes una locación extra (otro consultorio o clínica), agrégala en la locación extra.
+                    </p>
+                  </div>
+                  {nuevoCliente.locacionExtra !== "" && (
+                    <>
+                      <div>
+                        <label htmlFor="nuevo-locacion-extra" className="mb-1.5 block text-sm font-medium text-foreground">
+                          Locación extra
+                        </label>
+                        <input
+                          id="nuevo-locacion-extra"
+                          value={nuevoCliente.locacionExtra}
+                          onChange={(e) => setNuevoCliente({ ...nuevoCliente, locacionExtra: e.target.value })}
+                          placeholder="Ej: Consultorio 2"
+                          className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary"
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="nuevo-direccion-extra" className="mb-1.5 block text-sm font-medium text-foreground">
+                          Dirección extra
+                        </label>
+                        <input
+                          id="nuevo-direccion-extra"
+                          value={nuevoCliente.direccionExtra}
+                          onChange={(e) => setNuevoCliente({ ...nuevoCliente, direccionExtra: e.target.value })}
+                          placeholder="Ej: Cra 11 # 21-31"
+                          className="w-full rounded-xl border border-border bg-background px-3.5 py-2.5 text-sm text-foreground outline-none transition-colors focus:border-primary"
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {errorNuevoCliente && (

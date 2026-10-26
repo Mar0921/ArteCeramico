@@ -1,0 +1,70 @@
+﻿          <Label className="text-xs whitespace-nowrap">DIRECCIÃ“N:</Label>
+          <Input
+            className="flex-1 h-6 border-b border-gray-400 rounded-none border-t-0 border-l-0 border-r-0 text-xs"
+            value={formData.direccion}
+            onChange={(e) => onFormDataChange({ direccion: e.target.value })}
+          />
+        </div>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1 flex-1">
+            <Label className="text-xs whitespace-nowrap">PACIENTE:</Label>
+            <Input
+              className="flex-1 h-6 border-b border-gray-400 rounded-none border-t-0 border-l-0 border-r-0 text-xs"
+              value={formData.paciente}
+              onChange={(e) => onFormDataChange({ paciente: e.target.value })}
+            />
+          </div>
+          <div className="flex items-center gap-1 flex-1">
+            <Label className="text-xs whitespace-nowrap">CC.:</Label>
+            <Input
+              className="flex-1 h-6 border-b border-gray-400 rounded-none border-t-0 border-l-0 border-r-0 text-xs"
+              value={formData.ccPaciente}
+              onChange={(e) => onFormDataChange({ ccPaciente: e.target.value })}
+            />
+          </div>
+        </div>
+
+         <div className="flex flex-col gap-1">
+           <Label className="text-xs whitespace-nowrap">HISTORIA CLÃNICA DEL PACIENTE:</Label>
+           <Textarea
+             className="w-full min-h-[60px] border border-gray-300 text-xs"
+             placeholder="Historia clÃ­nica del paciente..."
+             value={formData.historiaClinicaPaciente}
+             onChange={(e) => onFormDataChange({ historiaClinicaPaciente: e.target.value })}
+           />
+         </div>
+
+          <div className="flex flex-col gap-1">
+            <Label className="text-xs whitespace-nowrap">FIRMA DE ODONTÃ“LOGO (A):</Label>
+            <SignaturePad
+              value={formData.firma}
+              onChange={(dataUrl) => onFormDataChange({ firma: dataUrl })}
+            />
+          </div>
+       </div>
+
+      {/* Tipo de impresiÃ³n */}
+      <div className="p-3 border-b space-y-2 text-xs">
+        <Label className="text-xs font-semibold text-gray-700">TIPO DE IMPRESIÃ“N</Label>
+        <div className="flex flex-wrap gap-4">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name={`${idPrefix}-tipoImpresion`}
+              value="analoga"
+              checked={formData.tipoImpresion === "analoga"}
+              onChange={() => onFormDataChange({ tipoImpresion: "analoga" })}
+              className="h-3.5 w-3.5 accent-[#7cb342]"
+            />
+            <span>AnalÃ³gica</span>
+          </label>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="radio"
+              name={`${idPrefix}-tipoImpresion`}
+              value="intraoral"
+              checked={formData.tipoImpresion === "intraoral"}
+              onChange={() => onFormDataChange({ tipoImpresion: "intraoral" })}
+              className="h-3.5 w-3.5 accent-[#7cb342]"
+            />

@@ -95,6 +95,10 @@ interface SolicitudSectionProps {
   onFormDataChange: (updates: Partial<SolicitudFormData>) => void
   modo?: "cliente" | "empleado" | "admin"
   bloquearEntrega?: boolean
+  clienteClinica?: string | null
+  clienteDireccion?: string | null
+  clienteLocacionExtra?: string | null
+  clienteDireccionExtra?: string | null
 }
 
 export function SolicitudSection({
@@ -106,6 +110,10 @@ export function SolicitudSection({
   onFormDataChange,
   modo,
   bloquearEntrega = false,
+  clienteClinica,
+  clienteDireccion,
+  clienteLocacionExtra,
+  clienteDireccionExtra,
 }: SolicitudSectionProps) {
   const { formData, servicioTipo, selectedTeeth, toothStatuses, uploadedFiles } = solicitud
   const [showCalendarElaboracion, setShowCalendarElaboracion] = useState(false)
@@ -519,11 +527,90 @@ disabled={bloquearEntrega ? (date: Date) => {
         {/* La dirección es del odontólogo, así que va antes del bloque de paciente. */}
         <div className="flex items-center gap-1">
           <Label className="text-xs whitespace-nowrap">DIRECCIÓN:</Label>
-          <Input
-            className="flex-1 h-6 border-b border-gray-400 rounded-none border-t-0 border-l-0 border-r-0 text-xs"
-            value={formData.direccion}
-            onChange={(e) => onFormDataChange({ direccion: e.target.value })}
-          />
+          <div className="flex-1">
+            {formData.direccionSeleccionada ? (
+              <div className="flex items-center justify-between h-6 border-b border-gray-400">
+                <span className="text-xs">{formData.direccion}</span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    onFormDataChange({ direccionSeleccionada: "", direccionesSeleccionadas: [], direccion: "" })
+                  }}
+                  className="text-[10px] text-blue-600 hover:underline"
+                >
+                  Cambiar
+                </button>
+              </div>
+            ) : (
+              <select
+                value={formData.direccionSeleccionada || ""}
+                onChange={(e) => {
+                  const selected = e.target.value
+                  if (!selected) {
+                    onFormDataChange({ direccionSeleccionada: "", direccionesSeleccionadas: [], direccion: "" })
+                    return
+                  }
+                if (selected === "clinica_direccion") {
+                  const clinicaVal = (clienteClinica !== undefined && clienteClinica !== null && String(clienteClinica).trim() !== "" ? String(clienteClinica) : formData.clinica || "").trim()
+                  const dirVal = (clienteDireccion !== undefined && clienteDireccion !== null ? String(clienteDireccion) : formData.direccion || "").trim()
+                  let val = ""
+                  if (clinicaVal && dirVal) {
+                    if (dirVal.toLowerCase().includes(clinicaVal.toLowerCase())) {
+                      val = dirVal
+                    } else {
+                      val = clinicaVal + " - " + dirVal
+                    }
+                  } else if (clinicaVal) {
+                    val = clinicaVal
+                  } else {
+                    val = dirVal
+                  }
+                  onFormDataChange({ direccionSeleccionada: selected, direccionesSeleccionadas: [selected], direccion: val })
+                } else if (selected === "locacion_direccion_extra") {
+                  const locVal = (clienteLocacionExtra !== undefined && clienteLocacionExtra !== null ? clienteLocacionExtra : formData.locacionExtra || "").trim()
+                  const dirExtVal = (clienteDireccionExtra !== undefined && clienteDireccionExtra !== null ? clienteDireccionExtra : formData.direccionExtra || "").trim()
+                  let val = ""
+                  if (locVal && dirExtVal) {
+                    val = dirExtVal.toLowerCase().includes(locVal.toLowerCase()) ? dirExtVal : locVal + " - " + dirExtVal
+                  } else {
+                    val = locVal || dirExtVal
+                  }
+                  onFormDataChange({ direccionSeleccionada: selected, direccionesSeleccionadas: [selected], direccion: val })
+                }
+                }}
+                className="w-full h-6 border-b border-gray-400 rounded-none border-t-0 border-l-0 border-r-0 text-xs bg-transparent"
+              >
+                <option value="">Seleccionar dirección...</option>
+                {((clienteClinica !== undefined && clienteClinica !== null && String(clienteClinica).trim() !== "") || (formData.clinica !== undefined && formData.clinica !== null && String(formData.clinica).trim() !== "") || (clienteDireccion !== undefined && clienteDireccion !== null && String(clienteDireccion).trim() !== "") || (formData.direccion !== undefined && formData.direccion !== null && String(formData.direccion).trim() !== "")) ? (
+                  <option value="clinica_direccion">
+                    {(() => {
+                      const clinicaVal = (clienteClinica !== undefined && clienteClinica !== null && String(clienteClinica).trim() !== "" ? String(clienteClinica) : formData.clinica || "").trim()
+                      const dirVal = (clienteDireccion !== undefined && clienteDireccion !== null ? String(clienteDireccion) : formData.direccion || "").trim()
+                      if (clinicaVal && dirVal) {
+                        if (dirVal.toLowerCase().includes(clinicaVal.toLowerCase())) return dirVal
+                        return clinicaVal + " - " + dirVal
+                      }
+                      if (clinicaVal) return clinicaVal
+                      return dirVal
+                    })()}
+                  </option>
+                ) : null}
+                {((clienteLocacionExtra !== undefined && clienteLocacionExtra !== null) || (formData.locacionExtra !== undefined && formData.locacionExtra !== null && formData.locacionExtra !== "")) || ((clienteDireccionExtra !== undefined && clienteDireccionExtra !== null) || (formData.direccionExtra !== undefined && formData.direccionExtra !== null && formData.direccionExtra !== "")) ? (
+                  <option value="locacion_direccion_extra">
+                    {(() => {
+                      const locVal = (clienteLocacionExtra !== undefined && clienteLocacionExtra !== null ? clienteLocacionExtra : formData.locacionExtra || "").trim()
+                      const dirExtVal = (clienteDireccionExtra !== undefined && clienteDireccionExtra !== null ? clienteDireccionExtra : formData.direccionExtra || "").trim()
+                      if (locVal && dirExtVal) {
+                        if (dirExtVal.toLowerCase().includes(locVal.toLowerCase())) return dirExtVal
+                        return locVal + " - " + dirExtVal
+                      }
+                      return locVal || dirExtVal
+                    })()}
+                  </option>
+                ) : null}
+              </select>
+            )}
+          </div>
         </div>
 
         <div className="flex items-center gap-4">

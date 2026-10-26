@@ -163,8 +163,11 @@ interface Cliente {
   documento: string
   correo: string
   telefono: string
-  clinica: string
-   created_at: string
+clinica: string
+  direccion?: string | null
+  locacion_extra?: string | null
+  direccion_extra?: string | null
+  created_at: string
    convenio_firmado: boolean | null
    convenio_documento_url: string | null
  }
@@ -1143,6 +1146,9 @@ export default function ClientesPage() {
           correo: editData.correo,
           telefono: editData.telefono,
           clinica: editData.clinica,
+          direccion: editData.direccion,
+          locacion_extra: editData.locacion_extra,
+          direccion_extra: editData.direccion_extra,
         })
         .eq("id", clientData.id)
 
@@ -2142,12 +2148,36 @@ export default function ClientesPage() {
               type="text"
             />
 
-            <InfoItem
-              label="Fecha de Registro"
-              value={new Date(clientData.created_at).toLocaleDateString()}
-              editable={false}
+            <EditableInfoItem
+              label="Dirección"
+              value={editMode ? editData.direccion ?? "" : clientData.direccion ?? ""}
+              field="direccion"
+              editData={editData}
+              setEditData={setEditData}
+              editMode={editMode}
+              type="text"
             />
-          </div>
+
+            <EditableInfoItem
+              label="Locación extra"
+              value={editMode ? editData.locacion_extra ?? "" : clientData.locacion_extra ?? ""}
+              field="locacion_extra"
+              editData={editData}
+              setEditData={setEditData}
+              editMode={editMode}
+              type="text"
+            />
+
+            <EditableInfoItem
+              label="Dirección extra"
+              value={editMode ? editData.direccion_extra ?? "" : clientData.direccion_extra ?? ""}
+              field="direccion_extra"
+              editData={editData}
+              setEditData={setEditData}
+              editMode={editMode}
+              type="text"
+            />
+            </div>
         </section>
 
         {showLogoutConfirm && (

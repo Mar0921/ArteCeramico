@@ -201,7 +201,23 @@ export default function EmpleadoSolicitudDetallePage() {
     fecha_finalizacion: "",
   })
   const [materialesOrden, setMaterialesOrden] = useState<MaterialOrden[]>([])
+  const [materialesDisponibles, setMaterialesDisponibles] = useState<any[]>([])
   const [savingMateriales, setSavingMateriales] = useState(false)
+  const [observaciones, setObservaciones] = useState<{ fecha: string; texto: string }[]>([])
+  const [nuevaObs, setNuevaObs] = useState("")
+  const [incidenciasCliente, setIncidenciasCliente] = useState<any[]>([])
+  const [medidasCliente, setMedidasCliente] = useState<any[]>([])
+  const [mostrarFormIncidencia, setMostrarFormIncidencia] = useState(false)
+  const [incCodigo, setIncCodigo] = useState("")
+  const [incFecha, setIncFecha] = useState("")
+  const [incHora, setIncHora] = useState("")
+  const [incTipo, setIncTipo] = useState("")
+  const [incEmpleado, setIncEmpleado] = useState("")
+  const [incFase, setIncFase] = useState("")
+  const [incDesc, setIncDesc] = useState("")
+  const [mostrarEditIncidencia, setMostrarEditIncidencia] = useState(false)
+  const [editandoIncidencia, setEditandoIncidencia] = useState<any>(null)
+  const [tabEditInc, setTabEditInc] = useState("basicos")
 
   /** Envía el arreglo completo de fases: el endpoint reemplaza `orden_fases`. */
   const guardarFases = async (fases: FaseProceso[]) => {
@@ -304,6 +320,16 @@ export default function EmpleadoSolicitudDetallePage() {
       } else {
         setMaterialesOrden([])
       }
+      // Cargar observaciones
+      try {
+        const parsed = JSON.parse(result.data?.solicitud?.observaciones_orden || "[]")
+        setObservaciones(Array.isArray(parsed) ? parsed : (result.data?.solicitud?.observaciones_orden ? [{ fecha: "", texto: result.data.solicitud.observaciones_orden }] : []))
+      } catch {
+        setObservaciones(result.data?.solicitud?.observaciones_orden ? [{ fecha: "", texto: result.data.solicitud.observaciones_orden }] : [])
+      }
+      // Cargar incidencias de la solicitud
+      supabase.from("incidencias").select("*").eq("solicitud_id", solicitudId).then(({ data }) => setIncidenciasCliente((data as any[]) || []))
+      supabase.from("incidencia_medidas").select("*").then(({ data }) => setMedidasCliente((data as any[]) || []))
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al cargar la solicitud.")
     } finally {
@@ -319,6 +345,14 @@ export default function EmpleadoSolicitudDetallePage() {
     }
     loadSolicitud()
   }, [solicitudId])
+
+  useEffect(() => {
+    const cargarMaterialesDisponibles = async () => {
+      const { data } = await supabase.from("materiales").select("*").order("nombre", { ascending: true })
+      setMaterialesDisponibles(data ?? [])
+    }
+    cargarMaterialesDisponibles()
+  }, [])
 
   const handleAdvanceFase = async (idx: number) => {
     if (!data) return
@@ -632,38 +666,6 @@ export default function EmpleadoSolicitudDetallePage() {
               </div>
             </div>
             <InfoRow label="Trabajo (servicio)">{s.servicio}</InfoRow>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:py-1.5">
-              <span className="text-xs text-muted-foreground">Observaciones de la orden</span>
-              <div className="sm:col-span-2 space-y-2">
-                {s.observaciones_orden ? (
-                  <p className="text-sm text-foreground whitespace-pre-wrap">{s.observaciones_orden}</p>
-                ) : (
-                  <p className="text-sm text-muted-foreground">Sin observaciones</p>
-                )}
-                <button
-                  type="button"
-                  onClick={async () => {
-                    const valor = prompt("Observaciones de la orden:", s.observaciones_orden || "")
-                    if (valor === null) return
-                    try {
-                      const { error } = await supabase
-                        .from("solicitudes")
-                        .update({ observaciones_orden: valor })
-                        .eq("id", s.id)
-                      if (error) throw error
-                      setS((prev) => (prev ? { ...prev, observaciones_orden: valor } : prev))
-                    } catch (err) {
-                      console.error("Error guardando observaciones:", err)
-                      alert("No se pudo guardar la observación")
-                    }
-                  }}
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs font-medium text-foreground transition-colors hover:bg-muted"
-                >
-                  <Plus className="size-3.5" />
-                  {s.observaciones_orden ? "Editar observación" : "Agregar observación"}
-                </button>
-              </div>
-            </div>
             <InfoRow label="Tipo de servicio">{joinList(s.tipos_trabajo)}</InfoRow>
             <InfoRow label="Materiales">{joinList(s.materiales)}</InfoRow>
             <InfoRow label="Caja">{s.caja}</InfoRow>
@@ -1033,19 +1035,33 @@ export default function EmpleadoSolicitudDetallePage() {
             </div>
 
             <div className="mt-3 flex justify-end">
-              <button
-                type="button"
-                onClick={() => {
+              <select
+                value=""
+                onChange={(e) => {
+                  const id = Number(e.target.value)
+                  if (!id) return
+                  const m = materialesDisponibles.find((x) => x.id === id)
+                  if (!m) return
                   setMaterialesOrden((prev) => [
                     ...prev,
-                    { material: "", producto: "", lote: "", fabricante: "", proveedor: "" },
+                    {
+                      material: m.nombre ?? m.material ?? "",
+                      producto: m.producto ?? "",
+                      lote: m.numero_lote ?? "",
+                      fabricante: m.marca_fabricante ?? m.fabricante ?? "",
+                      proveedor: m.proveedor ?? "",
+                    },
                   ])
                 }}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
               >
-                <Plus className="size-3.5" />
-                Agregar material
-              </button>
+                <option value="">Agregar material existente</option>
+                {materialesDisponibles.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.codigo} - {m.nombre}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="mt-3 flex justify-end">
@@ -1148,6 +1164,126 @@ export default function EmpleadoSolicitudDetallePage() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            )}
+          </div>
+
+          {/* Observaciones de la orden */}
+          <div className="rounded-xl border border-border bg-card p-5">
+            <h2 className="font-semibold text-foreground mb-3">Observaciones de la orden</h2>
+            {observaciones.length === 0 ? (
+              <p className="text-sm text-muted-foreground mb-3">Sin observaciones</p>
+            ) : (
+              <table className="w-full text-xs border border-collapse mb-3">
+                <thead><tr className="bg-gray-100"><th className="border px-2 py-1">Fecha</th><th className="border px-2 py-1">Observación</th></tr></thead>
+                <tbody>
+                  {observaciones.map((o, idx) => (
+                    <tr key={idx}><td className="border px-2 py-1">{o.fecha}</td><td className="border px-2 py-1">{o.texto}</td></tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+            <div className="flex gap-2">
+              <input className="flex-1 border rounded px-2 py-1 text-xs" value={nuevaObs} onChange={(e)=>setNuevaObs(e.target.value)} placeholder="Escribir observación..." />
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!nuevaObs.trim()) return
+                  const nueva = [...observaciones, { fecha: new Date().toLocaleDateString("es-CO"), texto: nuevaObs.trim() }]
+                  try {
+                    const { error } = await supabase.from("solicitudes").update({ observaciones_orden: JSON.stringify(nueva) }).eq("id", s.id)
+                    if (error) throw error
+                    setObservaciones(nueva)
+                    setNuevaObs("")
+                  } catch (err) { alert("No se pudo guardar") }
+                }}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1 text-xs font-medium"
+              >
+                <Plus className="size-3.5" /> Agregar
+              </button>
+            </div>
+          </div>
+
+          {/* Incidencias */}
+          <div className="rounded-xl border border-border bg-card p-5">
+            <div className="flex items-center justify-between border-b border-border pb-3 mb-3">
+              <h2 className="font-semibold text-foreground">Incidencias</h2>
+              <button onClick={() => setMostrarFormIncidencia(!mostrarFormIncidencia)} className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium">Crear Incidencia</button>
+            </div>
+            {mostrarFormIncidencia && (
+              <div className="space-y-3 text-sm mb-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div><label className="block text-xs font-semibold mb-1">Código</label><input className="w-full border rounded px-2 py-1" value={incCodigo} onChange={(e) => setIncCodigo(e.target.value)} /></div>
+                  <div><label className="block text-xs font-semibold mb-1">Fecha</label><input type="date" className="w-full border rounded px-2 py-1" value={incFecha} onChange={(e) => setIncFecha(e.target.value)} /></div>
+                  <div><label className="block text-xs font-semibold mb-1">Hora</label><input type="time" className="w-full border rounded px-2 py-1" value={incHora} onChange={(e) => setIncHora(e.target.value)} /></div>
+                  <div><label className="block text-xs font-semibold mb-1">Tipo</label><input className="w-full border rounded px-2 py-1" value={incTipo} onChange={(e) => setIncTipo(e.target.value)} /></div>
+                  <div><label className="block text-xs font-semibold mb-1">Fase</label><input className="w-full border rounded px-2 py-1" value={incFase} onChange={(e) => setIncFase(e.target.value)} /></div>
+                </div>
+                <div><label className="block text-xs font-semibold mb-1">Descripción</label><textarea className="w-full border rounded px-2 py-1" rows={3} value={incDesc} onChange={(e) => setIncDesc(e.target.value)} /></div>
+                <div className="flex gap-2">
+                  <button onClick={async () => { const now = new Date(); const autoCodigo = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,"0")}${String(now.getDate()).padStart(2,"0")}${String(now.getHours()).padStart(2,"0")}${String(now.getMinutes()).padStart(2,"0")}`; let codigo = incCodigo || autoCodigo; let { data: inserted, error } = await supabase.from("incidencias").insert({ codigo, fecha: incFecha || new Date().toISOString().slice(0,10), hora: incHora || null, tipo: incTipo, empleado_id: null, fase: incFase || null, descripcion: incDesc, solicitud_id: s.id, estado: "nueva" }).select(); if (error?.code === "23505") { codigo = `${codigo}-${Date.now()}`; const r = await supabase.from("incidencias").insert({ codigo, fecha: incFecha || new Date().toISOString().slice(0,10), hora: incHora || null, tipo: incTipo, empleado_id: null, fase: incFase || null, descripcion: incDesc, solicitud_id: s.id, estado: "nueva" }).select(); inserted = r.data; error = r.error } if (error) { alert(error?.message) } else { if (inserted && inserted[0]) { await supabase.from("incidencia_medidas").insert({ incidencia_id: inserted[0].id, estado: "nueva" }) } supabase.from("incidencias").select("*").eq("solicitud_id", s.id).then(({ data }) => setIncidenciasCliente((data as any[]) || [])); supabase.from("incidencia_medidas").select("*").then(({ data }) => setMedidasCliente((data as any[]) || [])); setMostrarFormIncidencia(false) } }} className="px-4 py-2 rounded bg-primary text-white">Crear Incidencia</button>
+                  <button onClick={() => setMostrarFormIncidencia(false)} className="px-4 py-2 rounded border">Cancelar</button>
+                </div>
+              </div>
+            )}
+            <table className="w-full text-xs border mt-4 border-collapse">
+              <thead><tr className="bg-gray-100"><th className="border px-2 py-1 text-left">Código</th><th className="border px-2 py-1 text-left">Fecha</th><th className="border px-2 py-1 text-left">Tipo</th><th className="border px-2 py-1 text-left">Fase</th><th className="border px-2 py-1 text-left">Estado</th><th className="border px-2 py-1"></th></tr></thead>
+              <tbody>
+                {incidenciasCliente.map((inc: any) => (
+                  <tr key={inc.id}><td className="border px-2 py-1">{inc.codigo}</td><td className="border px-2 py-1">{inc.fecha}</td><td className="border px-2 py-1">{inc.tipo}</td><td className="border px-2 py-1">{inc.fase}</td><td className="border px-2 py-1">{(medidasCliente.find((m:any)=>m.incidencia_id===inc.id)?.estado) || "nueva"}</td><td className="border px-2 py-1"><button className="mr-1 text-blue-600" onClick={() => { setEditandoIncidencia(inc); setMostrarEditIncidencia(true) }}>Editar</button></td></tr>
+                ))}
+              </tbody>
+            </table>
+            {mostrarEditIncidencia && editandoIncidencia && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+                <div className="bg-white rounded-lg p-6 w-[600px] max-h-[80vh] overflow-auto">
+                  <div className="flex gap-2 mb-4">
+                    <button onClick={() => setTabEditInc("basicos")} className={tabEditInc==="basicos"?"font-bold underline":""}>Datos básicos</button>
+                    <button onClick={() => setTabEditInc("productos")} className={tabEditInc==="productos"?"font-bold underline":""}>Productos</button>
+                    <button onClick={() => setTabEditInc("medidas")} className={tabEditInc==="medidas"?"font-bold underline":""}>Medidas</button>
+                  </div>
+                  {tabEditInc === "basicos" && (
+                    <div className="space-y-2">
+                      <input className="w-full border rounded px-2 py-1" defaultValue={editandoIncidencia.codigo} onChange={(e)=>setEditandoIncidencia({...editandoIncidencia,codigo:e.target.value})} />
+                      <textarea className="w-full border rounded px-2 py-1" defaultValue={editandoIncidencia.descripcion} onChange={(e)=>setEditandoIncidencia({...editandoIncidencia,descripcion:e.target.value})} />
+                      <button className="px-4 py-2 bg-primary text-white rounded" onClick={async()=>{ await supabase.from("incidencias").update({codigo:editandoIncidencia.codigo,descripcion:editandoIncidencia.descripcion}).eq("id",editandoIncidencia.id); setMostrarEditIncidencia(false); supabase.from("incidencias").select("*").eq("solicitud_id", s.id).then(({ data }) => setIncidenciasCliente((data as any[]) || [])); supabase.from("incidencia_medidas").select("*").then(({ data }) => setMedidasCliente((data as any[]) || [])) }}>Guardar</button>
+                    </div>
+                  )}
+                  {tabEditInc === "productos" && (
+                    <div>
+                      {(data?.servicios || []).map((p:any,i:number)=>(
+                        <label key={i} className="block">
+                          <input type="checkbox" onChange={(e)=>{ const arr = editandoIncidencia.productos||[]; if(e.target.checked) arr.push(p.nombre||p.producto); else {const idx=arr.indexOf(p.nombre||p.producto); if(idx>-1) arr.splice(idx,1)}; setEditandoIncidencia({...editandoIncidencia,productos:arr})}} /> {p.nombre || p.producto}
+                        </label>
+                      )) || <p>Sin productos</p>}
+                    </div>
+                  )}
+                  {tabEditInc === "medidas" && (
+                    <div className="space-y-2">
+                      <table className="w-full text-xs border border-collapse mb-3">
+                        <thead><tr className="bg-gray-100"><th className="border px-2 py-1">Estado</th><th className="border px-2 py-1">Fecha resolución</th><th className="border px-2 py-1">Responsable</th><th className="border px-2 py-1">Medidas tomadas</th></tr></thead>
+                        <tbody>
+                          {(medidasCliente.filter((m:any)=>m.incidencia_id===editandoIncidencia.id)).map((m:any)=>(
+                            <tr key={m.id}><td className="border px-2 py-1">{m.estado}</td><td className="border px-2 py-1">{m.fecha_resolucion}</td><td className="border px-2 py-1">{m.responsable}</td><td className="border px-2 py-1">{m.medidas_tomadas}</td></tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <select className="w-full border rounded px-2 py-1" defaultValue="nueva" onChange={(e)=>setEditandoIncidencia({...editandoIncidencia,estado:e.target.value})}>
+                        <option value="nueva">nueva</option>
+                        <option value="abierta">abierta</option>
+                        <option value="cerrada">cerrada</option>
+                      </select>
+                       <input type="date" className="w-full border rounded px-2 py-1" value={editandoIncidencia?.fecha_resolucion || ""} onChange={(e)=>setEditandoIncidencia({...editandoIncidencia,fecha_resolucion:e.target.value})} />
+                       <input className="w-full border rounded px-2 py-1" placeholder="Responsable" value={editandoIncidencia?.responsable || ""} onChange={(e)=>setEditandoIncidencia({...editandoIncidencia,responsable:e.target.value})} />
+                       <textarea className="w-full border rounded px-2 py-1" placeholder="Medidas tomadas" value={editandoIncidencia?.medidas_tomadas || ""} onChange={(e)=>setEditandoIncidencia({...editandoIncidencia,medidas_tomadas:e.target.value})} />
+                      <div className="flex gap-2">
+                         <button className="px-4 py-2 bg-primary text-white rounded" onClick={async()=>{ await supabase.from("incidencias").update({estado: editandoIncidencia.estado||"nueva"}).eq("id", editandoIncidencia.id); await supabase.from("incidencia_medidas").insert({ incidencia_id: editandoIncidencia.id, estado: editandoIncidencia.estado||"nueva", fecha_resolucion: editandoIncidencia.fecha_resolucion||null, responsable: editandoIncidencia.responsable||null, medidas_tomadas: editandoIncidencia.medidas_tomadas||null }) ; setMostrarEditIncidencia(false); supabase.from("incidencias").select("*").eq("solicitud_id", s.id).then(({ data }) => setIncidenciasCliente((data as any[]) || [])); supabase.from("incidencia_medidas").select("*").then(({ data }) => setMedidasCliente((data as any[]) || [])) }}>Guardar medida</button>
+                        <button className="px-4 py-2 border rounded" onClick={()=>setMostrarEditIncidencia(false)}>Cancelar</button>
+                      </div>
+                    </div>
+                  )}
+                  <button className="mt-4 px-4 py-2 border rounded" onClick={()=>setMostrarEditIncidencia(false)}>Cerrar</button>
+                </div>
               </div>
             )}
           </div>

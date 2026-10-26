@@ -213,6 +213,10 @@ export function NuevaSolicitudDesdeCliente({
             nombre: seleccion.nombre,
             correo: seleccion.correo,
             telefono: seleccion.telefono,
+            clinica: seleccion.clinica,
+            direccion: (seleccion as any).direccion,
+            locacion_extra: (seleccion as any).locacion_extra,
+            direccion_extra: (seleccion as any).direccion_extra,
           }}
           modo={modo}
           redireccionExitosa={redireccionExitosa}

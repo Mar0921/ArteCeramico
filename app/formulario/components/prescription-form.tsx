@@ -20,6 +20,10 @@ interface ClienteFormulario {
   nombre?: string | null
   correo?: string | null
   telefono?: string | null
+  clinica?: string | null
+  direccion?: string | null
+  locacion_extra?: string | null
+  direccion_extra?: string | null
 }
 
 interface PrescriptionFormProps {
@@ -207,15 +211,19 @@ export function PrescriptionForm({
   useEffect(() => {
     const fetchClientData = async () => {
       try {
-        let datos: { nombre?: string | null; correo?: string | null; telefono?: string | null } | null = null
+        let datos: any = null
 
         if (cliente) {
-          // El personal interno ya eligió el cliente: se usan sus datos tal
+          // El personal interno ya eligiÃ³ el cliente: se usan sus datos tal
           // cual vienen del selector, sin consultar por user_id.
           datos = {
-            nombre: cliente.nombre,
-            correo: cliente.correo,
-            telefono: cliente.telefono,
+            nombre: (cliente as any).nombre,
+            correo: (cliente as any).correo,
+            telefono: (cliente as any).telefono,
+            direccion: (cliente as any).direccion,
+            clinica: (cliente as any).clinica,
+            locacion_extra: (cliente as any).locacion_extra,
+            direccion_extra: (cliente as any).direccion_extra,
           }
         } else {
           const {
@@ -226,7 +234,7 @@ export function PrescriptionForm({
 
           const { data, error } = await supabase
             .from("clientes")
-            .select("nombre, documento, correo, telefono")
+            .select("nombre, documento, correo, telefono, clinica, direccion, locacion_extra, direccion_extra")
             .eq("user_id", user.id)
             .single()
 
@@ -245,6 +253,14 @@ export function PrescriptionForm({
               odontologo: datos!.nombre ?? s.formData.odontologo,
               correo: datos!.correo ?? s.formData.correo,
               telefono: datos!.telefono ?? s.formData.telefono,
+              direccion: datos.direccion ?? s.formData.direccion,
+              clinica: (datos.clinica !== undefined && datos.clinica !== null && String(datos.clinica).trim() !== "") ? String(datos.clinica).trim() : ((s.formData as any).clinica ?? ""),
+              direccionClinica: datos.direccion ?? s.formData.direccion,
+              locacionExtra: datos.locacion_extra ?? datos.locacionExtra ?? (s.formData as any).locacionExtra ?? "",
+              direccionExtra: datos.direccion_extra ?? datos.direccionExtra ?? (s.formData as any).direccionExtra ?? "",
+              direccionSeleccionada: "",
+              direccionesSeleccionadas: [],
+              usarDireccionExtra: false,
             },
           }))
         )
@@ -549,6 +565,10 @@ export function PrescriptionForm({
             onFormDataChange={(updates) => updateFormData(index, updates)}
              modo={modo}
              bloquearEntrega={modo === "cliente" || !!cliente}
+             clienteClinica={(cliente as any)?.clinica}
+             clienteDireccion={(cliente as any)?.direccion}
+             clienteLocacionExtra={(cliente as any)?.locacion_extra}
+             clienteDireccionExtra={(cliente as any)?.direccion_extra}
            />
         </div>
       ))}

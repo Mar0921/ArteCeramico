@@ -18,6 +18,8 @@ import {
   X,
   LogOut,
   UserPlus,
+  Upload,
+  AlertCircle,
 } from "lucide-react"
 
 interface SidebarProps {
@@ -55,6 +57,16 @@ const menuItems = [
     label: "Empleados",
     href: "/admin/empleados",
     icon: UserPlus,
+  },
+  {
+    label: "Incidencias",
+    href: "/admin/incidencias",
+    icon: AlertCircle,
+  },
+  {
+    label: "Materiales",
+    href: "/admin/materiales",
+    icon: Upload,
   },
   {
     label: "Cuenta",

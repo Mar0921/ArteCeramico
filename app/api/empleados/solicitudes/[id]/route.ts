@@ -45,7 +45,7 @@ export async function PATCH(
     }
 
     const body = await request.json()
-    const { orden_fases, orden_materiales } = body
+    const { orden_fases, orden_materiales, observaciones_orden } = body
 
     const updates: Record<string, any> = {}
 
@@ -99,6 +99,39 @@ export async function PATCH(
 
     if (orden_materiales !== undefined) {
       updates.orden_materiales = typeof orden_materiales === "string" ? orden_materiales : JSON.stringify(orden_materiales)
+    }
+
+    if (observaciones_orden !== undefined) {
+      const { data: actualSolicitud, error: lecturaObsError } = await supabaseAdmin
+        .from("solicitudes")
+        .select("observaciones_orden")
+        .eq("id", solicitudId)
+        .maybeSingle()
+
+      if (lecturaObsError) {
+        return NextResponse.json(
+          { message: "Error al leer las observaciones.", details: lecturaObsError.message },
+          { status: 500 }
+        )
+      }
+
+      const actuales = (() => {
+        try {
+          const raw = actualSolicitud?.observaciones_orden
+          if (Array.isArray(raw)) return raw
+          if (typeof raw === "string") {
+            const parsed = JSON.parse(raw)
+            return Array.isArray(parsed) ? parsed : []
+          }
+          return []
+        } catch {
+          return []
+        }
+      })()
+
+      const nuevas = Array.isArray(observaciones_orden) ? observaciones_orden : []
+      const fusionadas = [...actuales, ...nuevas]
+      updates.observaciones_orden = JSON.stringify(fusionadas)
     }
 
     if (Object.keys(updates).length === 0) {

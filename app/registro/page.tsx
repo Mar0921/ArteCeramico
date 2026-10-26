@@ -29,16 +29,20 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
-   const [formData, setFormData] = useState({
-     name: "",
-     documentType: "",
-     documentNumber: "",
-     email: "",
-     phone: "",
-     clinic: "",
-     password: "",
-     confirmPassword: "",
-   })
+const [formData, setFormData] = useState({
+    name: "",
+    documentType: "",
+    documentNumber: "",
+    email: "",
+    phone: "",
+    clinic: "",
+    address: "",
+    extraLocation: "",
+    extraAddress: "",
+    password: "",
+    confirmPassword: "",
+  })
+  const [showExtra, setShowExtra] = useState(false)
    const [loading, setLoading] = useState(false);
    const [error, setError] = useState<string | null>(null);
    const [success, setSuccess] = useState(false);
@@ -94,6 +98,9 @@ export default function RegisterPage() {
             correo: formData.email,
             telefono: formData.phone,
             clinica: formData.clinic,
+            direccion: formData.address,
+            locacion_extra: formData.extraLocation,
+            direccion_extra: formData.extraAddress,
             user_id: signUpData.user.id,
           },
         ])
@@ -274,6 +281,55 @@ export default function RegisterPage() {
                   required
                 />
               </div>
+
+              {/* ADDRESS */}
+              <div className="relative">
+                <input
+                  type="text"
+                  name="address"
+                  value={formData.address}
+                  onChange={handleChange}
+                  placeholder="Dirección"
+                  className="w-full rounded-xl border border-border bg-background py-3 px-4"
+                />
+              </div>
+
+              {/* ADD LOCATION BUTTON */}
+              <button
+                type="button"
+                onClick={() => setShowExtra(true)}
+                className="w-full rounded-xl border border-border bg-background py-3 font-medium text-foreground transition-colors hover:bg-muted"
+              >
+                Agregar locación
+              </button>
+              <p className="text-xs text-muted-foreground">
+                Si tienes una locación extra ya sea otro consultorio o otra clínica, agrégala en la locación extra.
+              </p>
+
+              {showExtra && (
+                <>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      name="extraLocation"
+                      value={formData.extraLocation}
+                      onChange={handleChange}
+                      placeholder="Locación extra"
+                      className="w-full rounded-xl border border-border bg-background py-3 px-4"
+                    />
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="text"
+                      name="extraAddress"
+                      value={formData.extraAddress}
+                      onChange={handleChange}
+                      placeholder="Dirección extra"
+                      className="w-full rounded-xl border border-border bg-background py-3 px-4"
+                    />
+                  </div>
+                </>
+              )}
 
               {/* PASSWORD */}
               <div className="relative">

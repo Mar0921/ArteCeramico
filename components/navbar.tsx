@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Menu, X, Users, User, Bell, Calendar, CheckCircle, Package, LayoutDashboard, UserPlus } from "lucide-react"
+import { Menu, X, Users, User, Bell, Calendar, CheckCircle, Package, LayoutDashboard, UserPlus, Upload, FileText, AlertCircle } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -22,9 +22,12 @@ const adminNavItems = [
   { label: "Calendario", href: "/dashboard/calendario", icon: Calendar },
   { label: "Fases", href: "/dashboard/fases", icon: CheckCircle },
   { label: "Productos", href: "/dashboard/productos", icon: Package },
-  { label: "Clientes", href: "/dashboard/clientes", icon: Users },
+  { label: " Clientes", href: "/dashboard/clientes", icon: Users },
   { label: "Empleados", href: "/admin/empleados", icon: UserPlus },
+  { label: "Incidencias", href: "/admin/incidencias", icon: AlertCircle },
   { label: "Cuenta", href: "/dashboard/cuenta", icon: User },
+  { label: "Materiales", href: "/admin/materiales", icon: Upload },
+  { label: "Solicitudes", href: "/admin/solicitudes", icon: FileText },
 ]
 
 export function Navbar({

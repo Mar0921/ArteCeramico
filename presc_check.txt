@@ -1,0 +1,90 @@
+﻿      try {
+        let datos: { nombre?: string | null; correo?: string | null; telefono?: string | null } | null = null
+
+        if (cliente) {
+          // El personal interno ya eligiÃ³ el cliente: se usan sus datos tal
+          // cual vienen del selector, sin consultar por user_id.
+          datos = {
+            nombre: cliente.nombre,
+            correo: cliente.correo,
+            telefono: cliente.telefono,
+          }
+        } else {
+          const {
+            data: { user },
+          } = await supabase.auth.getUser()
+
+          if (!user) return
+
+          const { data, error } = await supabase
+            .from("clientes")
+            .select("nombre, documento, correo, telefono")
+            .eq("user_id", user.id)
+            .single()
+
+          if (error || !data) return
+
+          datos = data
+        }
+
+        if (!datos) return
+
+        setSolicitudes((prev) =>
+          prev.map((s) => ({
+            ...s,
+            formData: {
+              ...s.formData,
+              odontologo: datos!.nombre ?? s.formData.odontologo,
+              correo: datos!.correo ?? s.formData.correo,
+              telefono: datos!.telefono ?? s.formData.telefono,
+            },
+          }))
+        )
+      } catch (err) {
+        console.error(err)
+      }
+    }
+
+    fetchClientData()
+  }, [cliente?.id])
+
+
+  useEffect(() => {
+    if (initializedRef.current) return
+    if (!servicio && !tipoServicio && tipoTrabajo.length === 0 && material.length === 0) return
+    initializedRef.current = true
+
+    const serv = tipoServicio || servicio
+    setSolicitudes((prev) =>
+      prev.map((s, i) =>
+        i === 0
+          ? {
+            ...s,
+            servicioTipo: serv && serv !== "Otro" ? serv : tipoServicio || s.servicioTipo,
+            formData: {
+              ...s.formData,
+              tiposTrabajo: [...new Set([...s.formData.tiposTrabajo, ...tipoTrabajo])],
+              materiales: [...new Set([...s.formData.materiales, ...material])],
+            },
+          }
+          : s
+      )
+    )
+  }, [servicio, tipoServicio, JSON.stringify(tipoTrabajo), JSON.stringify(material)])
+
+  const removeSolicitud = (index: number) => {
+    if (solicitudes.length <= 1) return
+    const removed = solicitudes[index]
+    toothDrawRefs.current.delete(removed.id)
+    setSolicitudes((prev) => prev.filter((_, i) => i !== index))
+    setActiveIndex((prev) => {
+      if (prev >= index && prev > 0) return prev - 1
+      if (prev >= solicitudes.length - 1) return Math.max(0, solicitudes.length - 2)
+      return prev
+    })
+  }
+
+  const validateSolicitudes = (): string | null => {
+    for (let i = 0; i < solicitudes.length; i++) {
+      const s = solicitudes[i]
+      if (!s.servicioTipo) {

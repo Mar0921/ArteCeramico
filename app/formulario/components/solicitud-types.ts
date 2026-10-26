@@ -20,6 +20,12 @@ export interface SolicitudFormData {
   paciente: string
   ccPaciente: string
   direccion: string
+  clinica?: string | null
+  direccionSeleccionada?: string
+  usarDireccionExtra?: boolean
+  locacionExtra?: string | null
+  direccionExtra?: string | null
+  direccionesSeleccionadas?: string[]
   correo: string
   telefono: string
   firma: string
@@ -88,6 +94,12 @@ export function createDefaultSolicitud(options?: {
       paciente: "",
       ccPaciente: "",
       direccion: "",
+      clinica: "",
+      direccionSeleccionada: "",
+      usarDireccionExtra: false,
+      locacionExtra: "",
+      direccionExtra: "",
+      direccionesSeleccionadas: [],
       correo: "",
       telefono: "",
       firma: "",

@@ -18,7 +18,7 @@ export async function GET() {
     const [clientesRes, solicitudesRes] = await Promise.all([
       supabaseAdmin
         .from("clientes")
-        .select("id, nombre, correo, telefono, clinica, tipo, documento, created_at")
+        .select("id, nombre, correo, telefono, clinica, tipo, documento, created_at, direccion, locacion_extra, direccion_extra")
         .order("created_at", { ascending: false }),
       supabaseAdmin.from("solicitudes").select("cliente_id"),
     ])
@@ -71,6 +71,9 @@ export async function POST(request: Request) {
   const telefono = String(body?.telefono || "").trim()
   const clinica = String(body?.clinica || "").trim()
   const tipoDocumento = String(body?.tipodoc || "").trim()
+  const direccion = String(body?.direccion || "").trim()
+  const locacionExtra = String(body?.locacionExtra || body?.locacion_extra || "").trim()
+  const direccionExtra = String(body?.direccionExtra || body?.direccion_extra || "").trim()
 
   if (!nombre) {
     return NextResponse.json({ error: "El nombre es obligatorio." }, { status: 400 })
@@ -121,8 +124,11 @@ export async function POST(request: Request) {
       correo,
       telefono,
       clinica,
+      direccion: direccion || null,
+      locacion_extra: locacionExtra || null,
+      direccion_extra: direccionExtra || null,
     })
-    .select("id, nombre, tipo, documento, correo, telefono, clinica")
+    .select("id, nombre, tipo, documento, correo, telefono, clinica, direccion, locacion_extra, direccion_extra")
     .single()
 
   if (error) {

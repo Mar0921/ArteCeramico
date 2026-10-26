@@ -1,0 +1,1 @@
+﻿const fs=require('fs');const p='C:\\Users\\DELL\\Downloads\\ArteCeramico\\app\\dashboard\\clientes\\[id]\\page.tsx';const c=fs.readFileSync(p,'utf8');const idx=c.indexOf('setMaterialesDisponibles');const sub=c.slice(0,idx);const i=sub.lastIndexOf('.from');if(i>=0){console.log(sub.slice(i, i+230));}
