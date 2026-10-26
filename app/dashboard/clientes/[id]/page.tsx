@@ -167,6 +167,8 @@ interface EstadoCuentaItem {
   estado_pago: string
   comprobante_pago: string | null
   urlPdf: string
+  facturaUrl: string | null
+  seleccionado: boolean
 }
 
 interface EncuestaPostAdaptacion {
@@ -276,6 +278,11 @@ const [eliminando, setEliminando] = useState<string | null>(null)
   const [pagoDocs, setPagoDocs] = useState<{ [itemId: number]: File | null }>({})
   const [uploadingPagoDoc, setUploadingPagoDoc] = useState<{ [itemId: number]: boolean }>({})
   const [pagoStatusUpdating, setPagoStatusUpdating] = useState<{ [itemId: number]: boolean }>({})
+  const [facturasPorSolicitud, setFacturasPorSolicitud] = useState<Record<number, string | null>>({})
+  const [facturaDocs, setFacturaDocs] = useState<{ [solicitudId: number]: File | null }>({})
+  const [uploadingFactura, setUploadingFactura] = useState<{ [solicitudId: number]: boolean }>({})
+  const [seleccionadosPago, setSeleccionadosPago] = useState<Set<number>>(new Set())
+  const [pagandoSeleccionadas, setPagandoSeleccionadas] = useState(false)
   const [encuestasPostAdaptacion, setEncuestasPostAdaptacion] = useState<Record<number, EncuestaPostAdaptacion[]>>({})
   const [buzonQuejas, setBuzonQuejas] = useState<Record<number, BuzonQueja[]>>({})
   const [fichasTecnicasPorSolicitud, setFichasTecnicasPorSolicitud] = useState<Record<number, any[]>>({})
@@ -1997,36 +2004,37 @@ loadClient()
         serviciosPorSolicitud.set(serv.solicitud_id, arr)
       })
 
-      const items = solicitudes.flatMap((solicitud: any) => {
-        const servicios = serviciosPorSolicitud.get(solicitud.id) || []
-        const urlPdf = solicitud.urls_documentos?.[0] || null
-        if (servicios.length > 0) {
-          return servicios.map((serv: any) => ({
-            id: `${solicitud.id}-${serv.id}`,
-            solicitudId: solicitud.id,
-            servicio: serv.nombre || solicitud.servicio,
-            precio: serv.precio || 0,
-            estado: solicitud.estado || "pendiente",
-            fecha: serv.created_at || solicitud.created_at,
-            estado_pago: solicitud.estado_pago || "pendiente_pago",
-            comprobante_pago: solicitud.comprobante_pago || null,
-            urlPdf,
-          }))
-        }
-        return [{
-          id: `${solicitud.id}`,
-          solicitudId: solicitud.id,
-          servicio: solicitud.servicio || "Servicio",
-          precio: solicitud.precio || 0,
-          estado: solicitud.estado || "pendiente",
-          fecha: solicitud.created_at,
-          estado_pago: solicitud.estado_pago || "pendiente_pago",
-          comprobante_pago: solicitud.comprobante_pago || null,
+      const items = solicitudes.map((sudoku: any) => {
+        const servicios = serviciosPorSolicitud.get(sudoku.id) || []
+        const urlPdf = sudoku.urls_documentos?.[0] || null
+        const facturaUrl = sudoku.facturas_url || sudoku.factura_url || null
+        const nombresServicios = servicios.length > 0
+          ? servicios.map((s: any) => s.nombre).filter(Boolean).join(", ")
+          : (sudoku.servicio || "Servicio")
+        const precioTotal = servicios.length > 0
+          ? servicios.reduce((sum: number, s: any) => sum + (Number(s.precio) || 0), 0)
+          : (Number(sudoku.precio) || 0)
+        const fechaServicio = servicios.length > 0
+          ? (servicios[0].created_at || sudoku.created_at)
+          : sudoku.created_at
+        return {
+          id: String(sudoku.id),
+          solicitudId: sudoku.id,
+          servicio: nombresServicios,
+          precio: precioTotal,
+          estado: sudoku.estado || "pendiente",
+          fecha: fechaServicio,
+estado_pago: sudoku.estado_pago || "pendientePago",
+           comprobante_pago: sudoku.comprobante_pago || null,
           urlPdf,
-        }]
+          facturaUrl,
+          seleccionado: false,
+        }
       })
-
-      setItemsEstadoCuenta((prev) => ({ ...prev, [clienteId]: items }))
+      setItemsEstadoCuenta((prev) => ({
+        ...prev,
+        [clienteId]: items,
+      }))
       setTotalPagarPorCliente((prev) => ({
         ...prev,
         [clienteId]: items.reduce((sum: number, item: EstadoCuentaItem) => sum + (item.precio || 0), 0),
@@ -2146,6 +2154,131 @@ loadClient()
       toast({ title: "Error", description: err.message || "No se pudo actualizar el estado.", variant: "destructive" })
     } finally {
       setPagoStatusUpdating((prev) => ({ ...prev, [solicitudId]: false }))
+    }
+  }
+
+  const handleSubirFactura = async (solicitudId: number) => {
+    const file = facturaDocs[solicitudId]
+    if (!file) return
+
+    setUploadingFactura((prev) => ({ ...prev, [solicitudId]: true }))
+    try {
+      const fileExt = file.name.split(".").pop()
+      const fileName = `facturas/${solicitudId}-${Date.now()}.${fileExt}`
+
+      const { error: uploadError } = await supabase.storage
+        .from("documentos")
+        .upload(fileName, file)
+
+      if (uploadError) throw uploadError
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("documentos")
+        .getPublicUrl(fileName)
+
+      setFacturasPorSolicitud((prev) => ({ ...prev, [solicitudId]: publicUrl }))
+
+      const { error: updateError } = await supabase
+        .from("solicitudes")
+        .update({ urls_documentos: null, facturas_url: publicUrl })
+        .eq("id", solicitudId)
+
+      if (updateError) throw updateError
+
+      setSolicitudes((prev) =>
+        prev.map((s: Solicitud) =>
+          s.id === solicitudId ? { ...s, urls_documentos: null, facturas_url: publicUrl } : s
+        )
+      )
+
+      setItemsEstadoCuenta((prev) => ({
+        ...prev,
+        [client!.id]: (prev[client!.id] || []).map((item) =>
+          item.solicitudId === solicitudId ? { ...item, facturaUrl: publicUrl } : item
+        ),
+      }))
+
+      setFacturaDocs((prev) => {
+        const next = { ...prev }
+        delete next[solicitudId]
+        return next
+      })
+
+      toast({ title: "Factura subida", description: "La factura se subió correctamente." })
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "No se pudo subir la factura.", variant: "destructive" })
+    } finally {
+      setUploadingFactura((prev) => ({ ...prev, [solicitudId]: false }))
+    }
+  }
+
+  const toggleSeleccionPago = (solicitudId: number) => {
+    setSeleccionadosPago((prev) => {
+      const next = new Set(prev)
+      if (next.has(solicitudId)) next.delete(solicitudId)
+      else next.add(solicitudId)
+      return next
+    })
+    setItemsEstadoCuenta((prev) => ({
+      ...prev,
+      [client!.id]: (prev[client!.id] || []).map((item) =>
+        item.solicitudId === solicitudId ? { ...item, seleccionado: !item.seleccionado } : item
+      ),
+    }))
+  }
+
+  const handlePagoSimulado = async () => {
+    if (seleccionadosPago.size === 0) {
+      toast({ title: "Error", description: "Selecciona al menos una factura para pagar.", variant: "destructive" })
+      return
+    }
+
+    setPagandoSeleccionadas(true)
+    try {
+      for (const solicitudId of seleccionadosPago) {
+        await supabase
+          .from("solicitudes")
+          .update({ estado_pago: "pendiente_validacion" })
+          .eq("id", solicitudId)
+
+        setSolicitudes((prev) =>
+          prev.map((s: Solicitud) =>
+            s.id === solicitudId ? { ...s, estado_pago: "pendiente_validacion" } : s
+          )
+        )
+
+        setItemsEstadoCuenta((prev) => ({
+          ...prev,
+          [client!.id]: (prev[client!.id] || []).map((item) =>
+            item.solicitudId === solicitudId ? { ...item, estado_pago: "pendiente_validacion", seleccionado: false } : item
+          ),
+        }))
+      }
+
+      setSeleccionadosPago(new Set())
+      toast({ title: "Pago simulado", description: "Se ha simulado el pago. Ahora sube el comprobante de cada factura seleccionada." })
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message || "No se pudo procesar el pago simulado.", variant: "destructive" })
+    } finally {
+      setPagandoSeleccionadas(false)
+    }
+  }
+
+  const handleDescargarFactura = async (url: string) => {
+    try {
+      const response = await fetch(url)
+      const blob = await response.blob()
+      const downloadUrl = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = downloadUrl
+      link.download = `factura-${Date.now()}.pdf`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(downloadUrl)
+    } catch (err: any) {
+      console.error("Error descargando factura:", err)
+      toast({ title: "Error", description: "No se pudo descargar la factura.", variant: "destructive" })
     }
   }
 
@@ -4764,6 +4897,24 @@ loadClient()
                     ${(totalPagarPorCliente[client!.id] || 0).toLocaleString("es-CO")}
                   </span>
                 </div>
+                {seleccionadosPago.size > 0 && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {seleccionadosPago.size} factura{seleccionadosPago.size > 1 ? "s" : ""} seleccionada{seleccionadosPago.size > 1 ? "s" : ""}
+                    </span>
+                    <button
+                      onClick={handlePagoSimulado}
+                      disabled={pagandoSeleccionadas}
+                      className="inline-flex items-center gap-2 rounded-lg border border-border bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+                    >
+                      {pagandoSeleccionadas ? (
+                        <><Loader2 size={12} className="animate-spin" /> Pagando...</>
+                      ) : (
+                        <><Send size={14} /> Pagar seleccionadas (simulado)</>
+                      )}
+                    </button>
+                  </div>
+                )}
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
@@ -4774,6 +4925,8 @@ loadClient()
                         <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Fecha</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Estado</th>
                         <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Estado Pago</th>
+                         <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Factura</th>
+                         <th className="px-4 py-3 text-center text-xs font-medium text-muted-foreground">Seleccionar</th>
                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">Comprobante</th>
                          <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">PDF</th>
                          <th className="px-4 py-3 text-right text-xs font-medium text-muted-foreground">Precio</th>
@@ -4825,42 +4978,40 @@ loadClient()
                             </div>
                           </td>
                           <td className="py-2 pr-3">
-                            {item.comprobante_pago ? (
-                              <a
-                                href={item.comprobante_pago}
-                                target="_blank"
-                                rel="noopener noreferrer"
+                            {item.facturaUrl ? (
+                              <button
+                                onClick={() => handleDescargarFactura(item.facturaUrl!)}
                                 className="text-[10px] text-primary hover:underline flex items-center gap-1"
                               >
-                                <CreditCard size={12} />
-                                Ver comprobante
-                              </a>
+                                <FileText size={12} />
+                                Ver factura
+                              </button>
                             ) : (
                               <div className="flex items-center gap-2">
                                 <input
                                   type="file"
                                   className="hidden"
-                                  id={`pago-${item.solicitudId}`}
+                                  id={`factura-${item.solicitudId}`}
                                   accept=".pdf,.jpg,.jpeg,.png,.webp"
                                   onChange={(e) => {
                                     const file = e.target.files?.[0]
-                                    if (file) setPagoDocs((prev) => ({ ...prev, [item.solicitudId]: file }))
+                                    if (file) setFacturaDocs((prev) => ({ ...prev, [item.solicitudId]: file }))
                                   }}
                                 />
                                 <label
-                                  htmlFor={`pago-${item.solicitudId}`}
+                                  htmlFor={`factura-${item.solicitudId}`}
                                   className="inline-flex cursor-pointer items-center gap-1 rounded-lg border border-border bg-background px-2 py-1 text-[10px] font-medium text-foreground transition-colors hover:border-primary hover:text-primary"
                                 >
                                   <Upload size={12} />
-                                  {pagoDocs[item.solicitudId] ? pagoDocs[item.solicitudId]!.name.substring(0, 10) + "..." : "Subir"}
+                                  {facturaDocs[item.solicitudId] ? facturaDocs[item.solicitudId]!.name.substring(0, 10) + "..." : "Subir factura"}
                                 </label>
-                                {pagoDocs[item.solicitudId] && (
+                                {facturaDocs[item.solicitudId] && (
                                   <button
-                                    onClick={() => handleSubirComprobantePago(item.solicitudId, item.solicitudId)}
-                                    disabled={uploadingPagoDoc[item.solicitudId]}
+                                    onClick={() => handleSubirFactura(item.solicitudId)}
+                                    disabled={uploadingFactura[item.solicitudId]}
                                     className="inline-flex items-center gap-1 rounded-lg bg-primary/10 px-2 py-1 text-[10px] font-medium text-primary hover:bg-primary/20 disabled:opacity-50"
                                   >
-                                    {uploadingPagoDoc[item.solicitudId] ? (
+                                    {uploadingFactura[item.solicitudId] ? (
                                       <>
                                         <Loader2 size={12} className="animate-spin" />
                                         Guardando
@@ -4872,25 +5023,49 @@ loadClient()
                                 )}
                               </div>
                             )}
-                           </td>
-                           <td className="py-2 pr-3">
-                             {item.urlPdf ? (
-                               <a
-                                 href={item.urlPdf}
-                                 target="_blank"
-                                 rel="noopener noreferrer"
-                                 className="text-[10px] text-primary hover:underline flex items-center gap-1"
-                               >
-                                 <FileText size={12} />
-                                 Ver PDF
-                               </a>
-                             ) : (
-                               <span className="text-[10px] text-muted-foreground">-</span>
-                             )}
-                           </td>
-                           <td className="py-2 text-right text-xs font-semibold text-foreground">
-                             {item.precio ? `$${item.precio.toLocaleString("es-CO")}` : "-"}
-                           </td>
+                          </td>
+                          <td className="py-2 text-center">
+                            <input
+                              type="checkbox"
+                              checked={item.seleccionado}
+                              onChange={() => toggleSeleccionPago(item.solicitudId)}
+                              disabled={item.estado_pago !== "pendiente_pago"}
+                              className="rounded border-border text-primary focus:ring-primary"
+                            />
+                          </td>
+                          <td className="py-2 pr-3">
+                            {item.comprobante_pago ? (
+                              <a
+                                href={item.comprobante_pago}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] text-primary hover:underline flex items-center gap-1"
+                              >
+                                <CreditCard size={12} />
+                                Ver comprobante
+                              </a>
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground">Sin comprobante</span>
+                            )}
+                          </td>
+                          <td className="py-2 pr-3">
+                            {item.urlPdf ? (
+                              <a
+                                href={item.urlPdf}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] text-primary hover:underline flex items-center gap-1"
+                              >
+                                <FileText size={12} />
+                                Ver PDF
+                              </a>
+                            ) : (
+                              <span className="text-[10px] text-muted-foreground">-</span>
+                            )}
+                          </td>
+                          <td className="py-2 text-right text-xs font-semibold text-foreground">
+                            {item.precio ? `$${item.precio.toLocaleString("es-CO")}` : "-"}
+                          </td>
                         </tr>
                       ))}
                     </tbody>

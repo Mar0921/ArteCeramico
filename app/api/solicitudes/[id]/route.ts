@@ -52,12 +52,13 @@ export async function PATCH(
        "guia_fabricacion",
        "manual_uso",
        "fase",
-      "orden_fabricacion_url",
-         "orden_materiales",
-         "orden_fases",
-         "historia_clinica_paciente",
-         "tipo_impresion",
-       ]
+"orden_fabricacion_url",
+          "orden_materiales",
+          "orden_fases",
+          "historia_clinica_paciente",
+          "tipo_impresion",
+          "factura_url",
+        ]
 
     const updates: Record<string, unknown> = {}
     for (const field of allowedFields) {
