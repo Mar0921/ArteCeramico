@@ -151,7 +151,7 @@ export default function DashboardPage() {
             getDaysHastaEntrega(order.fecha_entrega) === 1
         )
         .map((order) => ({
-          codigo: order.id,
+          codigo: order.codigo_trazabilidad || order.id,
           fechaEntrega: order.fecha_entrega,
         })),
     [recentSolicitudes]

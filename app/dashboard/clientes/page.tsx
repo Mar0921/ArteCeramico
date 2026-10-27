@@ -160,7 +160,7 @@ export default function ClientesPage() {
   const [uploadError, setUploadError] = useState<Record<string, string>>({})
   const [uploadSuccess, setUploadSuccess] = useState<Record<string, boolean>>({})
   const [mostrarEstadoCuenta, setMostrarEstadoCuenta] = useState<{ [key: number]: boolean }>({})
-  const [itemsEstadoCuenta, setItemsEstadoCuenta] = useState<{ [key: number]: { solicitudId: number; servicio: string; precio: number | null; estado: string; fecha: string }[] }>({})
+  const [itemsEstadoCuenta, setItemsEstadoCuenta] = useState<{ [key: number]: { solicitudId: number; codigo_trazabilidad: string | null; servicio: string; precio: number | null; estado: string; fecha: string }[] }>({})
    const [totalPagarPorCliente, setTotalPagarPorCliente] = useState<{ [key: number]: number }>({})
     const [cancelandoSolicitud, setCancelandoSolicitud] = useState<{ [key: number]: boolean }>({})
     const [aceptandoSolicitud, setAceptandoSolicitud] = useState<{ [key: number]: boolean }>({})
@@ -678,7 +678,7 @@ export default function ClientesPage() {
     try {
       const { data: solicitudesData, error: solicitudesError } = await supabase
         .from("solicitudes")
-        .select("id, estado, created_at")
+        .select("id, estado, created_at, codigo_trazabilidad")
         .eq("cliente_id", clienteId)
 
       if (solicitudesError) throw solicitudesError
@@ -704,13 +704,14 @@ export default function ClientesPage() {
         .filter((item: any) => item.precio && Number(item.precio) > 0)
         .map((item: any) => {
           const solicitud = solicitudesMap.get(item.solicitud_id)
-          return {
-            solicitudId: item.solicitud_id,
-            servicio: item.nombre,
-            precio: Number(item.precio),
-            estado: solicitud?.estado || "pendiente",
-            fecha: solicitud?.created_at || item.created_at || "",
-          }
+            return {
+              solicitudId: item.solicitud_id,
+              codigo_trazabilidad: solicitud?.codigo_trazabilidad || null,
+              servicio: item.nombre,
+              precio: Number(item.precio),
+              estado: solicitud?.estado || "pendiente",
+              fecha: solicitud?.created_at || item.created_at || "",
+            }
         })
 
       setItemsEstadoCuenta((prev) => ({ ...prev, [clienteId]: items }))
@@ -2013,12 +2014,12 @@ export default function ClientesPage() {
                           </thead>
                           <tbody className="divide-y divide-border/40">
                             {(itemsEstadoCuenta[cliente.id] || []).map((item, index) => (
-                              <tr key={item.solicitudId}>
+                              <tr key={`${item.solicitudId}-${index}`}>
                                 <td className="py-2 pr-3 text-muted-foreground">{index + 1}</td>
                                 <td className="py-2 pr-3 font-medium text-foreground">{item.servicio}</td>
                                 <td className="py-2 pr-3">
                                   <span className="inline-flex items-center rounded-full border border-border bg-background/70 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                                    SOL-{String(item.solicitudId).padStart(3, "0")}
+                                     {item.codigo_trazabilidad ? `#${item.codigo_trazabilidad}` : `SOL-${String(item.solicitudId).padStart(3, "0")}`}
                                   </span>
                                 </td>
                                 <td className="py-2 pr-3 text-muted-foreground">
