@@ -1,7 +1,7 @@
 "use client"
 
 import { motion, AnimatePresence } from "framer-motion"
-import { X, LayoutDashboard, Package, Calendar, CheckCircle, ChevronRight, User, FileText, Users, Plus } from "lucide-react"
+import { X, LayoutDashboard, Package, Calendar, CheckCircle, ChevronRight, User, FileText, Users, Plus, Camera } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 
@@ -12,6 +12,7 @@ const empleadoNavItems = [
   { label: "Clientes", href: "/empleados/dashboard/clientes", icon: Users },
   { label: "Calendario", href: "/empleados/dashboard/calendario", icon: Calendar },
   { label: "Mis Fases", href: "/empleados/dashboard/fases", icon: CheckCircle },
+  { label: "Evidencias", href: "/empleados/dashboard/evidencias", icon: Camera },
   { label: "Productos", href: "/empleados/dashboard/productos", icon: Package },
 ]
 

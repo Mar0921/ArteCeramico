@@ -19,7 +19,7 @@ import {
   LogOut,
   UserPlus,
   Upload,
-  AlertCircle,
+  Camera,
 } from "lucide-react"
 
 interface SidebarProps {
@@ -59,9 +59,9 @@ const menuItems = [
     icon: UserPlus,
   },
   {
-    label: "Incidencias",
-    href: "/admin/incidencias",
-    icon: AlertCircle,
+    label: "Evidencias",
+    href: "/dashboard/evidencias",
+    icon: Camera,
   },
   {
     label: "Materiales",

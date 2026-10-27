@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import {
   ArrowLeft,
   CalendarDays,
+  Camera,
   CheckCircle,
   Clock,
   Loader2,
@@ -19,6 +20,10 @@ import {
 import { cn } from "@/lib/utils"
 import { FASES_PROCESO, hoyISO, parseFases, type FaseProceso } from "@/lib/fases"
 import { supabase } from "@/lib/supabase"
+
+/** Bucket de Supabase Storage donde se guardan las fotos de evidencia. */
+const BUCKET_EVIDENCIAS = "evidencias"
+const MAX_FOTO_MB = 10
 
 function mostrarTipoImpresion(valor: string | null | undefined): string {
   const normalizado = String(valor || "").trim().toLowerCase()
@@ -63,6 +68,11 @@ interface MaterialOrden {
   lote: string
   fabricante: string
   proveedor: string
+}
+
+interface EvidenciaRegistrada {
+  id: number
+  ruta: string
 }
 
 interface Solicitud {
@@ -177,6 +187,15 @@ function joinList(value: string[] | null | undefined) {
   return value.length > 0 ? value.join(", ") : "-"
 }
 
+/** Valida que el archivo sea una imagen de tamaño razonable. */
+function validarFoto(file: File): string | null {
+  if (!file.type.startsWith("image/")) return "El archivo debe ser una imagen."
+  if (file.size > MAX_FOTO_MB * 1024 * 1024) {
+    return `La foto no puede superar ${MAX_FOTO_MB} MB.`
+  }
+  return null
+}
+
 const InfoRow = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <div className="grid grid-cols-1 gap-1 sm:grid-cols-[140px_1fr] sm:py-1.5">
     <span className="text-xs text-muted-foreground">{label}</span>
@@ -193,6 +212,7 @@ export default function EmpleadoSolicitudDetallePage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [empleadoNombre, setEmpleadoNombre] = useState("")
+  const [empleadoId, setEmpleadoId] = useState<number | null>(null)
   const [mostrandoFormFase, setMostrandoFormFase] = useState(false)
   const [nuevaFase, setNuevaFase] = useState({
     tipo: "",
@@ -200,6 +220,13 @@ export default function EmpleadoSolicitudDetallePage() {
     realizada_por: "",
     fecha_finalizacion: "",
   })
+  const [fotoNuevaFase, setFotoNuevaFase] = useState<File | null>(null)
+  const [errorNuevaFase, setErrorNuevaFase] = useState<string | null>(null)
+  // Evidencia al marcar una fase como completada
+  const [faseEvidencia, setFaseEvidencia] = useState<{ idx: number; tipo: string } | null>(null)
+  const [fotoEvidencia, setFotoEvidencia] = useState<File | null>(null)
+  const [fotoPreview, setFotoPreview] = useState<string | null>(null)
+  const [errorEvidencia, setErrorEvidencia] = useState<string | null>(null)
   const [materialesOrden, setMaterialesOrden] = useState<MaterialOrden[]>([])
   const [materialesDisponibles, setMaterialesDisponibles] = useState<any[]>([])
   const [savingMateriales, setSavingMateriales] = useState(false)
@@ -218,6 +245,66 @@ export default function EmpleadoSolicitudDetallePage() {
   const [mostrarEditIncidencia, setMostrarEditIncidencia] = useState(false)
   const [editandoIncidencia, setEditandoIncidencia] = useState<any>(null)
   const [tabEditInc, setTabEditInc] = useState("basicos")
+
+  /** Vista previa de la foto elegida; se libera la URL al cambiar o desmontar. */
+  useEffect(() => {
+    if (!fotoEvidencia) {
+      setFotoPreview(null)
+      return
+    }
+    const url = URL.createObjectURL(fotoEvidencia)
+    setFotoPreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [fotoEvidencia])
+
+  /**
+   * Sube la foto a Storage y registra la fila en `public.evidencias`.
+   * Devuelve lo necesario para deshacer el registro si luego falla el cierre de la fase.
+   */
+  const registrarEvidencia = async (file: File, fase: string): Promise<EvidenciaRegistrada> => {
+    const extension =
+      (file.name.split(".").pop() || "jpg").replace(/[^a-z0-9]/gi, "").toLowerCase() || "jpg"
+    const ruta = `${solicitudId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${extension}`
+
+    const { error: errorSubida } = await supabase.storage
+      .from(BUCKET_EVIDENCIAS)
+      .upload(ruta, file, { contentType: file.type || "image/jpeg", upsert: false })
+    if (errorSubida) {
+      throw new Error(`No se pudo subir la foto: ${errorSubida.message}`)
+    }
+
+    const { data: publica } = supabase.storage.from(BUCKET_EVIDENCIAS).getPublicUrl(ruta)
+
+    const { data: fila, error: errorInsert } = await supabase
+      .from("evidencias")
+      .insert({
+        solicitud_id: solicitudId,
+        empleado_id: empleadoId,
+        fase,
+        foto_url: publica.publicUrl,
+      })
+      .select("id")
+      .single()
+
+    if (errorInsert || !fila) {
+      await supabase.storage.from(BUCKET_EVIDENCIAS).remove([ruta])
+      throw new Error(
+        `No se pudo registrar la evidencia: ${errorInsert?.message || "sin respuesta del servidor"}`
+      )
+    }
+
+    return { id: fila.id, ruta }
+  }
+
+  /** Revierte una evidencia cuando la fase finalmente no se pudo completar. */
+  const deshacerEvidencia = async (evidencia: EvidenciaRegistrada) => {
+    try {
+      await supabase.from("evidencias").delete().eq("id", evidencia.id)
+      await supabase.storage.from(BUCKET_EVIDENCIAS).remove([evidencia.ruta])
+    } catch {
+      // Mejor esfuerzo: si no se puede limpiar, la evidencia queda como respaldo.
+    }
+  }
 
   /** Envía el arreglo completo de fases: el endpoint reemplaza `orden_fases`. */
   const guardarFases = async (fases: FaseProceso[]) => {
@@ -286,10 +373,11 @@ export default function EmpleadoSolicitudDetallePage() {
       if (!user) return
       const { data } = await supabase
         .from("empleados")
-        .select("nombre")
+        .select("id, nombre")
         .eq("user_id", user.id)
         .maybeSingle()
       if (data?.nombre) setEmpleadoNombre(data.nombre)
+      if (data?.id != null) setEmpleadoId(Number(data.id))
     }
     cargarEmpleado()
   }, [])
@@ -354,6 +442,12 @@ export default function EmpleadoSolicitudDetallePage() {
     cargarMaterialesDisponibles()
   }, [])
 
+  const cerrarModalEvidencia = () => {
+    setFaseEvidencia(null)
+    setFotoEvidencia(null)
+    setErrorEvidencia(null)
+  }
+
   const handleAdvanceFase = async (idx: number) => {
     if (!data) return
     const s = data.solicitud
@@ -370,18 +464,21 @@ export default function EmpleadoSolicitudDetallePage() {
     const siguiente =
       actual.estado === "en_proceso" ? "completado" : "en_proceso"
 
+    // Completar una fase exige foto de evidencia: se abre el modal y la fase
+    // solo se cierra cuando la foto quedó guardada.
+    if (siguiente === "completado") {
+      setFotoEvidencia(null)
+      setErrorEvidencia(null)
+      setFaseEvidencia({
+        idx,
+        tipo: actual.tipo || actual.descripcion || `Fase ${idx + 1}`,
+      })
+      return
+    }
+
     const updated = fases.map((fase, i) => {
       if (i !== idx) return fase
-      return {
-        ...fase,
-        estado: siguiente,
-        // Al cerrar la fase se sella la fecha y el responsable; si el
-        // administrador ya los había puesto, se respetan.
-        fecha_finalizacion:
-          siguiente === "completado" ? fase.fecha_finalizacion || hoyISO() : fase.fecha_finalizacion,
-        realizada_por:
-          siguiente === "completado" ? fase.realizada_por || empleadoNombre : fase.realizada_por,
-      }
+      return { ...fase, estado: siguiente }
     })
 
     setSaving(true)
@@ -389,6 +486,59 @@ export default function EmpleadoSolicitudDetallePage() {
       await guardarFases(updated)
     } catch (err) {
       setError(err instanceof Error ? err.message : "Error al actualizar la fase.")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  /** Confirma el modal: sube la evidencia y recién entonces completa la fase. */
+  const completarFaseConEvidencia = async () => {
+    if (!data || !faseEvidencia) return
+
+    if (!fotoEvidencia) {
+      setErrorEvidencia("Debes adjuntar una foto de evidencia para completar la fase.")
+      return
+    }
+    const errorFoto = validarFoto(fotoEvidencia)
+    if (errorFoto) {
+      setErrorEvidencia(errorFoto)
+      return
+    }
+
+    const fases = parseFases(data.solicitud.orden_fases)
+    const actual = fases[faseEvidencia.idx]
+    if (!actual || actual.estado === "completado") {
+      cerrarModalEvidencia()
+      return
+    }
+
+    const updated = fases.map((fase, i) => {
+      if (i !== faseEvidencia.idx) return fase
+      return {
+        ...fase,
+        estado: "completado",
+        // Al cerrar la fase se sella la fecha y el responsable; si el
+        // administrador ya los había puesto, se respetan.
+        fecha_finalizacion: fase.fecha_finalizacion || hoyISO(),
+        realizada_por: fase.realizada_por || empleadoNombre,
+      }
+    })
+
+    setSaving(true)
+    setErrorEvidencia(null)
+    let evidencia: EvidenciaRegistrada | null = null
+    try {
+      evidencia = await registrarEvidencia(fotoEvidencia, faseEvidencia.tipo)
+      const ok = await guardarFases(updated)
+      if (!ok) {
+        await deshacerEvidencia(evidencia)
+        cerrarModalEvidencia()
+        return
+      }
+      cerrarModalEvidencia()
+    } catch (err) {
+      if (evidencia) await deshacerEvidencia(evidencia)
+      setErrorEvidencia(err instanceof Error ? err.message : "Error al completar la fase.")
     } finally {
       setSaving(false)
     }
@@ -420,6 +570,19 @@ export default function EmpleadoSolicitudDetallePage() {
     const fases = parseFases(data.solicitud.orden_fases)
     const completada = nuevaFase.estado === "completado"
 
+    // Una fase que nace terminada también necesita su foto de evidencia.
+    if (completada) {
+      if (!fotoNuevaFase) {
+        setErrorNuevaFase("Debes adjuntar una foto de evidencia para registrar una fase completada.")
+        return
+      }
+      const errorFoto = validarFoto(fotoNuevaFase)
+      if (errorFoto) {
+        setErrorNuevaFase(errorFoto)
+        return
+      }
+    }
+
     const fase: FaseProceso = {
       tipo: nuevaFase.tipo,
       estado: nuevaFase.estado,
@@ -435,12 +598,23 @@ export default function EmpleadoSolicitudDetallePage() {
     }
 
     setSaving(true)
+    setErrorNuevaFase(null)
+    let evidencia: EvidenciaRegistrada | null = null
     try {
-      await guardarFases([...fases, fase])
+      if (completada && fotoNuevaFase) {
+        evidencia = await registrarEvidencia(fotoNuevaFase, nuevaFase.tipo)
+      }
+      const ok = await guardarFases([...fases, fase])
+      if (!ok) {
+        if (evidencia) await deshacerEvidencia(evidencia)
+        return
+      }
       setNuevaFase({ tipo: "", estado: "pendiente", realizada_por: "", fecha_finalizacion: "" })
+      setFotoNuevaFase(null)
       setMostrandoFormFase(false)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error al agregar la fase.")
+      if (evidencia) await deshacerEvidencia(evidencia)
+      setErrorNuevaFase(err instanceof Error ? err.message : "Error al agregar la fase.")
     } finally {
       setSaving(false)
     }
@@ -757,7 +931,10 @@ export default function EmpleadoSolicitudDetallePage() {
                     <select
                       id="fase-estado"
                       value={nuevaFase.estado}
-                      onChange={(e) => setNuevaFase({ ...nuevaFase, estado: e.target.value })}
+                      onChange={(e) => {
+                        setNuevaFase({ ...nuevaFase, estado: e.target.value })
+                        setErrorNuevaFase(null)
+                      }}
                       className="w-full rounded-lg border border-border bg-background px-2.5 py-2 text-xs text-foreground outline-none focus:border-primary"
                     >
                       <option value="pendiente">Pendiente</option>
@@ -802,12 +979,47 @@ export default function EmpleadoSolicitudDetallePage() {
                       className="w-full rounded-lg border border-border bg-background px-2.5 py-2 text-xs text-foreground outline-none focus:border-primary"
                     />
                   </div>
+
+                  {nuevaFase.estado === "completado" && (
+                    <div className="sm:col-span-2 lg:col-span-4">
+                      <label
+                        htmlFor="fase-foto"
+                        className="mb-1 flex items-center gap-1.5 text-xs font-medium text-foreground"
+                      >
+                        <Camera className="size-3.5" />
+                        Foto de evidencia (obligatoria)
+                      </label>
+                      <input
+                        id="fase-foto"
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          setFotoNuevaFase(e.target.files?.[0] ?? null)
+                          setErrorNuevaFase(null)
+                        }}
+                        className="w-full rounded-lg border border-border bg-background px-2.5 py-2 text-xs text-foreground file:mr-3 file:rounded file:border-0 file:bg-primary/10 file:px-2 file:py-1 file:text-xs file:font-medium file:text-primary"
+                      />
+                      {fotoNuevaFase && (
+                        <p className="mt-1 text-[11px] text-muted-foreground">
+                          {fotoNuevaFase.name}
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
+
+                {errorNuevaFase && (
+                  <p className="mt-3 text-xs text-destructive">{errorNuevaFase}</p>
+                )}
 
                 <div className="mt-3 flex items-center justify-end gap-2">
                   <button
                     type="button"
-                    onClick={() => setMostrandoFormFase(false)}
+                    onClick={() => {
+                      setMostrandoFormFase(false)
+                      setFotoNuevaFase(null)
+                      setErrorNuevaFase(null)
+                    }}
                     className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted"
                   >
                     Cancelar
@@ -890,7 +1102,11 @@ export default function EmpleadoSolicitudDetallePage() {
                           type="button"
                           disabled={saving}
                           onClick={() => handleAdvanceFase(idx)}
-                          title={`Avanzar a ${statusLabels[siguiente] || siguiente}`}
+                          title={
+                            siguiente === "completado"
+                              ? "Completar fase (requiere foto de evidencia)"
+                              : `Avanzar a ${statusLabels[siguiente] || siguiente}`
+                          }
                           className={cn(
                             "shrink-0 rounded-full px-3 py-1.5 text-[11px] font-medium capitalize transition-colors",
                             estado === "en_proceso"
@@ -907,9 +1123,9 @@ export default function EmpleadoSolicitudDetallePage() {
               </ul>
             )}
             <p className="mt-3 text-[11px] text-muted-foreground">
-              Avanza el progreso de cada fase (Pendiente → En proceso → Completado). Al completarla
-              se registra la fecha de terminación y tu nombre; las fases ya terminadas se conservan y
-              solo puedes corregir su fecha.
+              Avanza el progreso de cada fase (Pendiente → En proceso → Completado). Para completarla
+              debes adjuntar una foto de evidencia; al hacerlo se registra la fecha de terminación y tu
+              nombre. Las fases ya terminadas se conservan y solo puedes corregir su fecha.
             </p>
           </div>
 
@@ -1312,6 +1528,66 @@ export default function EmpleadoSolicitudDetallePage() {
           )}
         </div>
       </div>
+
+      {/* Modal: foto de evidencia obligatoria para completar una fase */}
+      {faseEvidencia && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl bg-card p-5 shadow-xl">
+            <div className="mb-3 flex items-center gap-2 border-b border-border pb-3">
+              <Camera className="size-4 text-primary" />
+              <h3 className="font-semibold text-foreground">Evidencia de la fase</h3>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Para completar la fase{" "}
+              <span className="font-medium text-foreground">{faseEvidencia.tipo}</span> debes adjuntar
+              una foto de evidencia.
+            </p>
+
+            <input
+              type="file"
+              accept="image/*"
+              disabled={saving}
+              onChange={(e) => {
+                setFotoEvidencia(e.target.files?.[0] ?? null)
+                setErrorEvidencia(null)
+              }}
+              className="mt-3 w-full rounded-lg border border-border bg-background px-2.5 py-2 text-xs text-foreground file:mr-3 file:rounded file:border-0 file:bg-primary/10 file:px-2 file:py-1 file:text-xs file:font-medium file:text-primary"
+            />
+
+            {fotoPreview && (
+              <img
+                src={fotoPreview}
+                alt="Vista previa de la evidencia"
+                className="mt-3 max-h-64 w-full rounded-lg border border-border object-contain"
+              />
+            )}
+
+            {errorEvidencia && (
+              <p className="mt-3 text-xs text-destructive">{errorEvidencia}</p>
+            )}
+
+            <div className="mt-4 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                disabled={saving}
+                onClick={cerrarModalEvidencia}
+                className="rounded-lg border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={saving || !fotoEvidencia}
+                onClick={completarFaseConEvidencia}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary-dark disabled:opacity-50"
+              >
+                {saving && <Loader2 className="size-3 animate-spin" />}
+                {saving ? "Guardando..." : "Completar fase"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

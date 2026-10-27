@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
-import { Menu, X, Bell, User, LogOut, LayoutDashboard, Package, Calendar, Users, FileText, Upload } from "lucide-react"
+import { Menu, X, Bell, User, LogOut, LayoutDashboard, Package, Calendar, Users, FileText, Upload, Camera } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
@@ -15,6 +15,7 @@ const empleadoNavItems = [
   { label: "Calendario", href: "/empleados/dashboard/calendario", icon: Calendar },
   { label: "Productos", href: "/empleados/dashboard/productos", icon: Package },
   { label: "Materiales", href: "/empleados/dashboard/materiales", icon: Upload },
+  { label: "Evidencias", href: "/empleados/dashboard/evidencias", icon: Camera },
 ]
 
 export function EmpleadoNavbar({

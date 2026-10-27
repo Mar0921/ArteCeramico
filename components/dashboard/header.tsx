@@ -1,6 +1,7 @@
 "use client"
 
-import { Menu, Bell, User } from "lucide-react"
+import Link from "next/link"
+import { Menu, Bell, User, Camera } from "lucide-react"
 
 interface HeaderProps {
   onMenuClick: () => void
@@ -23,6 +24,9 @@ export function DashboardHeader({ onMenuClick, title }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-2">
+        <Link href="/dashboard/evidencias" className="flex h-10 items-center gap-2 rounded-lg px-3 text-sm text-muted-foreground hover:bg-muted hover:text-foreground">
+          <Camera size={18} /> Evidencias
+        </Link>
         {/* Notifications */}
         <button className="relative flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground">
           <Bell size={20} />

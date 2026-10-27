@@ -2,7 +2,7 @@
 
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, Fragment } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Users,
@@ -256,6 +256,11 @@ const [editandoIncidencia, setEditandoIncidencia] = useState<any>(null)
 const [mostrarEditIncidencia, setMostrarEditIncidencia] = useState(false)
 const [tabEdicionIncidencia, setTabEdicionIncidencia] = useState("datos")
 const [tabEditInc, setTabEditInc] = useState("basicos")
+const [medidaEstado, setMedidaEstado] = useState("nueva")
+const [medidaFechaResolucion, setMedidaFechaResolucion] = useState("")
+const [medidaResponsable, setMedidaResponsable] = useState("")
+const [medidaTexto, setMedidaTexto] = useState("")
+const [guardandoMedida, setGuardandoMedida] = useState(false)
 const [incFase, setIncFase] = useState("")
 const [incDesc, setIncDesc] = useState("")
 const [eliminandoId, setEliminandoId] = useState<string | null>(null)
@@ -887,7 +892,7 @@ loadClient()
     const cargarMedidas = async () => {
       try {
         const { data: medData, error: medError } = await supabase
-          .from("medidas_incidencia")
+          .from("incidencia_medidas")
           .select("*")
 
         if (!medError && medData) {
@@ -1807,7 +1812,7 @@ loadClient()
           tipo: incTipo.trim(),
           fase: incFase || null,
           descripcion: incDesc || null,
-          solicitud_id: selectedSolicitud?.id || null,
+          solicitud_id: solicitudActivaId() || null,
           estado: "nueva",
         })
       if (error) throw error
@@ -1817,9 +1822,70 @@ loadClient()
       setIncTipo("")
       setIncFase("")
       setIncDesc("")
-      await cargarIncidenciasPorSolicitud(selectedSolicitud?.id || 0)
+      await cargarIncidenciasPorSolicitud(solicitudActivaId())
     } catch (err: any) {
       alert(err.message || "No se pudo crear la incidencia.")
+    }
+  }
+
+  const solicitudActivaId = (): number => Number(expandedSolicitud ?? selectedSolicitud?.id ?? 0)
+
+  const incidenciasDeSolicitud = (solId: any): any[] =>
+    (incidenciasCliente || []).filter((i: any) => Number(i.solicitud_id) === Number(solId))
+
+  const limpiarFormMedida = () => {
+    setMedidaEstado("nueva")
+    setMedidaFechaResolucion("")
+    setMedidaResponsable("")
+    setMedidaTexto("")
+  }
+
+  const recargarMedidas = async () => {
+    try {
+      const { data, error } = await supabase.from("incidencia_medidas").select("*")
+      if (!error && data) setMedidasCliente(data)
+    } catch (err) {
+      console.error("Error recargando medidas:", err)
+    }
+  }
+
+  const medidasDeIncidencia = (incId: any): any[] =>
+    (medidasCliente || [])
+      .filter((m: any) => m.incidencia_id === incId)
+      .sort(
+        (a: any, b: any) =>
+          String(a.created_at ?? "").localeCompare(String(b.created_at ?? "")) ||
+          (Number(a.id) || 0) - (Number(b.id) || 0)
+      )
+
+  const ultimaMedida = (incId: any) => {
+    const lista = medidasDeIncidencia(incId)
+    return lista.length > 0 ? lista[lista.length - 1] : undefined
+  }
+
+  const guardarMedida = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editandoIncidencia?.id) return
+    if (!medidaResponsable.trim() || !medidaTexto.trim()) {
+      alert("Debes seleccionar el responsable e indicar las medidas tomadas.")
+      return
+    }
+    setGuardandoMedida(true)
+    try {
+      const { error } = await supabase.from("incidencia_medidas").insert({
+        incidencia_id: editandoIncidencia.id,
+        estado: medidaEstado,
+        fecha_resolucion: medidaFechaResolucion || null,
+        responsable: medidaResponsable.trim(),
+        medidas_tomadas: medidaTexto.trim(),
+      })
+      if (error) throw error
+      limpiarFormMedida()
+      await recargarMedidas()
+    } catch (err: any) {
+      alert(err.message || "No se pudo guardar la medida.")
+    } finally {
+      setGuardandoMedida(false)
     }
   }
 
@@ -1831,10 +1897,14 @@ loadClient()
     setIncFase(inc.fase || "")
     setIncDesc(inc.descripcion || "")
     setEditandoIncidencia(inc)
+    setTabEdicionIncidencia("datos")
+    limpiarFormMedida()
     setMostrarEditIncidencia(true)
   }
 
   const cancelarEdicion = () => {
+    setTabEdicionIncidencia("datos")
+    limpiarFormMedida()
     setEditandoIncidencia(null)
     setMostrarEditIncidencia(false)
     setIncCodigo("")
@@ -1870,7 +1940,7 @@ loadClient()
       setIncTipo("")
       setIncFase("")
       setIncDesc("")
-      await cargarIncidenciasPorSolicitud(selectedSolicitud?.id || 0)
+      await cargarIncidenciasPorSolicitud(solicitudActivaId())
     } catch (err: any) {
       alert(err.message || "No se pudo guardar la incidencia.")
     }
@@ -1890,7 +1960,7 @@ loadClient()
       const { error } = await supabase.from("incidencias").delete().eq("id", id)
       if (error) throw error
       setEliminandoId(null)
-      await cargarIncidenciasPorSolicitud(selectedSolicitud?.id || 0)
+      await cargarIncidenciasPorSolicitud(solicitudActivaId())
     } catch (err: any) {
       alert(err.message || "No se pudo eliminar la incidencia.")
     } finally {
@@ -1899,17 +1969,17 @@ loadClient()
   }
 
   const cargarIncidenciasPorSolicitud = async (solicitudId: number) => {
-    if (!solicitudId) {
-      setIncidenciasCliente([])
-      return
-    }
+    if (!solicitudId) return
     try {
       const { data: incData, error: incError } = await supabase
         .from("incidencias")
         .select("*")
         .eq("solicitud_id", solicitudId)
       if (!incError && incData) {
-        setIncidenciasCliente(incData)
+        setIncidenciasCliente((prev) => [
+          ...prev.filter((i: any) => Number(i.solicitud_id) !== Number(solicitudId)),
+          ...incData,
+        ])
       }
     } catch (err) {
       console.error("Error cargando incidencias:", err)
@@ -2218,14 +2288,14 @@ loadClient()
 
       const { error: updateError } = await supabase
         .from("solicitudes")
-        .update({ urls_documentos: null, facturas_url: publicUrl })
+        .update({ urls_documentos: null as any, facturas_url: publicUrl })
         .eq("id", solicitudId)
 
       if (updateError) throw updateError
 
       setSolicitudes((prev) =>
         prev.map((s: Solicitud) =>
-          s.id === solicitudId ? { ...s, urls_documentos: null, facturas_url: publicUrl } : s
+          s.id === solicitudId ? { ...s, urls_documentos: null as any, facturas_url: publicUrl } : s
         )
       )
 
@@ -4032,7 +4102,7 @@ loadClient()
                                             </tr>
                                           )}
                                         </tbody>
-                                      </table>
+                                       </table>
                                     </div>
                                   </div>
 
@@ -4151,8 +4221,8 @@ loadClient()
                                                </td>
                                              </tr>
                                            ))}
-                                        </tbody>
-                                      </table>
+                                         </tbody>
+                                       </table>
                                       <button
                                         onClick={() => {
                                            setMaterialesOrden((prev) => {
@@ -4399,8 +4469,8 @@ loadClient()
                                                             </tr>
                                                           )
                                                         })}
-                                                      </tbody>
-                                                    </table>
+                                      </tbody>
+                                     </table>
                                                   <button
                                                     onClick={() => {
                                                       setFasesOrden((prev) => {
@@ -4565,8 +4635,8 @@ loadClient()
                                                     </td>
                                                   </tr>
                                                 ))}
-                                              </tbody>
-                                            </table>
+                                         </tbody>
+                                       </table>
                                             <button
                                               onClick={() => {
                                                 setFasesOrden((prev) => {
@@ -4606,14 +4676,14 @@ loadClient()
                                            </tr>
                                          </thead>
                                          <tbody>
-{(incidenciasCliente || [])
+{incidenciasDeSolicitud(solicitud.id)
                                               .sort((a: any, b: any) => {
                                                 const fa = `${a.fecha || ""} ${a.hora || ""}`
                                                 const fb = `${b.fecha || ""} ${b.hora || ""}`
                                                 return fa.localeCompare(fb)
                                               })
                                               .map((inc: any, idx: number) => {
-                                               const medida = (medidasCliente || []).find((m: any) => m.incidencia_id === inc.id)
+                                               const medida = ultimaMedida(inc.id)
                                                const registradoPor =
                                                  (empleados || []).find((e: any) => e.id == inc.empleado_id)?.nombre ||
                                                  (adminsLista || []).find((a: any) => a.id == inc.empleado_id)?.nombre ||
@@ -4632,7 +4702,7 @@ loadClient()
                                                  </tr>
                                                )
                                              })}
-                                           {(incidenciasCliente || []).length === 0 && (
+                                           {incidenciasDeSolicitud(solicitud.id).length === 0 && (
                                              <tr>
                                                <td colSpan={8} className="border border-gray-300 px-2 py-1 text-center text-gray-500">
                                                  Sin incidencias registradas
@@ -4750,8 +4820,6 @@ loadClient()
                                   </div>
                                 </div>
                               </div>
-                            )}
-                          </motion.div>
                             )}
                             {/* Tab: Incidencias */}
                             {tabActiva === "incidencias" && (
@@ -4876,16 +4944,20 @@ loadClient()
                                       </tr>
                                     </thead>
                                     <tbody>
-                                      {(incidenciasCliente || []).map((inc: any, idx: number) => {
-                                        const medida = (medidasCliente || []).find((m: any) => m.incidencia_id === inc.id)
-                                        const registradoPor =
-                                          (empleados || []).find((e: any) => e.id == inc.empleado_id)?.nombre ||
-                                          (adminsLista || []).find((a: any) => a.id == inc.empleado_id)?.nombre ||
-                                          inc.registrado_por ||
-                                          "-"
-                                        return (
-                                          <>
-                                            <tr key={`row-${inc.id ?? idx}`} className="border-b border-border last:border-0 hover:bg-muted/50">
+                                       {incidenciasDeSolicitud(solicitud.id).map((inc: any, idx: number) => {
+                                         const medida = ultimaMedida(inc.id)
+                                         const registradoPor =
+                                           (empleados || []).find((e: any) => e.id == inc.empleado_id)?.nombre ||
+                                           (adminsLista || []).find((a: any) => a.id == inc.empleado_id)?.nombre ||
+                                           inc.registrado_por ||
+                                           "-"
+                                         const keyBase = inc.id != null ? `inc-${inc.id}` : `inc-idx-${idx}`
+                                         const solicitudInc: any = solicitud
+                                         const serviciosInc: any[] = solicitudInc?.servicios_detalle || []
+                                         const medidasInc = medidasDeIncidencia(inc.id)
+                                         return (
+                                           <Fragment key={keyBase}>
+                                             <tr className="border-b border-border last:border-0 hover:bg-muted/50">
                                               <td className="border border-gray-300 px-2 py-1">{inc.codigo || "-"}</td>
                                               <td className="border border-gray-300 px-2 py-1">{inc.fecha || "-"}</td>
                                               <td className="border border-gray-300 px-2 py-1">{inc.hora || "-"}</td>
@@ -4941,13 +5013,14 @@ loadClient()
                                             </tr>
 
                                             {mostrarEditIncidencia && editandoIncidencia?.id === inc.id && (
-                                              <tr key={`edit-${inc.id}`} className="border-b border-border bg-muted/30">
+                                               <tr key={`edit-${keyBase}`} className="border-b border-border bg-muted/30">
                                                 <td colSpan={9} className="px-2 py-1">
                                                   <div className="flex gap-2 mb-2">
                                                     {["datos","productos","medidas"].map(t => (
                                                       <button key={t} type="button" onClick={() => setTabEdicionIncidencia(t)} className={`px-2 py-1 text-[10px] rounded ${tabEdicionIncidencia===t?"bg-primary text-white":"border"}`}>{t==="datos"?"Datos básicos":t==="productos"?"Productos":"Medidas"}</button>
                                                     ))}
                                                   </div>
+                                                  {tabEdicionIncidencia === "datos" && (
                                                   <form onSubmit={guardarEdicion} className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                                     <div className="sm:col-span-2">
                                                       <label className="block text-[10px] font-medium text-muted-foreground mb-1">Código</label>
@@ -5036,21 +5109,196 @@ loadClient()
                                                       </button>
                                                     </div>
                                                   </form>
+                                                  )}
+
+                                                  {tabEdicionIncidencia === "productos" && (
+                                                    <div className="overflow-x-auto">
+                                                      <table className="w-full text-[10px] border border-gray-300">
+                                                        <thead className="bg-gray-200">
+                                                          <tr>
+                                                            <th className="border border-gray-300 px-2 py-1 text-left">#</th>
+                                                            <th className="border border-gray-300 px-2 py-1 text-left">Servicio / Producto</th>
+                                                            <th className="border border-gray-300 px-2 py-1 text-left">Cantidad</th>
+                                                            <th className="border border-gray-300 px-2 py-1 text-left">Dientes</th>
+                                                            <th className="border border-gray-300 px-2 py-1 text-left">Tipo de trabajo</th>
+                                                            <th className="border border-gray-300 px-2 py-1 text-left">Material</th>
+                                                          </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                          {serviciosInc.length > 0 ? (
+                                                            serviciosInc.map((serv: any, sIdx: number) => (
+                                                              <tr key={serv.id ?? sIdx}>
+                                                                <td className="border border-gray-300 px-2 py-1">{sIdx + 1}</td>
+                                                                <td className="border border-gray-300 px-2 py-1">{serv.nombre || "-"}</td>
+                                                                <td className="border border-gray-300 px-2 py-1">{serv.cantidad || 1}</td>
+                                                                <td className="border border-gray-300 px-2 py-1">{serv.dientes || "-"}</td>
+                                                                <td className="border border-gray-300 px-2 py-1">{serv.tipo_trabajo || "-"}</td>
+                                                                <td className="border border-gray-300 px-2 py-1">{serv.material || "-"}</td>
+                                                              </tr>
+                                                            ))
+                                                          ) : (
+                                                            <tr>
+                                                              <td className="border border-gray-300 px-2 py-1" colSpan={6}>
+                                                                Esta solicitud no tiene servicios registrados
+                                                              </td>
+                                                            </tr>
+                                                          )}
+                                                        </tbody>
+                                                      </table>
+                                                      <div className="mt-2 flex">
+                                                        <button
+                                                          type="button"
+                                                          onClick={cancelarEdicion}
+                                                          className="inline-flex items-center gap-1 rounded border border-border bg-card px-2 py-1.5 text-[10px] font-medium text-foreground transition-colors hover:bg-muted"
+                                                        >
+                                                          <X size={12} />
+                                                          Cerrar
+                                                        </button>
+                                                      </div>
+                                                    </div>
+                                                  )}
+
+                                                  {tabEdicionIncidencia === "medidas" && (
+                                                    <div className="space-y-3">
+                                                      <div className="overflow-x-auto">
+                                                        <table className="w-full text-[10px] border border-gray-300">
+                                                          <thead className="bg-gray-200">
+                                                            <tr>
+                                                              <th className="border border-gray-300 px-2 py-1 text-left">Estado</th>
+                                                              <th className="border border-gray-300 px-2 py-1 text-left">Fecha resolución</th>
+                                                              <th className="border border-gray-300 px-2 py-1 text-left">Responsable</th>
+                                                              <th className="border border-gray-300 px-2 py-1 text-left">Medidas tomadas</th>
+                                                            </tr>
+                                                          </thead>
+                                                          <tbody>
+                                                            {medidasInc.length > 0 ? (
+                                                              medidasInc.map((m: any, mIdx: number) => (
+                                                                <tr key={m.id ?? mIdx}>
+                                                                  <td className="border border-gray-300 px-2 py-1">{m.estado || "-"}</td>
+                                                                  <td className="border border-gray-300 px-2 py-1">{m.fecha_resolucion || ""}</td>
+                                                                  <td className="border border-gray-300 px-2 py-1">{m.responsable || "-"}</td>
+                                                                  <td className="border border-gray-300 px-2 py-1 whitespace-pre-wrap">{m.medidas_tomadas || "-"}</td>
+                                                                </tr>
+                                                              ))
+                                                            ) : (
+                                                              <tr>
+                                                                <td className="border border-gray-300 px-2 py-1" colSpan={4}>
+                                                                  Sin medidas registradas
+                                                                </td>
+                                                              </tr>
+                                                            )}
+                                                          </tbody>
+                                                        </table>
+                                                      </div>
+
+                                                      <form onSubmit={guardarMedida} className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                                        <div>
+                                                          <label className="block text-[10px] font-medium text-muted-foreground mb-1">Estado</label>
+                                                          <select
+                                                            value={medidaEstado}
+                                                            onChange={(e) => setMedidaEstado(e.target.value)}
+                                                            className="w-full rounded border border-border bg-input py-1 pl-2 pr-2 text-[10px] text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                                          >
+                                                            <option value="nueva">nueva</option>
+                                                            <option value="abierta">abierta</option>
+                                                            <option value="en_proceso">en proceso</option>
+                                                            <option value="cerrada">cerrada</option>
+                                                          </select>
+                                                        </div>
+                                                        <div>
+                                                          <label className="block text-[10px] font-medium text-muted-foreground mb-1">Fecha resolución</label>
+                                                          <input
+                                                            type="date"
+                                                            value={medidaFechaResolucion}
+                                                            onChange={(e) => setMedidaFechaResolucion(e.target.value)}
+                                                            className="w-full rounded border border-border bg-input py-1 pl-2 pr-2 text-[10px] text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                                          />
+                                                        </div>
+                                                        <div>
+                                                          <label className="block text-[10px] font-medium text-muted-foreground mb-1">Responsable</label>
+                                                          <select
+                                                            value={medidaResponsable}
+                                                            onChange={(e) => setMedidaResponsable(e.target.value)}
+                                                            className="w-full rounded border border-border bg-input py-1 pl-2 pr-2 text-[10px] text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                                          >
+                                                            <option value="">Seleccionar responsable</option>
+                                                            {(empleados || []).length > 0 && (
+                                                              <optgroup label="Empleados">
+                                                                {(empleados || []).map((emp: any) => (
+                                                                  <option key={`emp-${emp.id}`} value={emp.nombre}>
+                                                                    {emp.nombre}
+                                                                  </option>
+                                                                ))}
+                                                              </optgroup>
+                                                            )}
+                                                            {(adminsLista || []).length > 0 && (
+                                                              <optgroup label="Administradores">
+                                                                {(adminsLista || []).map((adm: any) => (
+                                                                  <option key={`adm-${adm.id}`} value={adm.nombre}>
+                                                                    {adm.nombre}
+                                                                  </option>
+                                                                ))}
+                                                              </optgroup>
+                                                            )}
+                                                          </select>
+                                                        </div>
+                                                        <div className="sm:col-span-3">
+                                                          <label className="block text-[10px] font-medium text-muted-foreground mb-1">Medidas tomadas</label>
+                                                          <textarea
+                                                            value={medidaTexto}
+                                                            onChange={(e) => setMedidaTexto(e.target.value)}
+                                                            rows={2}
+                                                            placeholder="Medidas tomadas"
+                                                            className="w-full rounded border border-border bg-input py-1 pl-2 pr-2 text-[10px] text-foreground focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                                                          />
+                                                        </div>
+                                                        <div className="sm:col-span-3 flex items-center gap-1">
+                                                          <button
+                                                            type="submit"
+                                                            disabled={guardandoMedida}
+                                                            className="inline-flex items-center gap-1 rounded border border-border bg-card px-2 py-1.5 text-[10px] font-medium text-foreground transition-colors hover:bg-muted disabled:opacity-60"
+                                                          >
+                                                            {guardandoMedida ? (
+                                                              <Loader2 size={12} className="animate-spin" />
+                                                            ) : (
+                                                              <Save size={12} />
+                                                            )}
+                                                            Guardar medida
+                                                          </button>
+                                                          <button
+                                                            type="button"
+                                                            onClick={limpiarFormMedida}
+                                                            className="inline-flex items-center gap-1 rounded border border-border bg-card px-2 py-1.5 text-[10px] font-medium text-foreground transition-colors hover:bg-muted"
+                                                          >
+                                                            <X size={12} />
+                                                            Cancelar
+                                                          </button>
+                                                          <button
+                                                            type="button"
+                                                            onClick={cancelarEdicion}
+                                                            className="inline-flex items-center gap-1 rounded border border-border bg-card px-2 py-1.5 text-[10px] font-medium text-foreground transition-colors hover:bg-muted"
+                                                          >
+                                                            Cerrar
+                                                          </button>
+                                                        </div>
+                                                      </form>
+                                                    </div>
+                                                  )}
                                                 </td>
                                               </tr>
-                                            )}
-                                          </>
-                                        )
-                                      })}
-                                      {(incidenciasCliente || []).length === 0 && (
-                                        <tr>
-                                          <td colSpan={9} className="border border-gray-300 px-2 py-1 text-center text-gray-500">
-                                            Sin incidencias registradas
-                                          </td>
-                                        </tr>
-                                      )}
-                                    </tbody>
-                                  </table>
+                                   )}
+                                 </Fragment>
+                                         )
+                                       })}
+                                       {incidenciasDeSolicitud(solicitud.id).length === 0 && (
+                                         <tr>
+                                           <td colSpan={9} className="border border-gray-300 px-2 py-1 text-center text-gray-500">
+                                             Sin incidencias registradas para esta solicitud
+                                           </td>
+                                         </tr>
+                                       )}
+                               </tbody>
+                             </table>
                                 </div>
 
                                 {eliminandoId && (
@@ -5081,6 +5329,8 @@ loadClient()
                                 )}
                               </div>
                             )}
+                          </motion.div>
+                        )}
                         </AnimatePresence>
                       </div>
      )
@@ -5307,9 +5557,9 @@ loadClient()
                              {item.precio ? `$${item.precio.toLocaleString("es-CO")}` : "-"}
                            </td>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                          ))}
+                                         </tbody>
+                                       </table>
                 </div>
               </div>
             )}
@@ -5658,4 +5908,5 @@ loadClient()
 
       </div>
     )
-  }
+
+}
