@@ -3373,19 +3373,32 @@ export default function ClientesPage() {
                                                                                        Tu solicitud {solicitud.codigo_trazabilidad || `SOL-${String(solicitud.id).padStart(3, "0")}`} está finalizada. Por favor, completa la encuesta post-adaptación para que podamos seguir mejorando nuestro servicio.
                                          </p>
                                        </div>
-                                     )}
-                                     <SurveyForm
-                                        solicitudId={solicitud.id}
-                                        defaultEmail={clientData?.correo ?? ""}
-                                        defaultPaciente={solicitud.paciente ?? ""}
-                                        defaultNombreProfesional={clientData?.nombre ?? ""}
-                                        surveyResponses={surveyResponses}
-                                        setSurveyResponses={setSurveyResponses}
-                                        submittingSurvey={submittingSurvey}
-                                        setSubmittingSurvey={setSubmittingSurvey}
-                                        surveySuccess={surveySuccess}
-                                        setSurveySuccess={setSurveySuccess}
-                                      />
+                                      )}
+                                      {esSolicitudFinalizada(solicitud.estado) && (
+                                        <SurveyForm
+                                           solicitudId={solicitud.id}
+                                           defaultEmail={clientData?.correo ?? ""}
+                                           defaultPaciente={solicitud.paciente ?? ""}
+                                           defaultNombreProfesional={clientData?.nombre ?? ""}
+                                           surveyResponses={surveyResponses}
+                                           setSurveyResponses={setSurveyResponses}
+                                           submittingSurvey={submittingSurvey}
+                                           setSubmittingSurvey={setSubmittingSurvey}
+                                           surveySuccess={surveySuccess}
+                                           setSurveySuccess={setSurveySuccess}
+                                         />
+                                      )}
+                                      {!esSolicitudFinalizada(solicitud.estado) && (!encuestasExistentes[solicitud.id] || encuestasExistentes[solicitud.id].length === 0) && (
+                                        <div className="mb-3 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                                          <div className="flex items-center gap-2 mb-2">
+                                            <AlertCircle size={16} className="text-gray-500" />
+                                            <span className="text-sm font-medium text-gray-800">Encuesta post-adaptación deshabilitada</span>
+                                          </div>
+                                          <p className="text-sm text-gray-700">
+                                            La encuesta post-adaptación solo puede completarse cuando la solicitud esté marcada como finalizada.
+                                          </p>
+                                        </div>
+                                      )}
                                       {encuestasExistentes[solicitud.id] && encuestasExistentes[solicitud.id].length > 0 && (
                                         <div className="mt-3 rounded-lg border border-green-200 bg-green-50/50 p-4 space-y-3">
                                           <div className="flex items-center justify-between">
